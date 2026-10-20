@@ -21,6 +21,21 @@ logger = logging.getLogger(__name__)
 
 AMBER = "#f0bd62"
 THEMES = ("Liquid dark", "Midnight blue", "High contrast")
+UI_FONTS = (
+    "Segoe UI",
+    "SF Pro Text",
+    "Inter",
+    "Helvetica Neue",
+    "Ubuntu",
+    "DejaVu Sans",
+)
+MONO_FONTS = (
+    "Cascadia Mono",
+    "Consolas",
+    "SF Mono",
+    "Menlo",
+    "DejaVu Sans Mono",
+)
 GLYPHS = {
     "CHAT": "✦",
     "SYMBOLS": "≡",
@@ -69,15 +84,7 @@ def pick_fonts(root: tk.Misc) -> tuple[str, str]:
                 return installed[name.lower()]
         return default
 
-    ui = first(
-        ("Segoe UI", "SF Pro Text", "Inter", "Helvetica Neue", "Ubuntu", "DejaVu Sans"),
-        "Helvetica",
-    )
-    mono = first(
-        ("Cascadia Mono", "Consolas", "SF Mono", "Menlo", "DejaVu Sans Mono"),
-        "Courier",
-    )
-    return ui, mono
+    return first(UI_FONTS, "Helvetica"), first(MONO_FONTS, "Courier")
 
 
 def apply_enterprise_style(app: App, ui: str, mono: str) -> None:
@@ -289,12 +296,10 @@ class EnterpriseApp(App):
         self._bind_shortcuts()
         self._sync_nav()
         self._tick_status()
-        self.after(
-            1200,
-            lambda: self.toasts.show(
-                "Workspace ready · press Ctrl+K for commands", "info"
-            ),
-        )
+        self.after(1200, self._announce_ready)
+
+    def _announce_ready(self) -> None:
+        self.toasts.show("Workspace ready · press Ctrl+K for commands", "info")
 
     # ------------------------------------------------------------- fonts/style
     @property
@@ -327,6 +332,7 @@ class EnterpriseApp(App):
 
     def _retheme_fonts(self) -> None:
         ui, mono = self._font_pair()
+        families = {"helvetica": ui, "courier": mono}
         for widget in self._walk_widgets(self):
             try:
                 spec = self.tk.splitlist(str(widget.cget("font")))
@@ -334,8 +340,7 @@ class EnterpriseApp(App):
                 continue
             if len(spec) < 2:
                 continue
-            family = spec[0].lower()
-            target = ui if family == "helvetica" else mono if family == "courier" else None
+            target = families.get(spec[0].lower())
             if target is None:
                 continue
             try:
@@ -365,9 +370,8 @@ class EnterpriseApp(App):
             cursor="hand2",
         ).pack(side="right", padx=(0, 18))
         for name, button in self.nav.items():
-            button.configure(
-                text=f"  {GLYPHS.get(name, '•')}   {name.title()}", cursor="hand2"
-            )
+            glyph = GLYPHS.get(name, "•")
+            button.configure(text=f"  {glyph}   {name.title()}", cursor="hand2")
             button.bind("<Enter>", lambda _e, n=name: self._hover(n, True))
             button.bind("<Leave>", lambda _e, n=name: self._hover(n, False))
         self._build_status_bar()
@@ -385,7 +389,7 @@ class EnterpriseApp(App):
             self._attach_scrollbar(widget)
         self.tree.bind("<Double-1>", lambda _e: self._tab("CHART"))
         for widget in self._walk_widgets(self):
-            if isinstance(widget, tk.Label) and widget.cget("text") == "Temperature x10":
+            if isinstance(widget, tk.Label) and "x10" in widget.cget("text"):
                 widget.configure(text="Temperature (0.0 - 2.0)")
 
     def _build_status_bar(self) -> None:
@@ -598,7 +602,12 @@ class EnterpriseApp(App):
         if not hasattr(self, "toasts"):
             return
         current = str(latest.get("current", ""))
-        kind = "success" if "BUY" in current else "error" if "SELL" in current else "info"
+        if "BUY" in current:
+            kind = "success"
+        elif "SELL" in current:
+            kind = "error"
+        else:
+            kind = "info"
         market = SYMBOLS.get(latest.get("symbol"), latest.get("symbol", "?"))
         self.toasts.show(f"{market}: {latest.get('previous', '?')} → {current}", kind)
 
