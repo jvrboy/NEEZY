@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable
+
+from .catalog import instrument, instruments
 
 APP_ID = 1089
 
@@ -40,19 +43,45 @@ def ws_urls(custom: str = "") -> tuple[str, ...]:
 
 WS_URL = ws_urls()[0]
 
-SYMBOLS: dict[str, str] = {
-    "frxEURUSD": "EUR/USD",
-    "frxGBPUSD": "GBP/USD",
-    "frxUSDJPY": "USD/JPY",
-    "frxAUDUSD": "AUD/USD",
-    "frxUSDCAD": "USD/CAD",
-    "frxUSDCHF": "USD/CHF",
-    "frxNZDUSD": "NZD/USD",
-    "frxEURGBP": "EUR/GBP",
-    "frxEURJPY": "EUR/JPY",
-    "frxGBPJPY": "GBP/JPY",
-    "R_100": "Volatility 100",
-}
+# Every instrument Deriv's public endpoint lists (see catalog.py). Lookups,
+# validation and the CLI use this full set.
+SYMBOLS: dict[str, str] = {item.symbol: item.name for item in instruments().values()}
+
+# Markets streamed live by default. Adding every instrument at once would open
+# one subscription per symbol, so the rest are opt-in via settings.
+DEFAULT_WATCHLIST: tuple[str, ...] = (
+    "frxEURUSD",
+    "frxGBPUSD",
+    "frxUSDJPY",
+    "frxAUDUSD",
+    "frxUSDCAD",
+    "frxUSDCHF",
+    "frxNZDUSD",
+    "frxEURGBP",
+    "frxEURJPY",
+    "frxGBPJPY",
+    "R_100",
+)
+
+
+def watchlist(extra: str | Iterable[str] = "") -> dict[str, str]:
+    """Default markets plus any extra symbols, in display order.
+
+    ``extra`` is a comma-separated string or an iterable of Deriv symbols. An
+    unknown symbol raises ValueError rather than being dropped silently.
+    """
+    if isinstance(extra, str):
+        extra = [part.strip() for part in extra.split(",")]
+    symbols = list(DEFAULT_WATCHLIST)
+    for symbol in extra:
+        if not symbol:
+            continue
+        if symbol not in SYMBOLS:
+            raise ValueError(f"unknown market {symbol!r}")
+        if symbol not in symbols:
+            symbols.append(symbol)
+    return {symbol: SYMBOLS[symbol] for symbol in symbols}
+
 
 TIMEFRAMES: dict[str, int] = {
     "1m": 60,
@@ -70,7 +99,13 @@ def display_name(symbol: str) -> str:
 
 
 def price_decimals(symbol: str) -> int:
-    """Quote precision: JPY crosses use 3 decimals, synthetic indices 2, else 5."""
+    """Quote precision from the catalogue tick size.
+
+    Unknown symbols fall back to the forex/JPY/synthetic defaults.
+    """
+    item = instrument(symbol)
+    if item is not None:
+        return item.decimals
     if "JPY" in symbol:
         return 3
     if symbol.startswith("R_"):
@@ -79,7 +114,15 @@ def price_decimals(symbol: str) -> int:
 
 
 def pip_size(symbol: str) -> float:
-    """Size of one pip (JPY crosses 0.01, synthetic indices 0.01, else 0.0001)."""
+    """Size of one pip, used for stop distances in pips.
+
+    Forex pairs keep the conventional pip (0.0001, or 0.01 for JPY crosses).
+    Every other market uses its catalogue tick size, so indices, metals,
+    crypto and synthetics are no longer forced into a forex-shaped pip.
+    """
+    item = instrument(symbol)
+    if item is not None and not item.is_forex:
+        return item.tick_size
     if "JPY" in symbol or symbol.startswith("R_"):
         return 0.01
     return 0.0001

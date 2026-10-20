@@ -28,11 +28,13 @@ from .ai import (
 from .alerts import METRICS, OPERATORS, AlertRule, AlertRuleStore
 from .analytics import correlation_matrix, rank_opportunities, strongest_pairs
 from .backtest import BacktestConfig, run_backtest
+from .catalog import instrument, instruments
 from .context import chat_messages, format_context, market_snapshot
 from .database import LocalDatabase
 from .divergence import detect_divergences, rank_correlation_divergences
 from .indicators import analyze
 from .markets import (
+    DEFAULT_WATCHLIST,
     SYMBOLS,
     TIMEFRAMES,
     display_name,
@@ -118,13 +120,26 @@ def _without_series(result: dict[str, Any]) -> dict[str, Any]:
 
 
 def cmd_markets(args, fetch, out) -> int:
+    category = getattr(args, "category", None)
+    selected = {
+        symbol: name
+        for symbol, name in SYMBOLS.items()
+        if not category or instrument(symbol).market == category
+    }
     if args.json:
-        _emit(out, {"markets": SYMBOLS, "timeframes": TIMEFRAMES})
+        _emit(
+            out,
+            {
+                "markets": selected,
+                "timeframes": TIMEFRAMES,
+                "categories": sorted({item.market for item in instruments().values()}),
+            },
+        )
         return 0
     _table(
         out,
         ["SYMBOL", "MARKET", "PIP"],
-        [(s, n, pip_size(s)) for s, n in SYMBOLS.items()],
+        [(s, n, pip_size(s)) for s, n in selected.items()],
     )
     out.write("\nTimeframes: " + ", ".join(TIMEFRAMES) + "\n")
     return 0
@@ -160,7 +175,7 @@ def cmd_doctor(args, fetch, out) -> int:
 def cmd_scan(args, fetch, out) -> int:
     seconds = granularity(args.timeframe)
     results, errors = {}, {}
-    for symbol in args.symbols or list(SYMBOLS):
+    for symbol in args.symbols or list(DEFAULT_WATCHLIST):
         try:
             result = analyze(fetch(symbol, seconds, args.count))
         except (OSError, RuntimeError, ValueError) as error:
@@ -359,7 +374,7 @@ def cmd_risk(args, fetch, out) -> int:
 def cmd_correlation(args, fetch, out) -> int:
     seconds = granularity(args.timeframe)
     closes = {}
-    for symbol in args.symbols or list(SYMBOLS):
+    for symbol in args.symbols or list(DEFAULT_WATCHLIST):
         try:
             closes[symbol] = [row[4] for row in fetch(symbol, seconds, args.window + 1)]
         except (OSError, RuntimeError, ValueError) as error:
@@ -986,6 +1001,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = common(
         sub.add_parser("markets", help="list supported markets"), timeframe=False
+    )
+    p.add_argument(
+        "--category",
+        help="only this category, e.g. forex, synthetic_index, indices, commodities",
     )
     p.set_defaults(handler=cmd_markets)
 

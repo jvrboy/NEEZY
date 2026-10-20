@@ -1,0 +1,719 @@
+{
+ "source": "Deriv public WebSocket, active_symbols (brief), wss://api.derivws.com/trading/v1/options/ws/public",
+ "captured": "2026-10-20",
+ "note": "tick_size is Deriv's pip_size (price precision), not a forex pip.",
+ "instruments": [
+  {
+   "symbol": "frxXAGUSD",
+   "name": "Silver/USD",
+   "market": "commodities",
+   "submarket": "metals",
+   "tick_size": 0.0001,
+   "open": true
+  },
+  {
+   "symbol": "frxXAUUSD",
+   "name": "Gold/USD",
+   "market": "commodities",
+   "submarket": "metals",
+   "tick_size": 0.01,
+   "open": true
+  },
+  {
+   "symbol": "frxXPDUSD",
+   "name": "Palladium/USD",
+   "market": "commodities",
+   "submarket": "metals",
+   "tick_size": 0.01,
+   "open": true
+  },
+  {
+   "symbol": "frxXPTUSD",
+   "name": "Platinum/USD",
+   "market": "commodities",
+   "submarket": "metals",
+   "tick_size": 0.01,
+   "open": true
+  },
+  {
+   "symbol": "cryBTCUSD",
+   "name": "BTC/USD",
+   "market": "cryptocurrency",
+   "submarket": "non_stable_coin",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "cryETHUSD",
+   "name": "ETH/USD",
+   "market": "cryptocurrency",
+   "submarket": "non_stable_coin",
+   "tick_size": 1e-05,
+   "open": true
+  },
+  {
+   "symbol": "frxAUDJPY",
+   "name": "AUD/JPY",
+   "market": "forex",
+   "submarket": "major_pairs",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "frxAUDUSD",
+   "name": "AUD/USD",
+   "market": "forex",
+   "submarket": "major_pairs",
+   "tick_size": 1e-05,
+   "open": true
+  },
+  {
+   "symbol": "frxEURAUD",
+   "name": "EUR/AUD",
+   "market": "forex",
+   "submarket": "major_pairs",
+   "tick_size": 1e-05,
+   "open": true
+  },
+  {
+   "symbol": "frxEURCAD",
+   "name": "EUR/CAD",
+   "market": "forex",
+   "submarket": "major_pairs",
+   "tick_size": 1e-05,
+   "open": true
+  },
+  {
+   "symbol": "frxEURCHF",
+   "name": "EUR/CHF",
+   "market": "forex",
+   "submarket": "major_pairs",
+   "tick_size": 1e-05,
+   "open": true
+  },
+  {
+   "symbol": "frxEURGBP",
+   "name": "EUR/GBP",
+   "market": "forex",
+   "submarket": "major_pairs",
+   "tick_size": 1e-05,
+   "open": true
+  },
+  {
+   "symbol": "frxEURJPY",
+   "name": "EUR/JPY",
+   "market": "forex",
+   "submarket": "major_pairs",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "frxEURUSD",
+   "name": "EUR/USD",
+   "market": "forex",
+   "submarket": "major_pairs",
+   "tick_size": 1e-05,
+   "open": true
+  },
+  {
+   "symbol": "frxGBPAUD",
+   "name": "GBP/AUD",
+   "market": "forex",
+   "submarket": "major_pairs",
+   "tick_size": 1e-05,
+   "open": true
+  },
+  {
+   "symbol": "frxGBPJPY",
+   "name": "GBP/JPY",
+   "market": "forex",
+   "submarket": "major_pairs",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "frxGBPUSD",
+   "name": "GBP/USD",
+   "market": "forex",
+   "submarket": "major_pairs",
+   "tick_size": 1e-05,
+   "open": true
+  },
+  {
+   "symbol": "frxUSDCAD",
+   "name": "USD/CAD",
+   "market": "forex",
+   "submarket": "major_pairs",
+   "tick_size": 1e-05,
+   "open": true
+  },
+  {
+   "symbol": "frxUSDCHF",
+   "name": "USD/CHF",
+   "market": "forex",
+   "submarket": "major_pairs",
+   "tick_size": 1e-05,
+   "open": true
+  },
+  {
+   "symbol": "frxUSDJPY",
+   "name": "USD/JPY",
+   "market": "forex",
+   "submarket": "major_pairs",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "frxAUDCAD",
+   "name": "AUD/CAD",
+   "market": "forex",
+   "submarket": "minor_pairs",
+   "tick_size": 1e-05,
+   "open": true
+  },
+  {
+   "symbol": "frxAUDCHF",
+   "name": "AUD/CHF",
+   "market": "forex",
+   "submarket": "minor_pairs",
+   "tick_size": 1e-05,
+   "open": true
+  },
+  {
+   "symbol": "frxAUDNZD",
+   "name": "AUD/NZD",
+   "market": "forex",
+   "submarket": "minor_pairs",
+   "tick_size": 1e-05,
+   "open": true
+  },
+  {
+   "symbol": "frxEURNZD",
+   "name": "EUR/NZD",
+   "market": "forex",
+   "submarket": "minor_pairs",
+   "tick_size": 1e-05,
+   "open": true
+  },
+  {
+   "symbol": "frxGBPCAD",
+   "name": "GBP/CAD",
+   "market": "forex",
+   "submarket": "minor_pairs",
+   "tick_size": 1e-05,
+   "open": true
+  },
+  {
+   "symbol": "frxGBPCHF",
+   "name": "GBP/CHF",
+   "market": "forex",
+   "submarket": "minor_pairs",
+   "tick_size": 1e-05,
+   "open": true
+  },
+  {
+   "symbol": "frxGBPNZD",
+   "name": "GBP/NZD",
+   "market": "forex",
+   "submarket": "minor_pairs",
+   "tick_size": 1e-05,
+   "open": true
+  },
+  {
+   "symbol": "frxNZDJPY",
+   "name": "NZD/JPY",
+   "market": "forex",
+   "submarket": "minor_pairs",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "frxNZDUSD",
+   "name": "NZD/USD",
+   "market": "forex",
+   "submarket": "minor_pairs",
+   "tick_size": 1e-05,
+   "open": true
+  },
+  {
+   "symbol": "frxUSDMXN",
+   "name": "USD/MXN",
+   "market": "forex",
+   "submarket": "minor_pairs",
+   "tick_size": 0.0001,
+   "open": true
+  },
+  {
+   "symbol": "frxUSDPLN",
+   "name": "USD/PLN",
+   "market": "forex",
+   "submarket": "minor_pairs",
+   "tick_size": 0.0001,
+   "open": true
+  },
+  {
+   "symbol": "OTC_DJI",
+   "name": "Wall Street 30",
+   "market": "indices",
+   "submarket": "americas_OTC",
+   "tick_size": 0.01,
+   "open": true
+  },
+  {
+   "symbol": "OTC_NDX",
+   "name": "US Tech 100",
+   "market": "indices",
+   "submarket": "americas_OTC",
+   "tick_size": 0.01,
+   "open": true
+  },
+  {
+   "symbol": "OTC_SPC",
+   "name": "US 500",
+   "market": "indices",
+   "submarket": "americas_OTC",
+   "tick_size": 0.01,
+   "open": true
+  },
+  {
+   "symbol": "OTC_AS51",
+   "name": "Australia 200",
+   "market": "indices",
+   "submarket": "asia_oceania_OTC",
+   "tick_size": 0.01,
+   "open": true
+  },
+  {
+   "symbol": "OTC_HSI",
+   "name": "Hong Kong 50",
+   "market": "indices",
+   "submarket": "asia_oceania_OTC",
+   "tick_size": 0.01,
+   "open": false
+  },
+  {
+   "symbol": "OTC_N225",
+   "name": "Japan 225",
+   "market": "indices",
+   "submarket": "asia_oceania_OTC",
+   "tick_size": 0.01,
+   "open": true
+  },
+  {
+   "symbol": "OTC_AEX",
+   "name": "Netherlands 25",
+   "market": "indices",
+   "submarket": "europe_OTC",
+   "tick_size": 0.01,
+   "open": true
+  },
+  {
+   "symbol": "OTC_FCHI",
+   "name": "France 40",
+   "market": "indices",
+   "submarket": "europe_OTC",
+   "tick_size": 0.01,
+   "open": true
+  },
+  {
+   "symbol": "OTC_FTSE",
+   "name": "UK 100",
+   "market": "indices",
+   "submarket": "europe_OTC",
+   "tick_size": 0.01,
+   "open": true
+  },
+  {
+   "symbol": "OTC_GDAXI",
+   "name": "Germany 40",
+   "market": "indices",
+   "submarket": "europe_OTC",
+   "tick_size": 0.01,
+   "open": true
+  },
+  {
+   "symbol": "OTC_SSMI",
+   "name": "Swiss 20",
+   "market": "indices",
+   "submarket": "europe_OTC",
+   "tick_size": 0.01,
+   "open": false
+  },
+  {
+   "symbol": "OTC_SX5E",
+   "name": "Euro 50",
+   "market": "indices",
+   "submarket": "europe_OTC",
+   "tick_size": 0.01,
+   "open": true
+  },
+  {
+   "symbol": "WLDXAU",
+   "name": "Gold Basket",
+   "market": "synthetic_index",
+   "submarket": "commodity_basket",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "BOOM1000",
+   "name": "Boom 1000 Index",
+   "market": "synthetic_index",
+   "submarket": "crash_index",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "BOOM150N",
+   "name": "Boom 150 Index",
+   "market": "synthetic_index",
+   "submarket": "crash_index",
+   "tick_size": 1e-05,
+   "open": true
+  },
+  {
+   "symbol": "BOOM300N",
+   "name": "Boom 300 Index",
+   "market": "synthetic_index",
+   "submarket": "crash_index",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "BOOM50",
+   "name": "Boom 50 Index",
+   "market": "synthetic_index",
+   "submarket": "crash_index",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "BOOM500",
+   "name": "Boom 500 Index",
+   "market": "synthetic_index",
+   "submarket": "crash_index",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "BOOM600",
+   "name": "Boom 600 Index",
+   "market": "synthetic_index",
+   "submarket": "crash_index",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "BOOM900",
+   "name": "Boom 900 Index",
+   "market": "synthetic_index",
+   "submarket": "crash_index",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "CRASH1000",
+   "name": "Crash 1000 Index",
+   "market": "synthetic_index",
+   "submarket": "crash_index",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "CRASH150N",
+   "name": "Crash 150 Index",
+   "market": "synthetic_index",
+   "submarket": "crash_index",
+   "tick_size": 1e-05,
+   "open": true
+  },
+  {
+   "symbol": "CRASH300N",
+   "name": "Crash 300 Index",
+   "market": "synthetic_index",
+   "submarket": "crash_index",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "CRASH50",
+   "name": "Crash 50 Index",
+   "market": "synthetic_index",
+   "submarket": "crash_index",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "CRASH500",
+   "name": "Crash 500 Index",
+   "market": "synthetic_index",
+   "submarket": "crash_index",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "CRASH600",
+   "name": "Crash 600 Index",
+   "market": "synthetic_index",
+   "submarket": "crash_index",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "CRASH900",
+   "name": "Crash 900 Index",
+   "market": "synthetic_index",
+   "submarket": "crash_index",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "WLDAUD",
+   "name": "AUD Basket",
+   "market": "synthetic_index",
+   "submarket": "forex_basket",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "WLDEUR",
+   "name": "EUR Basket",
+   "market": "synthetic_index",
+   "submarket": "forex_basket",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "WLDGBP",
+   "name": "GBP Basket",
+   "market": "synthetic_index",
+   "submarket": "forex_basket",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "WLDUSD",
+   "name": "USD Basket",
+   "market": "synthetic_index",
+   "submarket": "forex_basket",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "JD10",
+   "name": "Jump 10 Index",
+   "market": "synthetic_index",
+   "submarket": "jump_index",
+   "tick_size": 0.01,
+   "open": true
+  },
+  {
+   "symbol": "JD100",
+   "name": "Jump 100 Index",
+   "market": "synthetic_index",
+   "submarket": "jump_index",
+   "tick_size": 0.01,
+   "open": true
+  },
+  {
+   "symbol": "JD25",
+   "name": "Jump 25 Index",
+   "market": "synthetic_index",
+   "submarket": "jump_index",
+   "tick_size": 0.01,
+   "open": true
+  },
+  {
+   "symbol": "JD50",
+   "name": "Jump 50 Index",
+   "market": "synthetic_index",
+   "submarket": "jump_index",
+   "tick_size": 0.01,
+   "open": true
+  },
+  {
+   "symbol": "JD75",
+   "name": "Jump 75 Index",
+   "market": "synthetic_index",
+   "submarket": "jump_index",
+   "tick_size": 0.01,
+   "open": true
+  },
+  {
+   "symbol": "RDBEAR",
+   "name": "Bear Market Index",
+   "market": "synthetic_index",
+   "submarket": "random_daily",
+   "tick_size": 0.0001,
+   "open": true
+  },
+  {
+   "symbol": "RDBULL",
+   "name": "Bull Market Index",
+   "market": "synthetic_index",
+   "submarket": "random_daily",
+   "tick_size": 0.0001,
+   "open": true
+  },
+  {
+   "symbol": "1HZ100V",
+   "name": "Volatility 100 (1s) Index",
+   "market": "synthetic_index",
+   "submarket": "random_index",
+   "tick_size": 0.01,
+   "open": true
+  },
+  {
+   "symbol": "1HZ10V",
+   "name": "Volatility 10 (1s) Index",
+   "market": "synthetic_index",
+   "submarket": "random_index",
+   "tick_size": 0.01,
+   "open": true
+  },
+  {
+   "symbol": "1HZ15V",
+   "name": "Volatility 15 (1s) Index",
+   "market": "synthetic_index",
+   "submarket": "random_index",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "1HZ25V",
+   "name": "Volatility 25 (1s) Index",
+   "market": "synthetic_index",
+   "submarket": "random_index",
+   "tick_size": 0.01,
+   "open": true
+  },
+  {
+   "symbol": "1HZ30V",
+   "name": "Volatility 30 (1s) Index",
+   "market": "synthetic_index",
+   "submarket": "random_index",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "1HZ50V",
+   "name": "Volatility 50 (1s) Index",
+   "market": "synthetic_index",
+   "submarket": "random_index",
+   "tick_size": 0.01,
+   "open": true
+  },
+  {
+   "symbol": "1HZ75V",
+   "name": "Volatility 75 (1s) Index",
+   "market": "synthetic_index",
+   "submarket": "random_index",
+   "tick_size": 0.01,
+   "open": true
+  },
+  {
+   "symbol": "1HZ90V",
+   "name": "Volatility 90 (1s) Index",
+   "market": "synthetic_index",
+   "submarket": "random_index",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "R_10",
+   "name": "Volatility 10 Index",
+   "market": "synthetic_index",
+   "submarket": "random_index",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "R_100",
+   "name": "Volatility 100 Index",
+   "market": "synthetic_index",
+   "submarket": "random_index",
+   "tick_size": 0.01,
+   "open": true
+  },
+  {
+   "symbol": "R_25",
+   "name": "Volatility 25 Index",
+   "market": "synthetic_index",
+   "submarket": "random_index",
+   "tick_size": 0.001,
+   "open": true
+  },
+  {
+   "symbol": "R_50",
+   "name": "Volatility 50 Index",
+   "market": "synthetic_index",
+   "submarket": "random_index",
+   "tick_size": 0.0001,
+   "open": true
+  },
+  {
+   "symbol": "R_75",
+   "name": "Volatility 75 Index",
+   "market": "synthetic_index",
+   "submarket": "random_index",
+   "tick_size": 0.0001,
+   "open": true
+  },
+  {
+   "symbol": "RB100",
+   "name": "Range Break 100 Index",
+   "market": "synthetic_index",
+   "submarket": "range_index",
+   "tick_size": 0.1,
+   "open": true
+  },
+  {
+   "symbol": "RB200",
+   "name": "Range Break 200 Index",
+   "market": "synthetic_index",
+   "submarket": "range_index",
+   "tick_size": 0.1,
+   "open": true
+  },
+  {
+   "symbol": "stpRNG",
+   "name": "Step Index 100",
+   "market": "synthetic_index",
+   "submarket": "step_index",
+   "tick_size": 0.1,
+   "open": true
+  },
+  {
+   "symbol": "stpRNG2",
+   "name": "Step Index 200",
+   "market": "synthetic_index",
+   "submarket": "step_index",
+   "tick_size": 0.1,
+   "open": true
+  },
+  {
+   "symbol": "stpRNG3",
+   "name": "Step Index 300",
+   "market": "synthetic_index",
+   "submarket": "step_index",
+   "tick_size": 0.1,
+   "open": true
+  },
+  {
+   "symbol": "stpRNG4",
+   "name": "Step Index 400",
+   "market": "synthetic_index",
+   "submarket": "step_index",
+   "tick_size": 0.1,
+   "open": true
+  },
+  {
+   "symbol": "stpRNG5",
+   "name": "Step Index 500",
+   "market": "synthetic_index",
+   "submarket": "step_index",
+   "tick_size": 0.1,
+   "open": true
+  }
+ ]
+}

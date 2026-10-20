@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, replace
 from typing import Any
 
-from neezy_backend.markets import TIMEFRAMES
+from neezy_backend.markets import SYMBOLS, TIMEFRAMES
 
 THEMES = frozenset({"Liquid dark", "Midnight blue", "High contrast"})
 STRATEGIES = frozenset(
@@ -59,6 +59,9 @@ class AppSettings:
     alert_min_score: int = 2
     default_timeframe: str = "5m"
     history_candles: int = 300
+    # Comma-separated extra Deriv symbols streamed on top of the default
+    # watchlist (see markets.DEFAULT_WATCHLIST). Applied at startup.
+    watchlist_extra: str = ""
 
     # Connection (applied when the feed starts; restart NEEZY to change)
     deriv_endpoint: str = ""
@@ -113,6 +116,15 @@ class AppSettings:
             raise ValueError(
                 "deriv_endpoint must be a ws:// or wss:// URL with no spaces"
             )
+        if not isinstance(self.watchlist_extra, str):
+            raise TypeError("watchlist_extra must be a string")
+        extras = [part.strip() for part in self.watchlist_extra.split(",")]
+        extras = [symbol for symbol in extras if symbol]
+        unknown = [symbol for symbol in extras if symbol not in SYMBOLS]
+        if unknown:
+            raise ValueError(f"unknown extra markets: {', '.join(unknown)}")
+        if len(set(extras)) > 25:
+            raise ValueError("at most 25 extra markets can be watched")
         _require_float("reconnect_seconds", self.reconnect_seconds, 0.5, 60.0)
         _require_float("max_reconnect_seconds", self.max_reconnect_seconds, 1.0, 600.0)
         if self.max_reconnect_seconds < self.reconnect_seconds:

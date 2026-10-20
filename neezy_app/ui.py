@@ -46,6 +46,7 @@ from neezy_backend.markets import (
     SYMBOLS,
     TIMEFRAMES,
     format_price,
+    watchlist,
     ws_urls,
 )
 from neezy_backend.patterns import price_action_summary
@@ -89,6 +90,11 @@ class App(tk.Tk):
         )
         self._snapshot_at = {}
         self._ai_key_rows = []
+        try:
+            self.watch_symbols = watchlist(self.settings.watchlist_extra)
+        except ValueError as error:
+            logger.warning("Ignoring saved extra markets: %s", error)
+            self.watch_symbols = watchlist()
         self.bus = EventBus(subscriber_queue_size=2500)
         self.inbox = self.bus.subscribe()
         self.client = DerivStreamClient(
@@ -116,6 +122,7 @@ class App(tk.Tk):
         self.alert_min_score_var = tk.IntVar(value=self.settings.alert_min_score)
         self.default_tf_var = tk.StringVar(value=self.settings.default_timeframe)
         self.history_var = tk.IntVar(value=self.settings.history_candles)
+        self.watchlist_var = tk.StringVar(value=self.settings.watchlist_extra)
         self.endpoint_var = tk.StringVar(value=self.settings.deriv_endpoint)
         self.reconnect_var = tk.DoubleVar(value=self.settings.reconnect_seconds)
         self.max_reconnect_var = tk.DoubleVar(value=self.settings.max_reconnect_seconds)
@@ -448,7 +455,7 @@ class App(tk.Tk):
         self.tree.tag_configure("sell", foreground=self.RED)
         self.tree.pack(fill="both", expand=True, padx=10, pady=10)
         self.tree.bind("<<TreeviewSelect>>", lambda e: self._select())
-        for s, n in SYMBOLS.items():
+        for s, n in self.watch_symbols.items():
             self.tree.insert(
                 "", "end", iid=s, values=(n, "—", "Loading", "—", "—", "—", "—")
             )
@@ -484,7 +491,10 @@ class App(tk.Tk):
             height=15,
         )
         self.watch.pack(fill="both", expand=True)
-        [self.watch.insert("end", f"  {n:<22}  {s}") for s, n in SYMBOLS.items()]
+        [
+            self.watch.insert("end", f"  {n:<22}  {s}")
+            for s, n in self.watch_symbols.items()
+        ]
         self.watch.bind("<<ListboxSelect>>", lambda e: self._watch_select())
 
     def _chart_page(self):
@@ -1167,6 +1177,9 @@ class App(tk.Tk):
             1000,
             20,
         )
+        self._entry_row(
+            left, "Extra markets (comma-separated, blank = default)", self.watchlist_var
+        )
 
         self._label(right, "ENGINE & CONNECTION", 9, self.CYAN).pack(
             anchor="w", padx=16, pady=(14, 8)
@@ -1189,7 +1202,7 @@ class App(tk.Tk):
         )
         self._label(
             right,
-            "Connection fields apply after you restart NEEZY.",
+            "Connection and watchlist fields apply after you restart NEEZY.",
             9,
             self.MUTED,
         ).pack(anchor="w", padx=16, pady=(0, 10))
@@ -1701,6 +1714,7 @@ class App(tk.Tk):
                 alert_min_score=int(self.alert_min_score_var.get()),
                 default_timeframe=self.default_tf_var.get(),
                 history_candles=int(self.history_var.get()),
+                watchlist_extra=self.watchlist_var.get().strip(),
                 deriv_endpoint=self.endpoint_var.get().strip(),
                 reconnect_seconds=float(self.reconnect_var.get()),
                 max_reconnect_seconds=float(self.max_reconnect_var.get()),
@@ -1735,10 +1749,12 @@ class App(tk.Tk):
             candidate.deriv_endpoint,
             candidate.reconnect_seconds,
             candidate.max_reconnect_seconds,
+            candidate.watchlist_extra,
         ) != (
             self.settings.deriv_endpoint,
             self.settings.reconnect_seconds,
             self.settings.max_reconnect_seconds,
+            self.settings.watchlist_extra,
         )
         self.settings = candidate
         self._apply_theme()
@@ -1753,7 +1769,7 @@ class App(tk.Tk):
             f"Saved · {candidate.polling_ms} ms · {candidate.candle_limit} candles"
         )
         if restart_needed:
-            summary += " · connection changes apply after restart"
+            summary += " · connection and watchlist changes apply after restart"
         self.settings_status.config(text=summary, fg=self.GREEN)
 
     def _clear_history(self):
@@ -1797,7 +1813,7 @@ class App(tk.Tk):
     def _watch_select(self):
         i = self.watch.curselection()
         if i:
-            self.selected = list(SYMBOLS)[i[0]]
+            self.selected = list(self.watch_symbols)[i[0]]
             self._tab("CHART")
             self.chart_title.config(
                 text=f"{SYMBOLS[self.selected]}  ·  {self.tf.get()}"
@@ -1808,7 +1824,7 @@ class App(tk.Tk):
         self.client.send({"forget_all": "candles"})
         self.candles.clear()
         self.results.clear()
-        for symbol in SYMBOLS:
+        for symbol in self.watch_symbols:
             sent = self.client.send(
                 {
                     "ticks_history": symbol,
@@ -2291,7 +2307,7 @@ class App(tk.Tk):
     def _answer(self, question):
         """Rule-based copilot: route the question to the matching live context."""
         text = question.lower()
-        for symbol, name in SYMBOLS.items():
+        for symbol, name in self.watch_symbols.items():
             plain = name.lower().replace("/", "")
             if name.lower() in text or plain in text.replace("/", ""):
                 self._set_selected(symbol)

@@ -22,6 +22,9 @@ neezy-cli = "neezy_backend.cli:main"
 [tool.setuptools.packages.find]
 include = ["neezy_app*", "neezy_backend*"]
 
+[tool.setuptools.package-data]
+neezy_backend = ["data/*.json"]
+
 [tool.ruff]
 target-version = "py310"
 line-length = 88
