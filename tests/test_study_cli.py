@@ -169,6 +169,42 @@ class StudyCliTests(unittest.TestCase):
         )
         self.assertEqual(code, 2)
 
+    def test_knowledge_reads_saved_records(self) -> None:
+        record = {
+            "market": "forex",
+            "candles": 12000,
+            "verdict": "no_edge",
+            "selected": None,
+            "train": None,
+            "test": {"trades": 40, "expectancy_r": -0.2},
+            "note": "",
+        }
+        save_knowledge(
+            {
+                "schema": 1,
+                "method": "test",
+                "symbols": {"frxEURUSD": record, "frxUSDJPY": dict(record)},
+            },
+            self.target,
+        )
+        code, text = self.run_cli("knowledge", "--file", str(self.target), "--json")
+        self.assertEqual(code, 0)
+        data = json.loads(text)
+        self.assertEqual(data["summary"]["symbols"], 2)
+        self.assertEqual(data["summary"]["verdicts"]["no_edge"], 2)
+
+        code, text = self.run_cli(
+            "knowledge", "EURUSD", "GBPUSD", "--file", str(self.target)
+        )
+        self.assertEqual(code, 0)
+        self.assertIn("frxEURUSD", text)
+        self.assertIn("Never studied: frxGBPUSD", text)
+
+    def test_knowledge_with_no_file_says_nothing_studied(self) -> None:
+        code, text = self.run_cli("knowledge", "--file", str(self.target))
+        self.assertEqual(code, 0)
+        self.assertIn("Nothing studied yet", text)
+
     def test_unknown_category_is_rejected(self) -> None:
         code, _ = self.run_cli(
             "study",

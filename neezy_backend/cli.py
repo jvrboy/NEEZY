@@ -448,6 +448,60 @@ def cmd_study(args, fetch, out) -> int:
     return 0
 
 
+def cmd_knowledge(args, fetch, out) -> int:
+    document = load_knowledge(Path(args.file) if args.file else None)
+    records = document["symbols"]
+    if args.symbols:
+        chosen = {s: records[s] for s in args.symbols if s in records}
+        missing = [s for s in args.symbols if s not in records]
+    else:
+        chosen = dict(
+            sorted(
+                records.items(),
+                key=lambda item: (item[1]["verdict"] != "edge", item[0]),
+            )
+        )
+        missing = []
+    summary_data = knowledge_summary(document)
+    if args.json:
+        _emit(
+            out,
+            {
+                "summary": summary_data,
+                "method": document.get("method", ""),
+                "symbols": chosen,
+                "never_studied": missing,
+            },
+        )
+        return 0
+    if not chosen:
+        out.write("Nothing studied yet. Run 'neezy-cli study' to train.\n")
+        return 0
+    out.write(
+        f"Knowledge · generated {summary_data['generated_at'] or 'never'} · "
+        + ", ".join(f"{k} {v}" for k, v in summary_data["verdicts"].items())
+        + "\n\n"
+    )
+    _table(
+        out,
+        [
+            "SYMBOL",
+            "MARKET",
+            "CANDLES",
+            "VERDICT",
+            "TEST TRADES",
+            "TEST R/TRADE",
+            "TRAIN R/TRADE",
+            "SETTING",
+        ],
+        [_study_row(s, r) for s, r in chosen.items()],
+    )
+    if missing:
+        out.write("\nNever studied: " + ", ".join(missing) + "\n")
+    out.write("\nHistorical simulation only; not a forecast.\n")
+    return 0
+
+
 def cmd_risk(args, fetch, out) -> int:
     entry, stop = args.entry, args.stop
     if stop is None:
@@ -1182,6 +1236,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--dry-run", action="store_true", help="report without saving")
     p.set_defaults(handler=cmd_study)
+
+    p = common(
+        sub.add_parser("knowledge", help="show what the study has learned"),
+        timeframe=False,
+    )
+    p.add_argument("symbols", nargs="*", type=_symbol)
+    p.add_argument("--file", help="knowledge file (default: bundled copy)")
+    p.set_defaults(handler=cmd_knowledge)
 
     p = common(sub.add_parser("risk", help="position size calculator"), timeframe=False)
     p.add_argument("symbol", type=_symbol)
