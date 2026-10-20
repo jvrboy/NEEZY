@@ -7,7 +7,7 @@ import unittest
 
 from neezy_backend.config import AppSettings
 from neezy_backend.context import format_context, market_snapshot
-from neezy_backend.knowledge import learned_note
+from neezy_backend.knowledge import KNOWLEDGE_PATH, learned_note, load_knowledge
 
 
 def _walk(count: int, seed: int = 7) -> list[tuple[float, ...]]:
@@ -94,6 +94,18 @@ class SnapshotKnowledgeTests(unittest.TestCase):
             knowledge=_document(),
         )
         self.assertIsNone(snapshot["learned"])
+
+
+class ShippedKnowledgeTests(unittest.TestCase):
+    def test_shipped_knowledge_base_validates_and_is_caveated(self) -> None:
+        document = load_knowledge(KNOWLEDGE_PATH)
+        self.assertEqual(document["schema"], 1)
+        self.assertTrue(document["generated_at"])
+        self.assertGreater(len(document["symbols"]), 0)
+        self.assertIn("provisional", document["method"])
+        for symbol, record in document["symbols"].items():
+            if record["verdict"] == "edge":
+                self.assertGreaterEqual(record["test"]["t_stat"], 2, symbol)
 
 
 class SettingsTests(unittest.TestCase):
