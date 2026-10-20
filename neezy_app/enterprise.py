@@ -8,18 +8,23 @@ untouched while adding a design system, toast notifications, a command palette
 from __future__ import annotations
 
 import logging
+import sqlite3
 import tkinter as tk
 from collections.abc import Callable
 from datetime import datetime, timezone
-from tkinter import ttk
+from tkinter import filedialog, ttk
 
+from neezy_backend.diagnostics import build_bundle
 from neezy_backend.markets import SYMBOLS, TIMEFRAMES
+from neezy_backend.outcomes import evaluate_outcomes, summarize
+from neezy_backend.storage import get_data_dir
 
 from .ui import NAV, App
 
 logger = logging.getLogger(__name__)
 
 AMBER = "#f0bd62"
+OUTCOME_HORIZON = 10
 THEMES = ("Liquid dark", "Midnight blue", "High contrast")
 UI_FONTS = (
     "Segoe UI",
@@ -72,6 +77,25 @@ def filter_commands(commands: list[Command], query: str) -> list[Command]:
     """Return commands whose label contains every whitespace-separated token."""
     tokens = query.lower().split()
     return [c for c in commands if all(t in c[0].lower() for t in tokens)]
+
+
+def format_outcomes(symbol_name: str, timeframe: str, stats: dict[str, float]) -> str:
+    """Render outcome statistics for the report panel."""
+    if not stats["count"]:
+        return (
+            f"OUTCOMES · {symbol_name} · {timeframe}\n\n"
+            "No resolved signals yet. Keep NEEZY running with candle "
+            "storage enabled and check back after a few signals."
+        )
+    return (
+        f"OUTCOMES · {symbol_name} · {timeframe}\n\n"
+        f"Signals scored  {stats['count']:.0f}\n"
+        f"Win rate        {stats['win_rate']:.1f}%\n"
+        f"Avg return      {stats['avg_return_pct']:+.3f}%\n"
+        f"Best / worst    {stats['best_pct']:+.2f}% / {stats['worst_pct']:+.2f}%\n"
+        f"Horizon         {OUTCOME_HORIZON} candles\n\n"
+        "Measured from signal price to the close N candles later."
+    )
 
 
 def pick_fonts(root: tk.Misc) -> tuple[str, str]:
@@ -535,6 +559,8 @@ class EnterpriseApp(App):
         commands += [
             ("Scan selected market (all strategies)", self._scan_from_palette),
             ("Refresh market ranking", self._rank_from_palette),
+            ("Signal outcomes report (selected market)", self._show_outcomes),
+            ("Export diagnostics bundle (redacted zip)", self._export_diagnostics),
             ("Export signal history as CSV", self._export_history),
             ("Reconnect market streams  (F5)", self._resubscribe),
             ("Toggle compact density", self._toggle_compact),
@@ -574,6 +600,52 @@ class EnterpriseApp(App):
         self.theme_var.set(preset)
         self._settings_changed()
         self.toasts.show(f"Theme: {preset}", "info")
+
+    # --------------------------------------------------------- data tools
+    def _show_outcomes(self) -> None:
+        self._tab("TOOLS")
+        symbol, timeframe = self.selected, self.tf.get()
+        if self.db is None:
+            self._write(self.rank_out, "Local database unavailable.")
+            return
+        try:
+            signals = [
+                row
+                for row in self.db.recent_signals(500, symbol=symbol)
+                if row.get("timeframe") == timeframe
+            ]
+            candles = self.db.load_candles(symbol, timeframe, 5000)
+        except sqlite3.Error as error:
+            self._write(self.rank_out, f"Database error: {error}")
+            return
+        outcomes = evaluate_outcomes(signals, candles, OUTCOME_HORIZON)
+        stats = summarize(outcomes)
+        self._write(
+            self.rank_out, format_outcomes(SYMBOLS[symbol], timeframe, stats)
+        )
+
+    def _export_diagnostics(self) -> None:
+        destination = filedialog.asksaveasfilename(
+            title="Export diagnostics bundle",
+            defaultextension=".zip",
+            filetypes=[("Zip archive", "*.zip")],
+            initialfile="neezy-diagnostics.zip",
+        )
+        if not destination:
+            return
+        try:
+            stats = self.db.stats() if self.db is not None else None
+            build_bundle(
+                destination,
+                data_dir=get_data_dir(),
+                settings=self.settings,
+                db_stats=stats,
+            )
+        except (OSError, sqlite3.Error) as error:
+            logger.exception("Diagnostics export failed")
+            self.toasts.show(f"Diagnostics export failed: {error}", "error")
+            return
+        self.toasts.show("Diagnostics bundle saved (secrets redacted)", "success")
 
     # ----------------------------------------------------------- notifications
     def _wrap_alert_engine(self) -> None:
