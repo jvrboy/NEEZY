@@ -14,6 +14,7 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from tkinter import filedialog, ttk
 
+from neezy_backend.ai_resilient import ResilientAIClient
 from neezy_backend.diagnostics import build_bundle
 from neezy_backend.markets import SYMBOLS, TIMEFRAMES
 from neezy_backend.outcomes import evaluate_outcomes, summarize
@@ -312,6 +313,10 @@ class EnterpriseApp(App):
 
     def __init__(self) -> None:
         super().__init__()
+        self.ai_client = ResilientAIClient(
+            self.ai_keys,
+            recorder=self.db.record_ai_call if self.db is not None else None,
+        )
         self.toasts = Toasts(self)
         self._palette: CommandPalette | None = None
         self._enhance_layout()
@@ -620,9 +625,7 @@ class EnterpriseApp(App):
             return
         outcomes = evaluate_outcomes(signals, candles, OUTCOME_HORIZON)
         stats = summarize(outcomes)
-        self._write(
-            self.rank_out, format_outcomes(SYMBOLS[symbol], timeframe, stats)
-        )
+        self._write(self.rank_out, format_outcomes(SYMBOLS[symbol], timeframe, stats))
 
     def _export_diagnostics(self) -> None:
         destination = filedialog.asksaveasfilename(
