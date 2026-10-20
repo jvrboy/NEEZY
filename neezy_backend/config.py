@@ -91,6 +91,9 @@ class AppSettings:
     ai_max_tokens: int = 700
     ai_timeout: float = 45.0
     ai_system_prompt: str = ""
+    # Add each market's backtest record (neezy-cli knowledge) to AI context.
+    # Off by default: the records are simulations, not evidence of future profit.
+    use_knowledge: bool = False
 
     def __post_init__(self) -> None:
         if self.theme not in THEMES:

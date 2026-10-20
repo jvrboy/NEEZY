@@ -135,3 +135,30 @@ def summary(document: Mapping[str, Any] | None = None) -> dict[str, Any]:
         "symbols": len(base.get("symbols", {})),
         "verdicts": counts,
     }
+
+
+def learned_note(
+    symbol: str, document: Mapping[str, Any] | None = None
+) -> dict[str, Any] | None:
+    """Caveated, compact view of one record for use as optional AI context.
+
+    Returns None when the market was never studied. The held-out figures come
+    from the same window that produced the verdict; they are not a forecast.
+    """
+    base = document if document is not None else load_knowledge()
+    record = base.get("symbols", {}).get(symbol)
+    if record is None:
+        return None
+    test = record.get("test") or {}
+    return {
+        "symbol": symbol,
+        "verdict": record["verdict"],
+        "trades": test.get("trades"),
+        "expectancy_r": test.get("expectancy_r"),
+        "candles": record.get("candles"),
+        "generated_at": base.get("generated_at"),
+        "caveat": (
+            "Backtest on past candles with a charged spread; out-of-sample only "
+            "for that window. Not a forecast."
+        ),
+    }

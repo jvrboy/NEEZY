@@ -41,6 +41,7 @@ from neezy_backend.context import chat_messages, format_context, market_snapshot
 from neezy_backend.database import LocalDatabase
 from neezy_backend.events import EventBus
 from neezy_backend.indicators import analyze, ema
+from neezy_backend.knowledge import load_knowledge
 from neezy_backend.markets import (
     APP_ID,
     SYMBOLS,
@@ -2258,6 +2259,7 @@ class App(tk.Tk):
             supertrend_period=self.settings.supertrend_period,
             supertrend_multiplier=self.settings.supertrend_multiplier,
             divergence_lookback=self.settings.divergence_lookback,
+            knowledge=load_knowledge() if self.settings.use_knowledge else None,
         )
         context = format_context(snapshot) if snapshot else "No live context yet."
         messages = chat_messages(question, context)

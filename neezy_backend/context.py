@@ -7,11 +7,12 @@ a question asked in the chat window sees exactly the numbers printed by
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from .divergence import detect_divergences
 from .indicators import analyze
+from .knowledge import learned_note
 from .markets import display_name, format_price
 from .patterns import price_action_summary
 from .strategies import STRATEGIES, StrategySignal, consensus, evaluate
@@ -39,8 +40,14 @@ def market_snapshot(
     supertrend_period: int = 10,
     supertrend_multiplier: float = 3.0,
     divergence_lookback: int = 5,
+    knowledge: Mapping[str, Any] | None = None,
 ) -> dict[str, Any] | None:
-    """Everything the advanced backend knows about one market, JSON-safe."""
+    """Everything the advanced backend knows about one market, JSON-safe.
+
+    ``knowledge`` is an optional loaded knowledge base. Passing it adds the
+    market's backtest record as ``learned``; leaving it out keeps the snapshot
+    exactly as it was before the knowledge base existed.
+    """
     result = analyze(candles)
     if result is None:
         return None
@@ -87,6 +94,7 @@ def market_snapshot(
         "consensus": consensus(signals),
         "why": result["why"],
         "candles": len(closed),
+        "learned": learned_note(symbol, knowledge) if knowledge is not None else None,
     }
 
 
@@ -135,6 +143,15 @@ def format_context(snapshot: dict[str, Any]) -> str:
         lines.append(
             f"Selected strategy ({strategy.get('strategy')}): {strategy.get('label')} "
             f"at {strategy.get('confidence')}% confidence - {strategy.get('summary')}"
+        )
+    learned = snapshot.get("learned")
+    if learned:
+        held_out = learned.get("expectancy_r")
+        lines.append(
+            f"Backtest record: {learned.get('verdict')} "
+            f"(held-out {learned.get('trades')} trades, expectancy "
+            f"{_number(held_out, 3) if held_out is not None else 'n/a'} R). "
+            f"{learned.get('caveat')}"
         )
     action = snapshot.get("price_action") or {}
     patterns = action.get("patterns") or []
