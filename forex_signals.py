@@ -6,6 +6,8 @@ import json, queue, threading, time, tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 
+from neezy_backend.config import AppSettings
+
 try:
     import websocket
 except ImportError:
@@ -80,7 +82,7 @@ class App(tk.Tk):
     BG="#08111f"; PANEL="#101d30"; PANEL2="#14253b"; TEXT="#e6f0ff"; MUTED="#8ea4bd"; CYAN="#55d6ff"; GREEN="#48e6a1"; RED="#ff718c"; BORDER="#203754"
     def __init__(self):
         super().__init__();self.title("NEEZY  /  Market Intelligence");self.geometry("1280x800");self.minsize(1050,650);self.configure(bg=self.BG)
-        self.inbox=queue.Queue();self.client=DerivClient(self.inbox);self.gran=300;self.candles={};self.results={};self.last_signal={};self.selected="frxEURUSD";self.history=[];self.chart_points=[];self.auto_refresh=tk.BooleanVar(value=True);self.compact_mode=tk.BooleanVar(value=False);self.alerts_enabled=tk.BooleanVar(value=True);self.theme_var=tk.StringVar(value="Liquid dark");self.status_var=tk.StringVar(value="Ready")
+        self.inbox=queue.Queue();self.client=DerivClient(self.inbox);self.gran=300;self.candles={};self.results={};self.last_signal={};self.selected="frxEURUSD";self.history=[];self.chart_points=[];self.settings=AppSettings();self.auto_refresh=tk.BooleanVar(value=self.settings.auto_refresh);self.compact_mode=tk.BooleanVar(value=self.settings.compact_mode);self.alerts_enabled=tk.BooleanVar(value=self.settings.alerts_enabled);self.theme_var=tk.StringVar(value=self.settings.theme);self.polling_var=tk.IntVar(value=self.settings.polling_ms);self.candle_limit_var=tk.IntVar(value=self.settings.candle_limit);self.status_var=tk.StringVar(value="Ready")
         self._style();self._build();self.client.start();self.after(100,self._poll);self.protocol("WM_DELETE_WINDOW",self._close)
     def _style(self):
         s=ttk.Style(self);s.theme_use("clam");s.configure("TCombobox",fieldbackground=self.PANEL2,background=self.PANEL2,foreground=self.TEXT);s.configure("Treeview",background=self.PANEL,fieldbackground=self.PANEL,foreground=self.TEXT,rowheight=34,borderwidth=0);s.map("Treeview",background=[("selected", "#204467")]);s.configure("TNotebook",background=self.BG,borderwidth=0);s.configure("TNotebook.Tab",background=self.PANEL,foreground=self.MUTED,padding=(18,10));s.map("TNotebook.Tab",background=[("selected",self.PANEL2)],foreground=[("selected",self.CYAN)])
@@ -133,12 +135,17 @@ class App(tk.Tk):
         for text,var in [("Auto-refresh signal feed",self.auto_refresh),("Desktop signal alerts",self.alerts_enabled),("Compact data density",self.compact_mode)]:
             tk.Checkbutton(left,text=text,variable=var,bg=self.PANEL,fg=self.TEXT,activebackground=self.PANEL,activeforeground=self.TEXT,selectcolor=self.PANEL2,anchor="w",font=("Helvetica",10),command=self._settings_changed).pack(fill="x",padx=14,pady=7)
         self._label(left,"Theme preset",10,self.MUTED).pack(anchor="w",padx=18,pady=(18,4));theme=ttk.Combobox(left,textvariable=self.theme_var,values=["Liquid dark","Midnight blue","High contrast"],state="readonly");theme.pack(fill="x",padx=18,pady=(0,18));theme.bind("<<ComboboxSelected>>",lambda e:self._settings_changed())
-        self._label(right,"ENGINE & CONNECTION",9,self.CYAN).pack(anchor="w",padx=18,pady=(18,12));self._label(right,"Deriv public WebSocket",12).pack(anchor="w",padx=18,pady=(4,2));self._label(right,"App ID 1089 · live candles · reconnect enabled",10,self.MUTED).pack(anchor="w",padx=18,pady=(0,18));self._label(right,"Signal engine",12).pack(anchor="w",padx=18,pady=(4,2));self._label(right,"EMA 9/21/50 · RSI 14 · ATR 14 · MACD",10,self.MUTED).pack(anchor="w",padx=18,pady=(0,18));self.settings_status=self._label(right,"Ready",10,self.GREEN);self.settings_status.pack(anchor="w",padx=18,pady=(12,0))
+        self._label(right,"ENGINE & CONNECTION",9,self.CYAN).pack(anchor="w",padx=18,pady=(18,12));self._label(right,"Deriv public WebSocket",12).pack(anchor="w",padx=18,pady=(4,2));self._label(right,"App ID 1089 · live candles · reconnect enabled",10,self.MUTED).pack(anchor="w",padx=18,pady=(0,18));self._label(left,"STREAM CONTROLS",9,self.CYAN).pack(anchor="w",padx=18,pady=(8,12));self._label(left,"UI poll interval (ms)",10,self.MUTED).pack(anchor="w",padx=18,pady=(0,4));poll=tk.Spinbox(left,from_=50,to=2000,increment=50,textvariable=self.polling_var,bg=self.PANEL2,fg=self.TEXT,buttonbackground=self.PANEL2,relief="flat",command=self._settings_changed);poll.pack(fill="x",padx=18,pady=(0,10));self._label(left,"Max candles in memory",10,self.MUTED).pack(anchor="w",padx=18,pady=(0,4));limit=tk.Spinbox(left,from_=60,to=1000,increment=20,textvariable=self.candle_limit_var,bg=self.PANEL2,fg=self.TEXT,buttonbackground=self.PANEL2,relief="flat",command=self._settings_changed);limit.pack(fill="x",padx=18,pady=(0,18));self._label(right,"Signal engine",12).pack(anchor="w",padx=18,pady=(4,2));self._label(right,"EMA 9/21/50 · RSI 14 · ATR 14 · MACD",10,self.MUTED).pack(anchor="w",padx=18,pady=(0,18));tk.Button(right,text="Clear local signal history",command=self._clear_history,bg=self.PANEL2,fg=self.TEXT,relief="flat",font=("Helvetica",10),padx=12,pady=8).pack(anchor="w",padx=18,pady=(4,10));self.settings_status=self._label(right,"Ready",10,self.GREEN);self.settings_status.pack(anchor="w",padx=18,pady=(12,0))
     def _update_signal_cards(self):
         vals=list(self.results.values());active=[r for r in vals if r["signal"]!="NEUTRAL"];buys=sum("BUY" in r["signal"] for r in vals);sells=sum("SELL" in r["signal"] for r in vals);avg=(sum(abs(r["score"]) for r in vals)/len(vals)) if vals else 0
         for key,value in [("active",str(len(active))), ("buy",str(buys)), ("sell",str(sells)), ("confidence",f"{avg:.1f} / 4")]:self.card_values[key].config(text=value)
     def _settings_changed(self):
-        self.status_var.set("Settings updated");self.settings_status.config(text="Settings updated · applied",fg=self.GREEN)
+        try:self.settings=self.settings.updated(auto_refresh=self.auto_refresh.get(),alerts_enabled=self.alerts_enabled.get(),compact_mode=self.compact_mode.get(),theme=self.theme_var.get(),polling_ms=int(self.polling_var.get()),candle_limit=int(self.candle_limit_var.get()))
+        except (ValueError, tk.TclError) as error:self.settings_status.config(text=str(error),fg=self.RED);return
+        self.status_var.set("Settings updated");self.settings_status.config(text=f"Applied · {self.settings.polling_ms} ms · {self.settings.candle_limit} candles",fg=self.GREEN)
+
+    def _clear_history(self):
+        self.history.clear();self.hist.delete(0,"end");self.settings_status.config(text="Local signal history cleared",fg=self.GREEN)
     def _tf_changed(self):self.gran=TIMEFRAMES[self.tf.get()];self._subscribe_all();self.chart_title.config(text=f"{SYMBOLS[self.selected]}  ·  {self.tf.get()}")
     def _select(self):
         s=self.tree.selection();
@@ -157,13 +164,13 @@ class App(tk.Tk):
                 elif kind=="status":self.status.config(text=data,fg=self.RED);self.conn.config(text="●  Offline",fg=self.RED)
                 elif kind=="msg":self._handle(data)
         except queue.Empty:pass
-        self.after(100,self._poll)
+        self.after(self.settings.polling_ms,self._poll)
     def _handle(self,msg):
         req=msg.get("echo_req",{});s=req.get("ticks_history") or msg.get("ohlc",{}).get("symbol")
         if msg.get("error") or s not in SYMBOLS:return
         if msg.get("msg_type")=="candles":self.candles[s]=[(int(c["epoch"]),float(c["open"]),float(c["high"]),float(c["low"]),float(c["close"])) for c in msg["candles"]];self._refresh(s)
         elif msg.get("msg_type")=="ohlc":
-            o=msg["ohlc"];row=(int(o["open_time"]),float(o["open"]),float(o["high"]),float(o["low"]),float(o["close"]));lst=self.candles.setdefault(s,[]);lst[-1:]=[row] if lst and lst[-1][0]==row[0] else lst[-1:]+[row];del lst[:-500];self._refresh(s)
+            o=msg["ohlc"];row=(int(o["open_time"]),float(o["open"]),float(o["high"]),float(o["low"]),float(o["close"]));lst=self.candles.setdefault(s,[]);lst[-1:]=[row] if lst and lst[-1][0]==row[0] else lst[-1:]+[row];del lst[:-self.settings.candle_limit];self._refresh(s)
     def _fmt(self,s,p):return f"{p:.3f}" if "JPY" in s else f"{p:.2f}" if s.startswith("R_") else f"{p:.5f}"
     def _refresh(self,s):
         cs=self.candles.get(s,[]);res=analyze(cs)
