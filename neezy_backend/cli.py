@@ -33,6 +33,12 @@ from .context import chat_messages, format_context, market_snapshot
 from .database import LocalDatabase
 from .divergence import detect_divergences, rank_correlation_divergences
 from .indicators import analyze
+from .knowledge import (
+    KNOWLEDGE_PATH,
+    load_knowledge,
+    save_knowledge,
+)
+from .knowledge import summary as knowledge_summary
 from .markets import (
     DEFAULT_WATCHLIST,
     SYMBOLS,
@@ -53,14 +59,18 @@ from .strategies import (
     evaluate,
     run_all,
 )
-from .stream import fetch_candles, probe_endpoint
+from .stream import MAX_HISTORY_COUNT, fetch_candles, fetch_history, probe_endpoint
+from .study import StudySettings, run_study
 from .trend import trend_summary
 
 Fetcher = Callable[[str, int, int], list[tuple[int, float, float, float, float]]]
 
 
 def _default_fetch(symbol: str, seconds: int, count: int):
-    # No explicit url: fetch_candles rotates through every configured endpoint.
+    # Deriv caps one request at MAX_HISTORY_COUNT candles; deeper history is paged.
+    # No explicit url: the fetchers rotate through every configured endpoint.
+    if count > MAX_HISTORY_COUNT:
+        return fetch_history(symbol, seconds, count)
     return fetch_candles(symbol, seconds, count)
 
 
@@ -331,6 +341,110 @@ def cmd_backtest(args, fetch, out) -> int:
     out.write(
         "\nSimulated results; past performance does not predict future results.\n"
     )
+    return 0
+
+
+def _study_symbols(args) -> list[str]:
+    if args.symbols:
+        return list(args.symbols)
+    return sorted(
+        item.symbol
+        for item in instruments().values()
+        if not args.category or item.market == args.category
+    )
+
+
+def _study_row(symbol: str, record: dict[str, Any]) -> tuple[Any, ...]:
+    test, train = record.get("test"), record.get("train")
+    setting = record.get("selected")
+    setting_text = (
+        f"score>={setting['min_score']} stop={setting['stop_atr_multiple']}"
+        f" rr={setting['reward_to_risk']}"
+        if setting
+        else "-"
+    )
+    return (
+        symbol,
+        record["market"],
+        record["candles"],
+        record["verdict"],
+        f"{test['trades']}" if test else "-",
+        f"{test['expectancy_r']:+.3f}"
+        if test and test["expectancy_r"] is not None
+        else "-",
+        f"{train['expectancy_r']:+.3f}"
+        if train and train["expectancy_r"] is not None
+        else "-",
+        setting_text,
+    )
+
+
+def cmd_study(args, fetch, out) -> int:
+    symbols = _study_symbols(args)
+    if not symbols:
+        raise ValueError(f"no instruments in category {args.category!r}")
+    settings = StudySettings(
+        granularity=granularity(args.timeframe),
+        candles=args.candles,
+        min_candles=args.min_candles,
+        spread_pips=args.spread_pips,
+    )
+    target = Path(args.out) if args.out else KNOWLEDGE_PATH
+    previous = load_knowledge(target)  # fail before the slow fetches if unreadable
+
+    def progress(symbol: str, verdict: str) -> None:
+        sys.stderr.write(f"{symbol}: {verdict}\n")
+
+    document = run_study(
+        symbols,
+        settings,
+        fetch=fetch,
+        progress=None if args.json else progress,
+    )
+    merged = dict(previous["symbols"])
+    kept: list[str] = []
+    for symbol, record in document["symbols"].items():
+        # A failed fetch must not erase a verdict from an earlier, successful run.
+        if record["verdict"] == "error" and symbol in merged:
+            kept.append(symbol)
+            continue
+        merged[symbol] = record
+    combined = {**previous, "method": document["method"], "symbols": merged}
+    saved = None if args.dry_run else save_knowledge(combined, target)
+    final = load_knowledge(saved) if saved else combined
+
+    if args.json:
+        _emit(
+            out,
+            {
+                "saved_to": str(saved) if saved else None,
+                "kept_previous": kept,
+                "summary": knowledge_summary(final),
+                "symbols": document["symbols"],
+            },
+        )
+        return 0
+    out.write(f"Study · {args.timeframe} · {len(symbols)} instrument(s)\n\n")
+    _table(
+        out,
+        [
+            "SYMBOL",
+            "MARKET",
+            "CANDLES",
+            "VERDICT",
+            "TEST TRADES",
+            "TEST R/TRADE",
+            "TRAIN R/TRADE",
+            "SETTING",
+        ],
+        [_study_row(s, r) for s, r in document["symbols"].items()],
+    )
+    counts = knowledge_summary(final)["verdicts"]
+    out.write("\nVerdicts: " + ", ".join(f"{k} {v}" for k, v in counts.items()) + "\n")
+    if kept:
+        out.write(f"Kept previous verdict after fetch error: {', '.join(kept)}\n")
+    out.write(f"Saved to {saved}\n" if saved else "Dry run: nothing written.\n")
+    out.write("\nHistorical simulation on the held-out slice only; not a forecast.\n")
     return 0
 
 
@@ -1039,6 +1153,35 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--hold-through-reversals", action="store_true")
     p.add_argument("--trades", action="store_true", help="list every trade")
     p.set_defaults(handler=cmd_backtest)
+
+    p = common(
+        sub.add_parser(
+            "study", help="train-then-validate backtest per instrument; saves knowledge"
+        ),
+        timeframe=False,
+    )
+    p.add_argument(
+        "symbols",
+        nargs="*",
+        type=_symbol,
+        help="markets to study (default: every catalogue instrument)",
+    )
+    p.add_argument("--category", help="catalogue category when no symbols are given")
+    p.add_argument("-t", "--timeframe", choices=TIMEFRAMES, default="1m")
+    p.add_argument("--candles", type=int, default=12_000, help="history per market")
+    p.add_argument("--min-candles", type=int, default=2_000)
+    p.add_argument(
+        "--spread-pips",
+        type=float,
+        default=1.0,
+        help="spread charged per trade, in pips (default 1; 0 reports pre-cost)",
+    )
+    p.add_argument(
+        "--out",
+        help=f"knowledge file to update (default: {KNOWLEDGE_PATH})",
+    )
+    p.add_argument("--dry-run", action="store_true", help="report without saving")
+    p.set_defaults(handler=cmd_study)
 
     p = common(sub.add_parser("risk", help="position size calculator"), timeframe=False)
     p.add_argument("symbol", type=_symbol)

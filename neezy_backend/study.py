@@ -5,10 +5,10 @@ on the earlier slice and the setting with the best expectancy (and enough
 trades) is kept. That one setting is then run on the later slice, which the
 search never saw. The verdict records whether it stayed profitable there.
 
-Limits: the simulator ignores spread, slippage and commission unless the
-settings say otherwise, and trades still open at a slice boundary are closed at
-the last close in that slice. A result is a statement about one historical
-window, not a forecast.
+Limits: a spread is charged per trade (``StudySettings.spread_pips``), but
+slippage and commission are not modelled, and trades still open at a slice
+boundary are closed at the last close in that slice. A result is a statement
+about one historical window, not a forecast.
 """
 
 from __future__ import annotations
@@ -29,6 +29,7 @@ from .backtest import (
 )
 from .catalog import instrument
 from .knowledge import empty_document
+from .markets import pip_size
 from .stream import fetch_history
 
 Fetch = Callable[[str, int, int], list[Candle]]
@@ -53,6 +54,10 @@ class StudySettings:
     min_train_trades: int = 30
     min_test_trades: int = 20
     min_candles: int = 2_000
+    # Full bid/ask spread charged per trade, in pips (see pip_size). Zero would
+    # report pre-cost edges; the default charges one pip, a deliberately rough
+    # assumption that the caller should adjust per market.
+    spread_pips: float = 1.0
     grid: tuple[BacktestConfig, ...] = field(default_factory=default_grid)
 
     def __post_init__(self) -> None:
@@ -70,6 +75,8 @@ class StudySettings:
             raise ValueError("trade minimums must be at least 1")
         if not self.grid:
             raise ValueError("grid must contain at least one setting")
+        if not math.isfinite(self.spread_pips) or self.spread_pips < 0:
+            raise ValueError("spread_pips must be zero or a positive number")
 
 
 def _clean(stats: dict[str, Any]) -> dict[str, Any]:
@@ -100,14 +107,20 @@ def _slice_stats(
 
 
 def evaluate_candles(
-    candles: Sequence[Candle], settings: StudySettings
+    candles: Sequence[Candle], settings: StudySettings, *, spread: float = 0.0
 ) -> dict[str, Any]:
-    """Train on the earlier slice, validate the chosen setting on the later one."""
+    """Train on the earlier slice, validate the chosen setting on the later one.
+
+    ``spread`` is the full bid/ask spread in price units charged on every trade.
+    """
     cut = int(len(candles) * settings.train_fraction)
     train = candles[:cut]
     test = candles[max(0, cut - settings.lookback) :]
     boundary = int(candles[cut][0])
-    configs = [replace(config, lookback=settings.lookback) for config in settings.grid]
+    configs = [
+        replace(config, lookback=settings.lookback, spread=spread)
+        for config in settings.grid
+    ]
 
     train_cache = build_decision_cache(train, settings.lookback)
     best: tuple[float, BacktestConfig, dict[str, Any]] | None = None
@@ -154,7 +167,8 @@ def evaluate_candles(
 def describe_method(settings: StudySettings) -> str:
     return (
         f"Fixed-rule backtest on {settings.granularity}s candles, up to "
-        f"{settings.candles} per instrument. The first "
+        f"{settings.candles} per instrument, charging a {settings.spread_pips:g}-pip "
+        f"spread per trade. The first "
         f"{settings.train_fraction:.0%} of history is searched over a grid of "
         f"{len(settings.grid)} settings; the setting with the best expectancy "
         f"and at least {settings.min_train_trades} trades is then run once on the "
@@ -206,7 +220,11 @@ def run_study(
                     ),
                 }
             else:
-                outcome = evaluate_candles(candles, settings)
+                outcome = evaluate_candles(
+                    candles,
+                    settings,
+                    spread=settings.spread_pips * pip_size(symbol),
+                )
             record = {"market": market, "candles": len(candles), **outcome}
         records[symbol] = record
         if progress is not None:

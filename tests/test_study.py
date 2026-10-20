@@ -119,6 +119,21 @@ class StudyTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             StudySettings(grid=())
 
+    def test_spread_is_charged_and_recorded_on_the_chosen_setting(self) -> None:
+        candles = _walk(1_500, drift=0.0002)
+        cheap = evaluate_candles(candles, SMALL, spread=0.0001)
+        if cheap["selected"] is not None:
+            self.assertEqual(cheap["selected"]["spread"], 0.0001)
+        # A spread far wider than the typical bar range cannot leave an edge.
+        dear = evaluate_candles(candles, SMALL, spread=0.01)
+        self.assertNotEqual(dear["verdict"], "edge")
+
+    def test_spread_pips_must_be_non_negative(self) -> None:
+        with self.assertRaises(ValueError):
+            StudySettings(spread_pips=-0.5)
+        with self.assertRaises(ValueError):
+            StudySettings(spread_pips=float("nan"))
+
     def test_non_finite_statistics_become_null(self) -> None:
         cleaned = _clean({"profit_factor": float("inf"), "win_rate": 50.123456})
         self.assertIsNone(cleaned["profit_factor"])
