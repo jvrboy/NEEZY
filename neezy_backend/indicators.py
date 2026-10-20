@@ -26,21 +26,7 @@ def ema(values: Sequence[float], period: int) -> list[float]:
     return result
 
 
-def rsi(closes: Sequence[float], period: int = 14) -> float | None:
-    if period < 1:
-        raise ValueError("period must be positive")
-    if len(closes) <= period:
-        return None
-    gains = losses = 0.0
-    for before, after in pairwise(closes[: period + 1]):
-        delta = after - before
-        gains += max(delta, 0.0)
-        losses += max(-delta, 0.0)
-    average_gain, average_loss = gains / period, losses / period
-    for before, after in pairwise(closes[period:]):
-        delta = after - before
-        average_gain = (average_gain * (period - 1) + max(delta, 0.0)) / period
-        average_loss = (average_loss * (period - 1) + max(-delta, 0.0)) / period
+def _rsi_value(average_gain: float, average_loss: float) -> float:
     if average_gain == 0 and average_loss == 0:
         return 50.0
     if average_loss == 0:
@@ -48,6 +34,53 @@ def rsi(closes: Sequence[float], period: int = 14) -> float | None:
     if average_gain == 0:
         return 0.0
     return 100.0 - 100.0 / (1.0 + average_gain / average_loss)
+
+
+def rsi_series(closes: Sequence[float], period: int = 14) -> list[float | None]:
+    """Wilder RSI for every bar; ``None`` until the first value is formed."""
+    if period < 1:
+        raise ValueError("period must be positive")
+    result: list[float | None] = [None] * len(closes)
+    if len(closes) <= period:
+        return result
+    gains = losses = 0.0
+    for before, after in pairwise(closes[: period + 1]):
+        delta = after - before
+        gains += max(delta, 0.0)
+        losses += max(-delta, 0.0)
+    average_gain, average_loss = gains / period, losses / period
+    result[period] = _rsi_value(average_gain, average_loss)
+    for index in range(period + 1, len(closes)):
+        delta = closes[index] - closes[index - 1]
+        average_gain = (average_gain * (period - 1) + max(delta, 0.0)) / period
+        average_loss = (average_loss * (period - 1) + max(-delta, 0.0)) / period
+        result[index] = _rsi_value(average_gain, average_loss)
+    return result
+
+
+def rsi(closes: Sequence[float], period: int = 14) -> float | None:
+    """Current Wilder RSI, or ``None`` while the series is still too short."""
+    series = rsi_series(closes, period)
+    return series[-1] if series else None
+
+
+def macd_histogram_series(
+    closes: Sequence[float],
+    fast: int = 12,
+    slow: int = 26,
+    signal: int = 9,
+) -> list[float]:
+    """MACD histogram aligned with ``closes`` (line minus signal line)."""
+    if fast < 1 or slow < 1 or signal < 1:
+        raise ValueError("MACD periods must be positive")
+    if fast >= slow:
+        raise ValueError("fast period must be shorter than slow period")
+    if not closes:
+        return []
+    fast_ema, slow_ema = ema(closes, fast), ema(closes, slow)
+    line = [a - b for a, b in zip(fast_ema, slow_ema, strict=True)]
+    signal_line = ema(line, signal)
+    return [a - b for a, b in zip(line, signal_line, strict=True)]
 
 
 def atr(

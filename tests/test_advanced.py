@@ -23,11 +23,22 @@ from neezy_backend.analytics import (
 )
 from neezy_backend.backtest import BacktestConfig, run_backtest
 from neezy_backend.indicators import adx, analyze, bollinger, sma, stochastic
-from neezy_backend.markets import format_price, granularity, pip_size
+from neezy_backend.markets import (
+    format_price,
+    granularity,
+    pip_size,
+    ws_urls,
+)
 from neezy_backend.patterns import detect_patterns, pivot_points, swing_levels
 from neezy_backend.risk import atr_levels, position_size
 from neezy_backend.storage import SignalHistoryStore
-from neezy_backend.stream import fetch_candles, parse_candle, parse_history_response
+from neezy_backend.stream import (
+    BROWSER_HEADERS,
+    describe_connection_error,
+    fetch_candles,
+    parse_candle,
+    parse_history_response,
+)
 
 
 def random_walk(count: int, *, seed: int = 7, drift: float = 0.0, start=1.1):
@@ -287,7 +298,79 @@ class MarketAndParsingTests(unittest.TestCase):
             parse_candle({"epoch": 1, "open": 1, "high": 0.5, "low": 1, "close": 1})
 
 
+class EndpointTests(unittest.TestCase):
+    def test_default_endpoints_share_the_app_id_and_prefer_derivws(self) -> None:
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("NEEZY_WS_URL", None)
+            os.environ.pop("NEEZY_APP_ID", None)
+            urls = ws_urls()
+        self.assertGreaterEqual(len(urls), 2)
+        self.assertTrue(urls[0].startswith("wss://ws.derivws.com/"))
+        self.assertTrue(all("app_id=1089" in url for url in urls))
+
+    def test_endpoint_and_app_id_can_be_overridden(self) -> None:
+        with mock.patch.dict(
+            os.environ,
+            {"NEEZY_WS_URL": "wss://proxy.internal/v3", "NEEZY_APP_ID": "12345"},
+            clear=False,
+        ):
+            self.assertEqual(ws_urls(), ("wss://proxy.internal/v3",))
+            os.environ.pop("NEEZY_WS_URL")
+            self.assertTrue(all("app_id=12345" in url for url in ws_urls()))
+
+    def test_cloudflare_520_becomes_one_readable_line(self) -> None:
+        raw = (
+            "Handshake status 520 <none> -+-+- {'date': 'Tue, 20 Oct 2026', "
+            "'content-type': 'text/plain; charset=UTF-8', 'server': 'cloudflare', "
+            "'cf-ray': 'a4d8ee17eb4f3419-JNB'} -+-+- error code: 520"
+        )
+        message = describe_connection_error(raw)
+        self.assertIn("520", message)
+        self.assertNotIn("cf-ray", message)
+        self.assertNotIn("content-type", message)
+        self.assertLess(len(message), 200)
+
+    def test_stream_client_accepts_a_candidate_list(self) -> None:
+        from neezy_backend.events import EventBus
+        from neezy_backend.stream import DerivStreamClient
+
+        client = DerivStreamClient(
+            ("wss://a.invalid/v3", "wss://b.invalid/v3"), EventBus()
+        )
+        self.assertEqual(client.url, "wss://a.invalid/v3")
+        self.assertEqual(len(client.urls), 2)
+        self.assertEqual(client.headers, BROWSER_HEADERS)
+        with self.assertRaises(ValueError):
+            DerivStreamClient((), EventBus())
+
+
 class FetchTests(unittest.TestCase):
+    def test_fetch_fails_over_to_the_next_endpoint(self) -> None:
+        import websocket
+
+        connection = mock.Mock()
+        connection.recv.return_value = json.dumps(
+            {
+                "msg_type": "candles",
+                "candles": [
+                    {"epoch": 0, "open": 1.1, "high": 1.2, "low": 1.0, "close": 1.1}
+                ],
+            }
+        )
+        blocked = websocket.WebSocketBadStatusException("x", 520)
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("NEEZY_WS_URL", None)
+            targets = ws_urls()
+            with mock.patch.object(
+                websocket,
+                "create_connection",
+                mock.Mock(side_effect=[blocked, connection]),
+            ) as connect:
+                rows = fetch_candles("frxEURUSD", 60, 10)
+            self.assertEqual(connect.call_count, 2)
+            self.assertEqual(connect.call_args_list[1].args[0], targets[1])
+        self.assertEqual(rows, [(0, 1.1, 1.2, 1.0, 1.1)])
+
     def test_connection_failures_become_connection_errors(self) -> None:
         import websocket
 

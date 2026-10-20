@@ -8,12 +8,21 @@ not place trades, and its signals are not investment advice.
 from __future__ import annotations
 
 import logging
+import sqlite3
 import threading
+import time
 import tkinter as tk
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
+from neezy_backend.ai import (
+    PROVIDERS,
+    AIClient,
+    AIError,
+    AIKeyStore,
+    free_models,
+)
 from neezy_backend.alerts import (
     METRICS,
     OPERATORS,
@@ -28,12 +37,25 @@ from neezy_backend.analytics import (
 )
 from neezy_backend.backtest import BacktestConfig, run_backtest
 from neezy_backend.config import AppSettings
+from neezy_backend.context import chat_messages, format_context, market_snapshot
+from neezy_backend.database import LocalDatabase
 from neezy_backend.events import EventBus
 from neezy_backend.indicators import analyze, ema
-from neezy_backend.markets import APP_ID, SYMBOLS, TIMEFRAMES, WS_URL, format_price
+from neezy_backend.markets import (
+    APP_ID,
+    SYMBOLS,
+    TIMEFRAMES,
+    format_price,
+    ws_urls,
+)
 from neezy_backend.patterns import price_action_summary
 from neezy_backend.risk import atr_levels, position_size
 from neezy_backend.storage import SettingsStore, SignalHistoryStore
+from neezy_backend.strategies import (
+    STRATEGIES,
+    consensus,
+    run_all,
+)
 from neezy_backend.stream import DerivStreamClient, fetch_candles, parse_candle
 
 logger = logging.getLogger(__name__)
@@ -60,9 +82,17 @@ class App(tk.Tk):
         self.settings_store = SettingsStore()
         self.history_store = SignalHistoryStore()
         self.settings = self.settings_store.load()
+        self.db = self._open_database()
+        self.ai_keys = AIKeyStore()
+        self.ai_client = AIClient(
+            self.ai_keys,
+            recorder=self.db.record_ai_call if self.db is not None else None,
+        )
+        self._snapshot_at = {}
+        self._ai_key_rows = []
         self.bus = EventBus(subscriber_queue_size=2500)
         self.inbox = self.bus.subscribe()
-        self.client = DerivStreamClient(WS_URL, self.bus)
+        self.client = DerivStreamClient(ws_urls(), self.bus)
         self.alert_store = AlertRuleStore()
         self.alert_engine = AlertEngine(self.alert_store.load())
         self.gran = 300
@@ -80,6 +110,32 @@ class App(tk.Tk):
         self.polling_var = tk.IntVar(value=self.settings.polling_ms)
         self.candle_limit_var = tk.IntVar(value=self.settings.candle_limit)
         self.alert_min_score_var = tk.IntVar(value=self.settings.alert_min_score)
+        self.strategy_var = tk.StringVar(value=self.settings.strategy)
+        self.st_period_var = tk.IntVar(value=self.settings.supertrend_period)
+        self.st_mult_var = tk.DoubleVar(value=self.settings.supertrend_multiplier)
+        self.div_lookback_var = tk.IntVar(value=self.settings.divergence_lookback)
+        self.corr_window_var = tk.IntVar(value=self.settings.correlation_window)
+        self.corr_baseline_var = tk.IntVar(value=self.settings.correlation_baseline)
+        self.overlay_var = tk.BooleanVar(value=self.settings.show_strategy_overlay)
+        self.store_candles_var = tk.BooleanVar(value=self.settings.store_candles)
+        self.retention_var = tk.IntVar(value=self.settings.retention_days)
+        self.snapshots_var = tk.BooleanVar(value=self.settings.save_snapshots)
+        self.ai_enabled_var = tk.BooleanVar(value=self.settings.ai_enabled)
+        self._provider_labels = {
+            f"{spec.label} ({spec.key})": spec.key for spec in PROVIDERS.values()
+        }
+        self.ai_provider_var = tk.StringVar(
+            value=self._provider_label(self.settings.ai_provider)
+        )
+        self.ai_model_var = tk.StringVar(
+            value=self.settings.ai_model or free_models(self.settings.ai_provider)[0]
+        )
+        self.ai_base_var = tk.StringVar(value=self.settings.ai_base_url)
+        self.ai_temp_var = tk.DoubleVar(value=self.settings.ai_temperature)
+        self.ai_tokens_var = tk.IntVar(value=self.settings.ai_max_tokens)
+        self.ai_timeout_var = tk.DoubleVar(value=self.settings.ai_timeout)
+        self.ai_system_var = tk.StringVar(value=self.settings.ai_system_prompt)
+        self._ai_testing = False
         self.status_var = tk.StringVar(value="Ready")
         self.last_message_at = None
         self._apply_theme()
@@ -694,7 +750,7 @@ class App(tk.Tk):
 
         def work():
             try:
-                candles = fetch_candles(symbol, seconds, count, url=WS_URL)
+                candles = fetch_candles(symbol, seconds, count)
                 result = run_backtest(candles[:-1], config)
                 self.bus.publish("backtest", (symbol, timeframe, result))
             except (OSError, RuntimeError, ValueError) as error:
@@ -949,121 +1005,165 @@ class App(tk.Tk):
             logger.exception("Could not export signal history")
             messagebox.showerror("Export failed", str(error))
 
+    def _open_database(self):
+        try:
+            return LocalDatabase(
+                retention_days=self.settings.retention_days,
+                store_candles=self.settings.store_candles,
+            )
+        except (OSError, sqlite3.Error) as error:
+            logger.warning("Local database unavailable: %s", error)
+            return None
+
+    @staticmethod
+    def _provider_label(key):
+        for spec in PROVIDERS.values():
+            if spec.key == key:
+                return f"{spec.label} ({spec.key})"
+        return "OpenRouter (openrouter)"
+
+    def _ai_provider_key(self):
+        return self._provider_labels.get(self.ai_provider_var.get(), "openrouter")
+
     def _settings_page(self):
         page = self.pages["SETTINGS"]
         self._label(page, "Workspace settings", 16).pack(anchor="w", pady=(5, 4))
         self._label(
-            page, "Tune the workspace without leaving your market view.", 10, self.MUTED
-        ).pack(anchor="w", pady=(0, 16))
-        grid = tk.Frame(page, bg=self.BG)
-        grid.pack(fill="both", expand=True)
-        left, right = self._panel(grid), self._panel(grid)
-        left.pack(side="left", fill="both", expand=True, padx=(0, 10))
-        right.pack(side="right", fill="both", expand=True, padx=(10, 0))
+            page,
+            "Tune the engine, local storage, and AI providers.",
+            10,
+            self.MUTED,
+        ).pack(anchor="w", pady=(0, 10))
+        notebook = ttk.Notebook(page)
+        notebook.pack(fill="both", expand=True)
+        self.settings_notebook = notebook
+        self._workspace_settings_tab(notebook)
+        self._engine_settings_tab(notebook)
+        self._local_settings_tab(notebook)
+        self._ai_settings_tab(notebook)
+        self.settings_status = self._label(
+            page, "Settings are saved locally", 10, self.GREEN
+        )
+        self.settings_status.pack(anchor="w", padx=4, pady=(8, 0))
+
+    def _settings_tab(self, notebook, title):
+        tab = tk.Frame(notebook, bg=self.BG)
+        notebook.add(tab, text=title)
+        body = tk.Frame(tab, bg=self.BG)
+        body.pack(fill="both", expand=True, padx=4, pady=8)
+        left, right = self._panel(body), self._panel(body)
+        left.pack(side="left", fill="both", expand=True, padx=(0, 8))
+        right.pack(side="right", fill="both", expand=True, padx=(8, 0))
+        return tab, left, right
+
+    def _check_row(self, parent, text, variable):
+        return tk.Checkbutton(
+            parent,
+            text=text,
+            variable=variable,
+            bg=self.PANEL,
+            fg=self.TEXT,
+            activebackground=self.PANEL,
+            activeforeground=self.TEXT,
+            selectcolor=self.PANEL2,
+            anchor="w",
+            font=("Helvetica", 10),
+            command=self._settings_changed,
+        ).pack(fill="x", padx=12, pady=5)
+
+    def _spin_row(self, parent, label, variable, low, high, step=1):
+        row = tk.Frame(parent, bg=parent.cget("bg"))
+        row.pack(fill="x", padx=16, pady=4)
+        self._label(row, label, 10, self.MUTED).pack(side="left")
+        box = tk.Spinbox(
+            row,
+            from_=low,
+            to=high,
+            increment=step,
+            width=8,
+            textvariable=variable,
+            bg=self.PANEL2,
+            fg=self.TEXT,
+            buttonbackground=self.PANEL2,
+            relief="flat",
+            command=self._settings_changed,
+        )
+        self._bind_commit(box)
+        box.pack(side="right")
+        return box
+
+    def _entry_row(self, parent, label, variable, show=None):
+        self._label(parent, label, 10, self.MUTED).pack(
+            anchor="w", padx=16, pady=(6, 3)
+        )
+        entry = tk.Entry(
+            parent,
+            textvariable=variable,
+            show=show,
+            bg=self.PANEL2,
+            fg=self.TEXT,
+            insertbackground=self.TEXT,
+            relief="flat",
+        )
+        entry.pack(fill="x", padx=16, pady=(0, 4), ipady=4)
+        entry.bind("<Return>", lambda _: self._settings_changed())
+        entry.bind("<FocusOut>", lambda _: self._settings_changed())
+        return entry
+
+    def _combo_row(self, parent, label, variable, values, on_change=None):
+        self._label(parent, label, 10, self.MUTED).pack(
+            anchor="w", padx=16, pady=(6, 3)
+        )
+        combo = ttk.Combobox(
+            parent, textvariable=variable, values=values, state="readonly"
+        )
+        combo.pack(fill="x", padx=16, pady=(0, 4))
+        combo.bind(
+            "<<ComboboxSelected>>",
+            lambda _: (on_change or self._settings_changed)(),
+        )
+        return combo
+
+    def _workspace_settings_tab(self, notebook):
+        _tab, left, right = self._settings_tab(notebook, "WORKSPACE")
         self._label(left, "LIVE WORKSPACE", 9, self.CYAN).pack(
-            anchor="w", padx=18, pady=(18, 12)
+            anchor="w", padx=16, pady=(14, 6)
         )
-        for text, variable in [
-            ("Auto-refresh signal feed", self.auto_refresh),
-            ("Desktop signal alerts", self.alerts_enabled),
-            ("Compact data density", self.compact_mode),
-        ]:
-            tk.Checkbutton(
-                left,
-                text=text,
-                variable=variable,
-                bg=self.PANEL,
-                fg=self.TEXT,
-                activebackground=self.PANEL,
-                activeforeground=self.TEXT,
-                selectcolor=self.PANEL2,
-                anchor="w",
-                font=("Helvetica", 10),
-                command=self._settings_changed,
-            ).pack(fill="x", padx=14, pady=7)
-        self._label(left, "Theme preset", 10, self.MUTED).pack(
-            anchor="w", padx=18, pady=(18, 4)
-        )
-        theme = ttk.Combobox(
+        self._check_row(left, "Auto-refresh signal feed", self.auto_refresh)
+        self._check_row(left, "Desktop signal alerts", self.alerts_enabled)
+        self._check_row(left, "Compact data density", self.compact_mode)
+        self._combo_row(
             left,
-            textvariable=self.theme_var,
-            values=["Liquid dark", "Midnight blue", "High contrast"],
-            state="readonly",
+            "Theme preset",
+            self.theme_var,
+            ["Liquid dark", "Midnight blue", "High contrast"],
         )
-        theme.pack(fill="x", padx=18, pady=(0, 18))
-        theme.bind("<<ComboboxSelected>>", lambda _: self._settings_changed())
-        self._label(left, "STREAM CONTROLS", 9, self.CYAN).pack(
-            anchor="w", padx=18, pady=(8, 12)
+        self._spin_row(left, "UI poll interval (ms)", self.polling_var, 50, 2000, 50)
+        self._spin_row(
+            left, "Max candles in memory", self.candle_limit_var, 60, 1000, 20
         )
-        self._label(left, "UI poll interval (ms)", 10, self.MUTED).pack(
-            anchor="w", padx=18, pady=(0, 4)
-        )
-        poll_box = tk.Spinbox(
-            left,
-            from_=50,
-            to=2000,
-            increment=50,
-            textvariable=self.polling_var,
-            bg=self.PANEL2,
-            fg=self.TEXT,
-            buttonbackground=self.PANEL2,
-            relief="flat",
-            command=self._settings_changed,
-        )
-        self._bind_commit(poll_box)
-        poll_box.pack(fill="x", padx=18, pady=(0, 10))
-        self._label(left, "Max candles in memory", 10, self.MUTED).pack(
-            anchor="w", padx=18, pady=(0, 4)
-        )
-        candle_box = tk.Spinbox(
-            left,
-            from_=60,
-            to=1000,
-            increment=20,
-            textvariable=self.candle_limit_var,
-            bg=self.PANEL2,
-            fg=self.TEXT,
-            buttonbackground=self.PANEL2,
-            relief="flat",
-            command=self._settings_changed,
-        )
-        self._bind_commit(candle_box)
-        candle_box.pack(fill="x", padx=18, pady=(0, 18))
-        self._label(left, "Alert score threshold", 10, self.MUTED).pack(
-            anchor="w", padx=18, pady=(0, 4)
-        )
-        score_box = tk.Spinbox(
-            left,
-            from_=1,
-            to=4,
-            increment=1,
-            textvariable=self.alert_min_score_var,
-            bg=self.PANEL2,
-            fg=self.TEXT,
-            buttonbackground=self.PANEL2,
-            relief="flat",
-            command=self._settings_changed,
-        )
-        self._bind_commit(score_box)
-        score_box.pack(fill="x", padx=18, pady=(0, 18))
+        self._spin_row(left, "Alert score threshold", self.alert_min_score_var, 1, 4, 1)
+
         self._label(right, "ENGINE & CONNECTION", 9, self.CYAN).pack(
-            anchor="w", padx=18, pady=(18, 12)
+            anchor="w", padx=16, pady=(14, 8)
         )
         self._label(right, "Deriv public WebSocket", 12).pack(
-            anchor="w", padx=18, pady=(4, 2)
+            anchor="w", padx=16, pady=(2, 2)
         )
         self.connection_detail = self._label(
             right, f"App ID {APP_ID} · awaiting connection", 10, self.MUTED
         )
-        self.connection_detail.pack(anchor="w", padx=18, pady=(0, 18))
-        self._label(right, "Signal engine", 12).pack(anchor="w", padx=18, pady=(4, 2))
+        self.connection_detail.pack(anchor="w", padx=16, pady=(0, 12))
+        self._label(right, "Signal engine", 12).pack(anchor="w", padx=16, pady=(2, 2))
         self._label(
             right,
-            "EMA 9/21/50 · RSI 14 · ATR 14 · MACD\nBollinger · Stochastic · ADX",
+            "EMA 9/21/50 · RSI 14 · ATR 14 · MACD\n"
+            "Bollinger · Stochastic · ADX · Supertrend\n"
+            "RSI/MACD divergence · correlation divergence",
             10,
             self.MUTED,
             justify="left",
-        ).pack(anchor="w", padx=18, pady=(0, 18))
+        ).pack(anchor="w", padx=16, pady=(0, 12))
         tk.Button(
             right,
             text="Export signal history as CSV",
@@ -1072,8 +1172,8 @@ class App(tk.Tk):
             fg=self.TEXT,
             relief="flat",
             padx=12,
-            pady=8,
-        ).pack(anchor="w", padx=18, pady=(4, 10))
+            pady=7,
+        ).pack(anchor="w", padx=16, pady=(2, 6))
         tk.Button(
             right,
             text="Clear local signal history",
@@ -1082,12 +1182,454 @@ class App(tk.Tk):
             fg=self.TEXT,
             relief="flat",
             padx=12,
-            pady=8,
-        ).pack(anchor="w", padx=18, pady=(4, 10))
-        self.settings_status = self._label(
-            right, "Settings are saved locally", 10, self.GREEN
+            pady=7,
+        ).pack(anchor="w", padx=16, pady=(2, 6))
+
+    def _engine_settings_tab(self, notebook):
+        _tab, left, right = self._settings_tab(notebook, "ENGINE")
+        self._label(left, "STRATEGY ENGINE", 9, self.CYAN).pack(
+            anchor="w", padx=16, pady=(14, 6)
         )
-        self.settings_status.pack(anchor="w", padx=18, pady=(12, 0))
+        self._combo_row(
+            left,
+            "Active strategy",
+            self.strategy_var,
+            [f"{spec.name} · {spec.label}" for spec in STRATEGIES.values()],
+            self._strategy_changed,
+        )
+        self._spin_row(left, "Supertrend period", self.st_period_var, 2, 100, 1)
+        self._spin_row(left, "Supertrend multiplier", self.st_mult_var, 0.5, 10.0, 0.5)
+        self._spin_row(
+            left, "Divergence lookback (bars)", self.div_lookback_var, 1, 30, 1
+        )
+        self._spin_row(left, "Correlation window", self.corr_window_var, 10, 500, 10)
+        self._spin_row(
+            left, "Correlation baseline", self.corr_baseline_var, 20, 2000, 20
+        )
+        self._check_row(left, "Show strategy overlay on chart", self.overlay_var)
+
+        self._label(right, "MULTI-STRATEGY SCAN", 9, self.CYAN).pack(
+            anchor="w", padx=16, pady=(14, 6)
+        )
+        self.strategy_help = self._label(
+            right,
+            self._strategy_description(),
+            9,
+            self.MUTED,
+            justify="left",
+            wraplength=330,
+        )
+        self.strategy_help.pack(anchor="w", padx=16, pady=(0, 8))
+        tk.Button(
+            right,
+            text="Scan selected market",
+            command=self._scan_strategies,
+            bg=self.CYAN,
+            fg=self.BG,
+            relief="flat",
+            font=("Helvetica", 10, "bold"),
+            padx=12,
+            pady=7,
+        ).pack(anchor="w", padx=16, pady=(0, 8))
+        self.engine_out = tk.Text(
+            right,
+            bg=self.PANEL2,
+            fg=self.TEXT,
+            relief="flat",
+            wrap="word",
+            font=("Courier", 9),
+            height=10,
+            padx=8,
+            pady=6,
+        )
+        self.engine_out.pack(fill="both", expand=True, padx=16, pady=(0, 12))
+        self.engine_out.insert("end", "Run a scan to score every strategy.")
+        self.engine_out.config(state="disabled")
+
+    def _local_settings_tab(self, notebook):
+        _tab, left, right = self._settings_tab(notebook, "LOCAL DATA")
+        self._label(left, "ON-DEVICE STORAGE", 9, self.CYAN).pack(
+            anchor="w", padx=16, pady=(14, 6)
+        )
+        self._check_row(
+            left, "Save candles to the local database", self.store_candles_var
+        )
+        self._check_row(left, "Save analysis snapshots", self.snapshots_var)
+        self._spin_row(left, "Keep history (days)", self.retention_var, 1, 3650, 5)
+        self._label(
+            left,
+            "Everything stays on this PC in %APPDATA%\\NEEZY.\n"
+            "Nothing is uploaded. Use NEEZY_HOME to relocate it.",
+            9,
+            self.MUTED,
+            justify="left",
+            wraplength=330,
+        ).pack(anchor="w", padx=16, pady=(10, 6))
+
+        self._label(right, "DATABASE", 9, self.CYAN).pack(
+            anchor="w", padx=16, pady=(14, 6)
+        )
+        self.db_stats_label = self._label(
+            right,
+            "Reading local database…",
+            9,
+            self.MUTED,
+            justify="left",
+            wraplength=330,
+        )
+        self.db_stats_label.pack(anchor="w", padx=16, pady=(0, 8))
+        for text, command in [
+            ("Refresh database stats", self._refresh_db_stats),
+            ("Export database to JSON", self._export_database),
+            ("Reclaim disk space (VACUUM)", self._vacuum_db),
+            ("Apply retention now", self._prune_db),
+        ]:
+            tk.Button(
+                right,
+                text=text,
+                command=command,
+                bg=self.PANEL2,
+                fg=self.TEXT,
+                relief="flat",
+                padx=12,
+                pady=6,
+            ).pack(anchor="w", padx=16, pady=3)
+        self._refresh_db_stats()
+
+    def _ai_settings_tab(self, notebook):
+        _tab, left, right = self._settings_tab(notebook, "AI PROVIDERS")
+        self._label(left, "BRING YOUR OWN KEY", 9, self.CYAN).pack(
+            anchor="w", padx=16, pady=(14, 6)
+        )
+        self._check_row(left, "Enable AI answers in CHAT", self.ai_enabled_var)
+        self._combo_row(
+            left,
+            "Provider",
+            self.ai_provider_var,
+            list(self._provider_labels),
+            self._ai_provider_changed,
+        )
+        self._label(left, "Model (free models only)", 10, self.MUTED).pack(
+            anchor="w", padx=16, pady=(6, 3)
+        )
+        self.ai_model_combo = ttk.Combobox(
+            left,
+            textvariable=self.ai_model_var,
+            values=free_models(self.settings.ai_provider),
+            state="readonly",
+        )
+        self.ai_model_combo.pack(fill="x", padx=16, pady=(0, 4))
+        self.ai_model_combo.bind(
+            "<<ComboboxSelected>>", lambda _: self._settings_changed()
+        )
+        self._entry_row(left, "Base URL (blank = provider default)", self.ai_base_var)
+        self._spin_row(left, "Temperature x10", self.ai_temp_var, 0.0, 2.0, 0.1)
+        self._spin_row(left, "Max reply tokens", self.ai_tokens_var, 64, 8192, 64)
+        self._spin_row(left, "Timeout (seconds)", self.ai_timeout_var, 5.0, 300.0, 5.0)
+        self._entry_row(left, "System prompt (blank = built-in)", self.ai_system_var)
+
+        self._label(right, "KEY POOL", 9, self.CYAN).pack(
+            anchor="w", padx=16, pady=(14, 6)
+        )
+        self.ai_provider_help = self._label(
+            right, "", 9, self.MUTED, justify="left", wraplength=330
+        )
+        self.ai_provider_help.pack(anchor="w", padx=16, pady=(0, 6))
+        self.ai_keys_list = tk.Listbox(
+            right,
+            bg=self.PANEL2,
+            fg=self.TEXT,
+            relief="flat",
+            height=6,
+            selectbackground="#204467",
+            font=("Courier", 9),
+        )
+        self.ai_keys_list.pack(fill="both", expand=True, padx=16, pady=(0, 6))
+        row = tk.Frame(right, bg=self.PANEL)
+        row.pack(fill="x", padx=16, pady=(0, 4))
+        self.ai_key_entry = tk.Entry(
+            row,
+            show="*",
+            bg=self.PANEL2,
+            fg=self.TEXT,
+            insertbackground=self.TEXT,
+            relief="flat",
+        )
+        self.ai_key_entry.pack(side="left", fill="x", expand=True, ipady=4)
+        self.ai_key_name = tk.Entry(
+            row,
+            width=12,
+            bg=self.PANEL2,
+            fg=self.TEXT,
+            insertbackground=self.TEXT,
+            relief="flat",
+        )
+        self.ai_key_name.pack(side="right", padx=(6, 0), ipady=4)
+        self.ai_key_name.insert(0, "label")
+        buttons = tk.Frame(right, bg=self.PANEL)
+        buttons.pack(fill="x", padx=16, pady=(0, 4))
+        for text, command in [
+            ("Add key", self._ai_add_key),
+            ("Remove", self._ai_remove_key),
+            ("Reset", self._ai_reset_keys),
+            ("Test", self._ai_test),
+        ]:
+            tk.Button(
+                buttons,
+                text=text,
+                command=command,
+                bg=self.PANEL2,
+                fg=self.TEXT,
+                relief="flat",
+                padx=10,
+                pady=5,
+            ).pack(side="left", padx=(0, 6))
+        self.ai_status = self._label(
+            right,
+            "Keys are stored only on this PC.",
+            9,
+            self.MUTED,
+            justify="left",
+            wraplength=330,
+        )
+        self.ai_status.pack(anchor="w", padx=16, pady=(0, 10))
+        self._ai_provider_changed(save=False)
+
+    def _strategy_name(self):
+        raw = self.strategy_var.get()
+        return raw.split("·")[0].strip() or "SUPERTREND"
+
+    def _strategy_description(self):
+        spec = STRATEGIES.get(self._strategy_name())
+        if spec is None:
+            return ""
+        return f"{spec.label}: {spec.description}"
+
+    def _strategy_changed(self):
+        if hasattr(self, "strategy_help"):
+            self.strategy_help.config(text=self._strategy_description())
+        self._settings_changed()
+
+    def _scan_strategies(self):
+        candles = self.candles.get(self.selected, [])
+        if len(candles) < 40:
+            self._write(
+                self.engine_out,
+                f"{SYMBOLS[self.selected]} is still collecting closed candles.",
+            )
+            return
+        signals = run_all(candles)
+        verdict = consensus(signals)
+        lines = [
+            f"{SYMBOLS[self.selected]} · {self.tf.get()} · {len(candles)} candles",
+            "",
+        ]
+        for signal in signals:
+            lines.append(
+                f"{signal.strategy:<14} {signal.label:<8} "
+                f"{signal.confidence:>5.0f}%  {signal.summary}"
+            )
+        lines.append("")
+        lines.append(
+            f"Consensus {verdict['label']} ({verdict['confidence']:.0f}%) "
+            f"- buy {verdict['votes']['buy']}, sell {verdict['votes']['sell']}, "
+            f"neutral {verdict['votes']['neutral']}"
+        )
+        self._write(self.engine_out, "\n".join(lines))
+
+    def _refresh_db_stats(self):
+        if self.db is None:
+            if hasattr(self, "db_stats_label"):
+                self.db_stats_label.config(
+                    text="Local database unavailable (check permissions)."
+                )
+            return
+        try:
+            stats = self.db.stats()
+        except sqlite3.Error as error:
+            self.db_stats_label.config(text=f"Database error: {error}")
+            return
+        counts = stats["counts"]
+        self.db_stats_label.config(
+            text=(
+                f"{stats['path']}\n"
+                f"{stats['size_mb']} MB · {stats['journal_mode']} journal\n"
+                f"candles {counts['candles']} · signals {counts['signals']} · "
+                f"snapshots {counts['snapshots']} · AI calls {counts['ai_calls']}"
+            )
+        )
+
+    def _export_database(self):
+        if self.db is None:
+            self.settings_status.config(text="No local database to export", fg=self.RED)
+            return
+        destination = filedialog.asksaveasfilename(
+            title="Export NEEZY database",
+            defaultextension=".json",
+            filetypes=[("JSON", "*.json"), ("All files", "*.*")],
+        )
+        if not destination:
+            return
+        try:
+            counts = self.db.export_json(destination)
+        except (OSError, sqlite3.Error) as error:
+            logger.exception("Database export failed")
+            messagebox.showerror("Export failed", str(error))
+            return
+        self.settings_status.config(
+            text=f"Exported {sum(counts.values())} rows to {destination}", fg=self.GREEN
+        )
+
+    def _vacuum_db(self):
+        if self.db is None:
+            return
+        try:
+            self.db.vacuum()
+        except sqlite3.Error as error:
+            self.settings_status.config(text=f"Vacuum failed: {error}", fg=self.RED)
+            return
+        self._refresh_db_stats()
+        self.settings_status.config(text="Database vacuumed", fg=self.GREEN)
+
+    def _prune_db(self):
+        if self.db is None:
+            return
+        try:
+            removed = self.db.prune()
+        except (sqlite3.Error, ValueError) as error:
+            self.settings_status.config(text=f"Prune failed: {error}", fg=self.RED)
+            return
+        self._refresh_db_stats()
+        self.settings_status.config(
+            text="Pruned "
+            + ", ".join(f"{key} {value}" for key, value in removed.items()),
+            fg=self.GREEN,
+        )
+
+    def _ai_provider_changed(self, save=True):
+        provider_key = self._ai_provider_key()
+        spec = PROVIDERS[provider_key]
+        models = free_models(provider_key)
+        if hasattr(self, "ai_model_combo"):
+            self.ai_model_combo.config(values=models)
+        if self.ai_model_var.get() not in models:
+            self.ai_model_var.set(models[0])
+        if hasattr(self, "ai_provider_help"):
+            self.ai_provider_help.config(
+                text=(
+                    f"{spec.label} · free models only\n"
+                    f"Get a key: {spec.key_url}\n{spec.notes}"
+                )
+            )
+        self._refresh_ai_keys()
+        if save:
+            self._settings_changed()
+
+    def _refresh_ai_keys(self):
+        if not hasattr(self, "ai_keys_list"):
+            return
+        provider_key = self._ai_provider_key()
+        statuses = self.ai_keys.statuses(provider_key)
+        self._ai_key_rows = [(provider_key, status.id) for status in statuses]
+        self.ai_keys_list.delete(0, "end")
+        if not statuses:
+            self.ai_keys_list.insert(
+                "end", "No keys yet - paste one below and press Add key"
+            )
+        for status in statuses:
+            state = "ready" if status.usable() else "cooling"
+            self.ai_keys_list.insert(
+                "end",
+                f"{status.label[:14]:<14} {status.hint:<16} "
+                f"{state:<8} uses {status.uses}",
+            )
+        if hasattr(self, "ai_status"):
+            usable = sum(1 for status in statuses if status.usable())
+            self.ai_status.config(
+                text=(
+                    f"{len(statuses)} key(s) for {PROVIDERS[provider_key].label}; "
+                    f"{usable} usable right now. Rotation is automatic when a key hits "
+                    "its quota."
+                ),
+                fg=self.GREEN if usable else self.MUTED,
+            )
+
+    def _ai_add_key(self):
+        provider_key = self._ai_provider_key()
+        secret = self.ai_key_entry.get().strip()
+        label = self.ai_key_name.get().strip()
+        if label == "label":
+            label = ""
+        try:
+            status = self.ai_keys.add(provider_key, secret, label)
+        except ValueError as error:
+            self.ai_status.config(text=str(error), fg=self.RED)
+            return
+        self.ai_key_entry.delete(0, "end")
+        self._refresh_ai_keys()
+        self.ai_status.config(
+            text=f"Added {status.label} ({status.hint}).", fg=self.GREEN
+        )
+
+    def _ai_remove_key(self):
+        selection = self.ai_keys_list.curselection()
+        if not selection or selection[0] >= len(self._ai_key_rows):
+            self.ai_status.config(text="Select a stored key first.", fg=self.RED)
+            return
+        provider_key, key_id = self._ai_key_rows[selection[0]]
+        if self.ai_keys.remove(provider_key, key_id):
+            self._refresh_ai_keys()
+            self.ai_status.config(text="Key removed.", fg=self.GREEN)
+
+    def _ai_reset_keys(self):
+        changed = self.ai_keys.reset(self._ai_provider_key())
+        self._refresh_ai_keys()
+        self.ai_status.config(
+            text=f"Cleared cooldowns on {changed} key(s).", fg=self.GREEN
+        )
+
+    def _ai_test(self):
+        if self._ai_testing:
+            return
+        provider_key = self._ai_provider_key()
+        if not self.ai_keys.secrets(provider_key):
+            self.ai_status.config(
+                text="Add at least one key for this provider first.", fg=self.RED
+            )
+            return
+        self._ai_testing = True
+        self.ai_status.config(text="Testing provider…", fg=self.MUTED)
+        model = self.ai_model_var.get() or None
+        base_url = self.ai_base_var.get().strip() or None
+        settings = self.settings
+
+        def work():
+            try:
+                result = self.ai_client.chat(
+                    provider_key,
+                    [{"role": "user", "content": "Reply with the single word OK."}],
+                    model=model,
+                    temperature=0.0,
+                    max_tokens=16,
+                    timeout=min(settings.ai_timeout, 30.0),
+                    base_url=base_url,
+                    system_prompt="You are a connectivity test. Reply OK.",
+                )
+                message = (
+                    f"OK via {result.key_label} · {result.model} · "
+                    f"{result.latency_ms} ms"
+                )
+                color = self.GREEN
+            except (AIError, OSError, ValueError) as error:
+                message, color = f"Test failed: {error}", self.RED
+            self.after(0, lambda: self._finish_ai_test(message, color))
+
+        threading.Thread(target=work, name="neezy-ai-test", daemon=True).start()
+
+    def _finish_ai_test(self, message, color):
+        self._ai_testing = False
+        self._refresh_ai_keys()
+        self.ai_status.config(text=message, fg=color)
 
     def _bind_commit(self, widget):
         """Persist typed values too, not only arrow-button changes."""
@@ -1118,11 +1660,32 @@ class App(tk.Tk):
                 polling_ms=int(self.polling_var.get()),
                 candle_limit=int(self.candle_limit_var.get()),
                 alert_min_score=int(self.alert_min_score_var.get()),
+                strategy=self._strategy_name(),
+                supertrend_period=int(self.st_period_var.get()),
+                supertrend_multiplier=float(self.st_mult_var.get()),
+                divergence_lookback=int(self.div_lookback_var.get()),
+                correlation_window=int(self.corr_window_var.get()),
+                correlation_baseline=int(self.corr_baseline_var.get()),
+                show_strategy_overlay=self.overlay_var.get(),
+                store_candles=self.store_candles_var.get(),
+                retention_days=int(self.retention_var.get()),
+                save_snapshots=self.snapshots_var.get(),
+                ai_enabled=self.ai_enabled_var.get(),
+                ai_provider=self._ai_provider_key(),
+                ai_model=self.ai_model_var.get().strip(),
+                ai_base_url=self.ai_base_var.get().strip(),
+                ai_temperature=float(self.ai_temp_var.get()),
+                ai_max_tokens=int(self.ai_tokens_var.get()),
+                ai_timeout=float(self.ai_timeout_var.get()),
+                ai_system_prompt=self.ai_system_var.get().strip(),
             )
             self.settings_store.save(candidate)
         except (ValueError, tk.TclError, OSError) as error:
             self.settings_status.config(text=str(error), fg=self.RED)
             return
+        if self.db is not None:
+            self.db.retention_days = candidate.retention_days
+            self.db.store_candles = candidate.store_candles
         should_refresh = not self.settings.auto_refresh and candidate.auto_refresh
         self.settings = candidate
         self._apply_theme()
@@ -1293,6 +1856,7 @@ class App(tk.Tk):
                 self.candles[symbol] = self.candles[symbol][
                     -self.settings.candle_limit :
                 ]
+                self._persist_candles(symbol)
                 if self.settings.auto_refresh:
                     self._refresh(symbol)
             elif msg.get("msg_type") == "ohlc" and isinstance(ohlc, dict):
@@ -1303,10 +1867,50 @@ class App(tk.Tk):
                 else:
                     current.append(row)
                 del current[: -self.settings.candle_limit]
+                self._persist_candles(symbol)
                 if self.settings.auto_refresh:
                     self._refresh(symbol)
         except (KeyError, TypeError, ValueError, OverflowError) as error:
             logger.warning("Ignoring invalid candle payload for %s: %s", symbol, error)
+
+    def _persist_candles(self, symbol):
+        if self.db is None or not self.settings.store_candles:
+            return
+        try:
+            self.db.save_candles(symbol, self.tf.get(), self.candles.get(symbol, []))
+        except (OSError, sqlite3.Error) as error:
+            logger.warning("Could not persist candles for %s: %s", symbol, error)
+
+    def _persist_snapshot(self, symbol, result):
+        if self.db is None or not self.settings.save_snapshots:
+            return
+        now = time.monotonic()
+        if now - self._snapshot_at.get(symbol, 0.0) < 60.0:
+            return
+        self._snapshot_at[symbol] = now
+        try:
+            self.db.save_snapshot(symbol=symbol, timeframe=self.tf.get(), result=result)
+        except (OSError, sqlite3.Error, TypeError, ValueError) as error:
+            logger.warning("Could not persist snapshot for %s: %s", symbol, error)
+
+    def _persist_signal(self, symbol, signal, result, price):
+        if self.db is None:
+            return
+        try:
+            strategy = self.settings.strategy
+            self.db.save_signal(
+                symbol=symbol,
+                timeframe=self.tf.get(),
+                signal=signal,
+                score=result["score"],
+                price=price,
+                strategy=strategy,
+                direction=1 if "BUY" in signal else -1 if "SELL" in signal else 0,
+                confidence=abs(result["score"]) / 4.0 * 100.0,
+                payload={"regime": result.get("regime"), "rsi": result.get("rsi")},
+            )
+        except (OSError, sqlite3.Error, TypeError, ValueError) as error:
+            logger.warning("Could not persist signal for %s: %s", symbol, error)
 
     def _fmt(self, s, p):
         return format_price(s, p)
@@ -1317,6 +1921,7 @@ class App(tk.Tk):
         if not result:
             return
         self.results[symbol] = result
+        self._persist_snapshot(symbol, result)
         action = price_action_summary(candles[:-1])
         self.price_action[symbol] = action
         self._evaluate_alerts(symbol, result, candles[-1][4], action["patterns"])
@@ -1332,6 +1937,7 @@ class App(tk.Tk):
                     price=candles[-1][4],
                     score=result["score"],
                 )
+                self._persist_signal(symbol, signal, result, candles[-1][4])
                 self.history.append(record)
                 self.history = self.history[-1000:]
                 self._render_history()
@@ -1554,10 +2160,70 @@ class App(tk.Tk):
         question = self.prompt.get().strip()
         if not question:
             return
-        answer = self._answer(question)
-        self.chat.insert("end", f"\nYOU\n{question}\n\nNEEZY\n{answer}\n")
-        self.chat.see("end")
         self.prompt.delete(0, "end")
+        self.chat.insert("end", f"\nYOU\n{question}\n\nNEEZY\n")
+        self.chat.see("end")
+        if not self.settings.ai_enabled:
+            self.chat.insert("end", self._answer(question) + "\n")
+            self.chat.see("end")
+            return
+        provider = self.settings.ai_provider
+        if not self.ai_keys.secrets(provider):
+            self.chat.insert(
+                "end",
+                f"No {provider} key is stored yet, so here is the local read. "
+                "Add a key in SETTINGS → AI PROVIDERS.\n"
+                + self._answer(question)
+                + "\n",
+            )
+            self.chat.see("end")
+            return
+        snapshot = market_snapshot(
+            self.candles.get(self.selected, []),
+            symbol=self.selected,
+            timeframe=self.tf.get(),
+            strategy=self.settings.strategy,
+            supertrend_period=self.settings.supertrend_period,
+            supertrend_multiplier=self.settings.supertrend_multiplier,
+            divergence_lookback=self.settings.divergence_lookback,
+        )
+        context = format_context(snapshot) if snapshot else "No live context yet."
+        messages = chat_messages(question, context)
+        self.status_var.set(f"Asking {provider}…")
+        settings = self.settings
+
+        def work():
+            try:
+                result = self.ai_client.chat(
+                    provider,
+                    messages,
+                    model=settings.ai_model or None,
+                    temperature=settings.ai_temperature,
+                    max_tokens=settings.ai_max_tokens,
+                    timeout=settings.ai_timeout,
+                    base_url=settings.ai_base_url or None,
+                    system_prompt=settings.ai_system_prompt or None,
+                )
+                text = (
+                    f"{result.text}\n[{result.provider} · {result.model} · "
+                    f"key {result.key_label} · {result.latency_ms} ms]"
+                )
+            except (AIError, OSError, ValueError) as error:
+                text = (
+                    f"AI unavailable ({error}). Local read instead:\n"
+                    f"{self._answer(question)}"
+                )
+            except Exception as error:
+                logger.exception("AI request failed")
+                text = f"AI request failed: {error}"
+            self.after(0, lambda: self._append_ai(text))
+
+        threading.Thread(target=work, name="neezy-ai-chat", daemon=True).start()
+
+    def _append_ai(self, text):
+        self.chat.insert("end", text + "\n")
+        self.chat.see("end")
+        self.status_var.set("AI answer ready")
 
     def _answer(self, question):
         """Rule-based copilot: route the question to the matching live context."""
@@ -1634,6 +2300,11 @@ class App(tk.Tk):
     def _close(self):
         self.client.stop()
         self.bus.unsubscribe(self.inbox)
+        if self.db is not None:
+            try:
+                self.db.close()
+            except sqlite3.Error:
+                logger.warning("Could not close the local database cleanly")
         self.destroy()
 
 
