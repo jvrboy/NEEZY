@@ -1938,7 +1938,10 @@ class App(tk.Tk):
         if self.db is None or not self.settings.save_snapshots:
             return
         now = time.monotonic()
-        if now - self._snapshot_at.get(symbol, 0.0) < 60.0:
+        last = self._snapshot_at.get(symbol)
+        # monotonic() can be under 60 s on a freshly booted machine, so a
+        # symbol with no previous snapshot must not be compared against zero.
+        if last is not None and now - last < 60.0:
             return
         self._snapshot_at[symbol] = now
         try:

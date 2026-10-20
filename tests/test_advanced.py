@@ -86,6 +86,131 @@ class AgentAndMemoryTests(unittest.TestCase):
         self.assertIn(symbol, SYMBOLS)
 
 
+def _drift_candles(count: int) -> list[tuple[int, float, float, float, float]]:
+    candles, previous = [], 1.1
+    for index in range(count):
+        close = previous + 0.00001
+        candles.append(
+            (
+                index * 900,
+                previous,
+                max(previous, close) + 0.0004,
+                min(previous, close) - 0.0004,
+                close,
+            )
+        )
+        previous = close
+    return candles
+
+
+class DefaultToolTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        env = mock.patch.dict(os.environ, {"NEEZY_HOME": self._tmp.name})
+        env.start()
+        self.addCleanup(env.stop)
+
+    def _registry(self):
+        from neezy_backend.tools import ToolRegistry, register_default_tools
+
+        registry = ToolRegistry()
+        register_default_tools(registry)
+        return registry
+
+    def test_new_tools_carry_the_right_permissions(self) -> None:
+        permissions = {
+            tool["name"]: tool["permission"] for tool in self._registry().list_tools()
+        }
+        self.assertEqual(permissions["scan_strategies"], "READ_ONLY")
+        self.assertEqual(permissions["plan_risk"], "READ_ONLY")
+        self.assertEqual(permissions["search_memory"], "READ_ONLY")
+        self.assertEqual(permissions["recent_signals"], "READ_ONLY")
+        self.assertEqual(permissions["add_memory"], "WRITE")
+
+    def test_scan_strategies_reports_consensus_for_fetched_candles(self) -> None:
+        with mock.patch(
+            "neezy_backend.stream.fetch_candles", return_value=_drift_candles(120)
+        ) as fetch:
+            # The tool binds fetch_candles at registration, so register inside
+            # the patch.
+            output = self._registry().execute("scan_strategies", dry_run=False)
+        self.assertEqual(fetch.call_args.args, ("frxEURUSD", 900, 300))
+        self.assertIn("Market: frxEURUSD (15m)", output)
+        self.assertIn("Consensus:", output)
+
+    def test_scan_strategies_rejects_unknown_market(self) -> None:
+        with self.assertRaises(ValueError):
+            self._registry().execute("scan_strategies", symbol="NOPE")
+
+    def test_plan_risk_accepts_string_arguments_from_the_agent(self) -> None:
+        output = self._registry().execute(
+            "plan_risk",
+            dry_run=False,
+            symbol="frxEURUSD",
+            balance="10000",
+            risk_percent="1",
+            entry="1.1000",
+            stop="1.0950",
+        )
+        self.assertTrue(output.startswith("BUY frxEURUSD lots="))
+        self.assertIn("target=1.11", output)
+
+    def test_plan_risk_rejects_stop_equal_to_entry(self) -> None:
+        with self.assertRaises(ValueError):
+            self._registry().execute(
+                "plan_risk",
+                dry_run=False,
+                symbol="frxEURUSD",
+                balance=10000,
+                risk_percent=1,
+                entry=1.1,
+                stop=1.1,
+            )
+
+    def test_memory_round_trip_through_the_local_database(self) -> None:
+        registry = self._registry()
+        saved = registry.execute(
+            "add_memory",
+            dry_run=False,
+            content="Volatility spike after news",
+            category="notes",
+        )
+        self.assertEqual(saved, "Memory saved as #1")
+        found = registry.execute("search_memory", dry_run=False, query="volatility")
+        self.assertIn("#1 [notes] Volatility spike after news", found)
+        self.assertEqual(
+            registry.execute("search_memory", dry_run=False, query="unrelated"),
+            "No matching memory.",
+        )
+
+    def test_add_memory_rejects_blank_content(self) -> None:
+        with self.assertRaises(ValueError):
+            self._registry().execute("add_memory", dry_run=False, content="   ")
+
+    def test_recent_signals_lists_saved_rows_newest_first(self) -> None:
+        from neezy_backend.database import LocalDatabase
+
+        registry = self._registry()
+        self.assertEqual(
+            registry.execute("recent_signals", dry_run=False), "No saved signals."
+        )
+        with LocalDatabase() as database:
+            database.save_signal(
+                symbol="frxEURUSD", timeframe="15m", signal="BUY", score=3.0
+            )
+            database.save_signal(
+                symbol="frxGBPUSD", timeframe="1h", signal="SELL", score=-2.0
+            )
+        lines = registry.execute(
+            "recent_signals", dry_run=False, limit="5"
+        ).splitlines()
+        self.assertEqual(len(lines), 2)
+        self.assertIn("frxGBPUSD 1h SELL", lines[0])
+        only_eur = registry.execute("recent_signals", dry_run=False, symbol="frxEURUSD")
+        self.assertEqual(len(only_eur.splitlines()), 1)
+
+
 class ToolRegistryTests(unittest.TestCase):
     def test_registry_registration_and_dry_run(self) -> None:
         registry = ToolRegistry()

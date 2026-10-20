@@ -108,10 +108,18 @@ class ToolRegistry:
 DEFAULT_REGISTRY = ToolRegistry()
 
 
+def _bounded(value: Any, low: int, high: int) -> int:
+    """Coerce an agent-supplied count (often a string) into ``[low, high]``."""
+    return min(max(int(value), low), high)
+
+
 def register_default_tools(registry: ToolRegistry = DEFAULT_REGISTRY) -> None:
     """Populate default registry with core NEEZY capabilities."""
+    from neezy_backend.database import LocalDatabase
     from neezy_backend.markets import SYMBOLS, granularity
+    from neezy_backend.risk import position_size
     from neezy_backend.storage import create_local_backup, restore_local_backup
+    from neezy_backend.strategies import consensus, run_all
     from neezy_backend.stream import fetch_candles
 
     def tool_read_market(symbol: str = "frxEURUSD", timeframe: str = "15m") -> str:
@@ -134,6 +142,86 @@ def register_default_tools(registry: ToolRegistry = DEFAULT_REGISTRY) -> None:
         restored = restore_local_backup(archive_path)
         return f"Restored files: {', '.join(restored)}"
 
+    def tool_scan_strategies(symbol: str = "frxEURUSD", timeframe: str = "15m") -> str:
+        if symbol not in SYMBOLS:
+            raise ValueError(
+                f"Unknown market {symbol!r}; choose from {', '.join(SYMBOLS)}"
+            )
+        candles = fetch_candles(symbol, granularity(timeframe), 300)
+        if len(candles) < 61:
+            return f"Not enough candles to scan {symbol} ({len(candles)} fetched)."
+        signals = run_all(candles)
+        verdict = consensus(signals)
+        lines = [
+            f"Market: {symbol} ({timeframe})",
+            f"Consensus: {verdict['label']} ({verdict['confidence']}%) "
+            f"votes {verdict['votes']}",
+        ]
+        lines.extend(
+            f"- {signal.strategy}: {signal.label} {signal.confidence:.0f}% "
+            f"- {signal.summary}"
+            for signal in signals
+        )
+        return "\n".join(lines)
+
+    def tool_plan_risk(
+        symbol: str,
+        balance: float,
+        risk_percent: float,
+        entry: float,
+        stop: float,
+        reward_to_risk: float = 2.0,
+    ) -> str:
+        if symbol not in SYMBOLS:
+            raise ValueError(
+                f"Unknown market {symbol!r}; choose from {', '.join(SYMBOLS)}"
+            )
+        plan = position_size(
+            symbol=symbol,
+            balance=float(balance),
+            risk_percent=float(risk_percent),
+            entry=float(entry),
+            stop=float(stop),
+            reward_to_risk=float(reward_to_risk),
+        )
+        data = plan.to_dict()
+        return (
+            f"{data['direction']} {symbol} lots={data['lots']} "
+            f"units={data['units']} entry={data['entry']} stop={data['stop']} "
+            f"target={data['target']} risk={data['risk_amount']:.2f} "
+            f"reward={data['reward_amount']:.2f} R:R={data['reward_to_risk']}"
+        )
+
+    def tool_search_memory(query: str, limit: int = 5) -> str:
+        with LocalDatabase() as database:
+            rows = database.search_memory(query, limit=_bounded(limit, 1, 50))
+        if not rows:
+            return "No matching memory."
+        return "\n".join(
+            f"#{row['id']} [{row['category']}] {row['content']}" for row in rows
+        )
+
+    def tool_add_memory(content: str, category: str = "general") -> str:
+        text = content.strip()
+        if not text:
+            raise ValueError("content must not be empty")
+        with LocalDatabase() as database:
+            item_id = database.add_memory(text, category=category.strip() or "general")
+        return f"Memory saved as #{item_id}"
+
+    def tool_recent_signals(limit: int = 10, symbol: str = "") -> str:
+        with LocalDatabase() as database:
+            rows = database.recent_signals(
+                limit=_bounded(limit, 1, 100), symbol=symbol.strip() or None
+            )
+        if not rows:
+            return "No saved signals."
+        return "\n".join(
+            f"{row['created_at']} {row['symbol']} {row['timeframe']} "
+            f"{row['signal']} score={row['score']:.1f}"
+            for row in rows
+        )
+
     registry.register(
         "read_market",
         "Fetch indicator snapshot, Supertrend, divergence, and strategy consensus.",
@@ -151,6 +239,36 @@ def register_default_tools(registry: ToolRegistry = DEFAULT_REGISTRY) -> None:
         "Restore local NEEZY state files from a zip archive.",
         tool_backup_restore,
         permission=ToolPermission.DESTRUCTIVE,
+    )
+    registry.register(
+        "scan_strategies",
+        "Run every single-market strategy on fresh candles and return the consensus.",
+        tool_scan_strategies,
+        permission=ToolPermission.READ_ONLY,
+    )
+    registry.register(
+        "plan_risk",
+        "Size a position from account balance, risk percent, entry and stop prices.",
+        tool_plan_risk,
+        permission=ToolPermission.READ_ONLY,
+    )
+    registry.register(
+        "search_memory",
+        "Full-text search the saved NEEZY memory notes.",
+        tool_search_memory,
+        permission=ToolPermission.READ_ONLY,
+    )
+    registry.register(
+        "add_memory",
+        "Save a note to NEEZY memory for later search.",
+        tool_add_memory,
+        permission=ToolPermission.WRITE,
+    )
+    registry.register(
+        "recent_signals",
+        "List the most recently saved signals, optionally for one market.",
+        tool_recent_signals,
+        permission=ToolPermission.READ_ONLY,
     )
 
 
