@@ -76,6 +76,123 @@ def atr(
     return average
 
 
+def sma(values: Sequence[float], period: int) -> list[float | None]:
+    """Simple moving average aligned with ``values`` (None until warmed up)."""
+    if period < 1:
+        raise ValueError("period must be positive")
+    result: list[float | None] = []
+    window_sum = 0.0
+    for index, value in enumerate(values):
+        window_sum += float(value)
+        if index >= period:
+            window_sum -= float(values[index - period])
+        result.append(window_sum / period if index >= period - 1 else None)
+    return result
+
+
+def bollinger(
+    closes: Sequence[float], period: int = 20, deviations: float = 2.0
+) -> dict[str, float] | None:
+    """Latest Bollinger Bands with %B and bandwidth, using population deviation."""
+    if period < 2:
+        raise ValueError("period must be at least 2")
+    if deviations <= 0:
+        raise ValueError("deviations must be positive")
+    if len(closes) < period:
+        return None
+    window = [float(value) for value in closes[-period:]]
+    middle = sum(window) / period
+    deviation = math.sqrt(sum((value - middle) ** 2 for value in window) / period)
+    upper, lower = middle + deviations * deviation, middle - deviations * deviation
+    width = upper - lower
+    return {
+        "upper": upper,
+        "middle": middle,
+        "lower": lower,
+        "percent_b": (window[-1] - lower) / width if width else 0.5,
+        "bandwidth": width / middle if middle else 0.0,
+    }
+
+
+def stochastic(
+    highs: Sequence[float],
+    lows: Sequence[float],
+    closes: Sequence[float],
+    period: int = 14,
+    smooth: int = 3,
+) -> dict[str, float] | None:
+    """Latest stochastic oscillator %K and its ``smooth``-period %D."""
+    if period < 1 or smooth < 1:
+        raise ValueError("period and smooth must be positive")
+    if len(highs) != len(lows) or len(lows) != len(closes):
+        return None
+    if len(closes) < period + smooth - 1:
+        return None
+    k_values = []
+    for end in range(len(closes) - smooth + 1, len(closes) + 1):
+        high = max(highs[end - period : end])
+        low = min(lows[end - period : end])
+        span = high - low
+        k_values.append((closes[end - 1] - low) / span * 100.0 if span else 50.0)
+    return {"k": k_values[-1], "d": sum(k_values) / len(k_values)}
+
+
+def adx(
+    highs: Sequence[float],
+    lows: Sequence[float],
+    closes: Sequence[float],
+    period: int = 14,
+) -> dict[str, float] | None:
+    """Wilder's Average Directional Index with +DI and -DI."""
+    if period < 1:
+        raise ValueError("period must be positive")
+    if len(highs) != len(lows) or len(lows) != len(closes):
+        return None
+    if len(closes) < 2 * period + 1:
+        return None
+    true_ranges, plus_dm, minus_dm = [], [], []
+    for i in range(1, len(closes)):
+        up_move = highs[i] - highs[i - 1]
+        down_move = lows[i - 1] - lows[i]
+        plus_dm.append(up_move if up_move > down_move and up_move > 0 else 0.0)
+        minus_dm.append(down_move if down_move > up_move and down_move > 0 else 0.0)
+        true_ranges.append(
+            max(
+                highs[i] - lows[i],
+                abs(highs[i] - closes[i - 1]),
+                abs(lows[i] - closes[i - 1]),
+            )
+        )
+    smoothed_tr = sum(true_ranges[:period])
+    smoothed_plus = sum(plus_dm[:period])
+    smoothed_minus = sum(minus_dm[:period])
+
+    def directional() -> tuple[float, float, float]:
+        if not smoothed_tr:
+            return 0.0, 0.0, 0.0
+        plus_di = 100.0 * smoothed_plus / smoothed_tr
+        minus_di = 100.0 * smoothed_minus / smoothed_tr
+        total = plus_di + minus_di
+        return (
+            plus_di,
+            minus_di,
+            100.0 * abs(plus_di - minus_di) / total if total else 0.0,
+        )
+
+    plus_di, minus_di, dx = directional()
+    dx_values = [dx]
+    for i in range(period, len(true_ranges)):
+        smoothed_tr = smoothed_tr - smoothed_tr / period + true_ranges[i]
+        smoothed_plus = smoothed_plus - smoothed_plus / period + plus_dm[i]
+        smoothed_minus = smoothed_minus - smoothed_minus / period + minus_dm[i]
+        plus_di, minus_di, dx = directional()
+        dx_values.append(dx)
+    average = sum(dx_values[:period]) / period
+    for value in dx_values[period:]:
+        average = (average * (period - 1) + value) / period
+    return {"adx": average, "plus_di": plus_di, "minus_di": minus_di}
+
+
 def _validated_candles(
     candles: Sequence[Candle],
 ) -> list[tuple[float, float, float, float, float]]:
@@ -116,6 +233,9 @@ def analyze(candles: Sequence[Candle]) -> dict[str, Any] | None:
     ]
     current_rsi = rsi(closes)
     current_atr = atr(highs, lows, closes)
+    bands = bollinger(closes)
+    stoch = stochastic(highs, lows, closes)
+    directional = adx(highs, lows, closes)
     last = closes[-1]
 
     score = 0
@@ -187,6 +307,23 @@ def analyze(candles: Sequence[Candle]) -> dict[str, Any] | None:
         "ema9": ema9[-1],
         "ema21": ema21[-1],
         "ema50": ema50[-1],
+        "bollinger": bands,
+        "stochastic": stoch,
+        "adx": directional,
+        "regime": _regime(directional, bands),
         "closes": closes,
         "closed_candles": len(closed),
     }
+
+
+def _regime(
+    directional: dict[str, float] | None, bands: dict[str, float] | None
+) -> str:
+    """Describe market conditions; informational only, it does not affect score."""
+    if directional is None:
+        return "Unknown"
+    if directional["adx"] >= 25:
+        return "Trending"
+    if bands is not None and bands["bandwidth"] < 0.002:
+        return "Squeeze"
+    return "Ranging"

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import math
 import threading
+from collections.abc import Mapping
 from typing import Any
 
 import websocket
@@ -125,3 +127,71 @@ class DerivStreamClient:
         thread = self._thread
         if thread is not None and thread is not threading.current_thread():
             thread.join(timeout=max(0.0, timeout))
+
+
+def parse_candle(
+    candle: Mapping[str, Any], time_key: str = "epoch"
+) -> tuple[int, float, float, float, float]:
+    """Convert a Deriv candle/ohlc payload into a validated OHLC five-tuple."""
+    timestamp = int(candle[time_key])
+    values = [float(candle[name]) for name in ("open", "high", "low", "close")]
+    if not all(math.isfinite(value) and value > 0 for value in values):
+        raise ValueError("OHLC prices must be finite positive numbers")
+    open_, high, low, close = values
+    if high < max(open_, close) or low > min(open_, close) or high < low:
+        raise ValueError("inconsistent OHLC values")
+    return (timestamp, open_, high, low, close)
+
+
+def parse_history_response(
+    message: Mapping[str, Any],
+) -> list[tuple[int, float, float, float, float]]:
+    """Validate a ``ticks_history`` candles response, raising on API errors."""
+    error = message.get("error")
+    if error:
+        detail = error.get("message") if isinstance(error, Mapping) else error
+        raise RuntimeError(f"Deriv API error: {detail}")
+    rows = message.get("candles")
+    if not isinstance(rows, list):
+        raise ValueError("response did not contain a candles list")
+    candles = [parse_candle(row) for row in rows]
+    return sorted({row[0]: row for row in candles}.values())
+
+
+def fetch_candles(
+    symbol: str,
+    granularity: int,
+    count: int = 1000,
+    *,
+    url: str,
+    timeout: float = 20.0,
+) -> list[tuple[int, float, float, float, float]]:
+    """One-shot (non-streaming) request for historical candles, oldest first."""
+    if not 1 <= count <= 5000:
+        raise ValueError("count must be between 1 and 5000 (Deriv API limit)")
+    request = {
+        "ticks_history": symbol,
+        "adjust_start_time": 1,
+        "count": count,
+        "end": "latest",
+        "granularity": granularity,
+        "style": "candles",
+    }
+    try:
+        connection = websocket.create_connection(url, timeout=timeout)
+    except websocket.WebSocketException as error:
+        raise ConnectionError(
+            f"Could not reach market data service: {error}"
+        ) from error
+    try:
+        connection.send(json.dumps(request))
+        while True:
+            message = json.loads(connection.recv())
+            if message.get("msg_type") in {"candles", "ticks_history"} or message.get(
+                "error"
+            ):
+                return parse_history_response(message)
+    except websocket.WebSocketException as error:
+        raise ConnectionError(f"Market data request failed: {error}") from error
+    finally:
+        connection.close()

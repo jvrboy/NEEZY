@@ -77,8 +77,18 @@ class SignalHistoryStore:
 
     FIELDS = ("timestamp", "symbol", "previous", "current", "price", "score")
 
-    def __init__(self, path: Path | None = None) -> None:
+    def __init__(
+        self,
+        path: Path | None = None,
+        *,
+        max_bytes: int = 2_000_000,
+        keep_records: int = 5000,
+    ) -> None:
+        if max_bytes < 1 or keep_records < 1:
+            raise ValueError("max_bytes and keep_records must be positive")
         self.path = path or get_data_dir() / "signal-history.jsonl"
+        self.max_bytes = max_bytes
+        self.keep_records = keep_records
 
     def append(
         self, *, symbol: str, previous: str, current: str, price: float, score: int
@@ -94,7 +104,44 @@ class SignalHistoryStore:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("a", encoding="utf-8") as stream:
             stream.write(json.dumps(record, ensure_ascii=False) + "\n")
+        try:
+            if self.path.stat().st_size > self.max_bytes:
+                self.compact()
+        except OSError:
+            pass
         return record
+
+    def compact(self, keep: int | None = None) -> int:
+        """Atomically rewrite the file with only the newest valid records."""
+        records = self.read(limit=keep or self.keep_records)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        fd, temporary = tempfile.mkstemp(
+            prefix=f".{self.path.name}.", dir=self.path.parent, text=True
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as stream:
+                for record in records:
+                    stream.write(json.dumps(record, ensure_ascii=False) + "\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, self.path)
+        except Exception:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
+            raise
+        return len(records)
+
+    def summary(self, limit: int = 100_000) -> dict[str, Any]:
+        """Transition counts per symbol and per resulting signal."""
+        by_symbol: dict[str, int] = {}
+        by_signal: dict[str, int] = {}
+        records = self.read(limit=limit)
+        for record in records:
+            by_symbol[record["symbol"]] = by_symbol.get(record["symbol"], 0) + 1
+            by_signal[record["current"]] = by_signal.get(record["current"], 0) + 1
+        return {"total": len(records), "by_symbol": by_symbol, "by_signal": by_signal}
 
     def read(self, limit: int = 1000) -> list[dict[str, Any]]:
         if limit < 0:

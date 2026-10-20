@@ -8,44 +8,37 @@ not place trades, and its signals are not investment advice.
 from __future__ import annotations
 
 import logging
-import math
+import threading
 import tkinter as tk
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
+from neezy_backend.alerts import (
+    METRICS,
+    OPERATORS,
+    AlertEngine,
+    AlertRule,
+    AlertRuleStore,
+)
+from neezy_backend.analytics import (
+    correlation_matrix,
+    rank_opportunities,
+    strongest_pairs,
+)
+from neezy_backend.backtest import BacktestConfig, run_backtest
 from neezy_backend.config import AppSettings
 from neezy_backend.events import EventBus
-from neezy_backend.indicators import analyze
+from neezy_backend.indicators import analyze, ema
+from neezy_backend.markets import APP_ID, SYMBOLS, TIMEFRAMES, WS_URL, format_price
+from neezy_backend.patterns import price_action_summary
+from neezy_backend.risk import atr_levels, position_size
 from neezy_backend.storage import SettingsStore, SignalHistoryStore
-from neezy_backend.stream import DerivStreamClient
+from neezy_backend.stream import DerivStreamClient, fetch_candles, parse_candle
 
 logger = logging.getLogger(__name__)
-APP_ID = 1089
-WS_URL = f"wss://ws.derivws.com/websockets/v3?app_id={APP_ID}"
-SYMBOLS = {
-    "frxEURUSD": "EUR/USD",
-    "frxGBPUSD": "GBP/USD",
-    "frxUSDJPY": "USD/JPY",
-    "frxAUDUSD": "AUD/USD",
-    "frxUSDCAD": "USD/CAD",
-    "frxUSDCHF": "USD/CHF",
-    "frxNZDUSD": "NZD/USD",
-    "frxEURGBP": "EUR/GBP",
-    "frxEURJPY": "EUR/JPY",
-    "frxGBPJPY": "GBP/JPY",
-    "R_100": "Volatility 100",
-}
-TIMEFRAMES = {
-    "1m": 60,
-    "5m": 300,
-    "15m": 900,
-    "30m": 1800,
-    "1h": 3600,
-    "4h": 14400,
-    "1d": 86400,
-}
 HISTORY = 300
+NAV = ["CHAT", "SYMBOLS", "CHART", "SIGNALS", "TOOLS", "ALERTS", "HISTORY", "SETTINGS"]
 
 
 class App(tk.Tk):
@@ -70,9 +63,13 @@ class App(tk.Tk):
         self.bus = EventBus(subscriber_queue_size=2500)
         self.inbox = self.bus.subscribe()
         self.client = DerivStreamClient(WS_URL, self.bus)
+        self.alert_store = AlertRuleStore()
+        self.alert_engine = AlertEngine(self.alert_store.load())
         self.gran = 300
         self.candles = {}
         self.results = {}
+        self.price_action = {}
+        self._backtest_running = False
         self.last_signal = {}
         self.selected = "frxEURUSD"
         self.history = self.history_store.read(limit=1000)
@@ -101,6 +98,13 @@ class App(tk.Tk):
             fieldbackground=self.PANEL2,
             background=self.PANEL2,
             foreground=self.TEXT,
+        )
+        style.map(
+            "TCombobox",
+            fieldbackground=[("readonly", self.PANEL2)],
+            foreground=[("readonly", self.TEXT)],
+            selectbackground=[("readonly", self.PANEL2)],
+            selectforeground=[("readonly", self.TEXT)],
         )
         style.configure(
             "Treeview",
@@ -247,7 +251,7 @@ class App(tk.Tk):
             font=("Helvetica", 8),
         ).pack(anchor="w", padx=23, pady=(0, 35))
         self.nav = {}
-        for name in ["CHAT", "SYMBOLS", "CHART", "SIGNALS", "HISTORY", "SETTINGS"]:
+        for name in NAV:
             b = tk.Button(
                 side,
                 text="  " + name,
@@ -261,9 +265,9 @@ class App(tk.Tk):
                 bd=0,
                 font=("Helvetica", 10, "bold"),
                 padx=18,
-                pady=13,
+                pady=9,
             )
-            b.pack(fill="x", padx=10, pady=2)
+            b.pack(fill="x", padx=10, pady=1)
             self.nav[name] = b
         self.nav["SIGNALS"].configure(fg=self.CYAN, bg=self.PANEL2)
         tk.Label(
@@ -272,7 +276,7 @@ class App(tk.Tk):
             bg=side.cget("bg"),
             fg=self.MUTED,
             font=("Helvetica", 8, "bold"),
-        ).pack(anchor="w", padx=23, pady=(45, 8))
+        ).pack(anchor="w", padx=23, pady=(28, 8))
         self.conn = tk.Label(
             side,
             text="●  Connecting",
@@ -305,7 +309,7 @@ class App(tk.Tk):
         self.nb = ttk.Notebook(self.main)
         self.nb.pack(fill="both", expand=True, padx=28, pady=(0, 28))
         self.pages = {}
-        for name in ["CHAT", "SYMBOLS", "CHART", "SIGNALS", "HISTORY", "SETTINGS"]:
+        for name in NAV:
             page = tk.Frame(self.nb, bg=self.BG)
             self.nb.add(page, text=name)
             self.pages[name] = page
@@ -313,9 +317,11 @@ class App(tk.Tk):
         self._symbols_page()
         self._chart_page()
         self._chat_page()
+        self._tools_page()
+        self._alerts_page()
         self._history_page()
         self._settings_page()
-        self.nb.select(3)
+        self.nb.select(self.pages["SIGNALS"])
 
     def _tab(self, name):
         self.nb.select(self.pages[name])
@@ -360,7 +366,7 @@ class App(tk.Tk):
         right.pack(side="right", fill="both", expand=False)
         right.configure(width=320)
         right.pack_propagate(False)
-        cols = ("pair", "price", "signal", "score", "rsi", "updated")
+        cols = ("pair", "price", "signal", "score", "rsi", "regime", "updated")
         self.tree = ttk.Treeview(left, columns=cols, show="headings")
         for c, t, w in [
             ("pair", "MARKET", 170),
@@ -368,6 +374,7 @@ class App(tk.Tk):
             ("signal", "BIAS", 120),
             ("score", "SCORE", 65),
             ("rsi", "RSI", 60),
+            ("regime", "REGIME", 90),
             ("updated", "UPDATED", 80),
         ]:
             self.tree.heading(c, text=t)
@@ -378,7 +385,7 @@ class App(tk.Tk):
         self.tree.bind("<<TreeviewSelect>>", lambda e: self._select())
         for s, n in SYMBOLS.items():
             self.tree.insert(
-                "", "end", iid=s, values=(n, "—", "Loading", "—", "—", "—")
+                "", "end", iid=s, values=(n, "—", "Loading", "—", "—", "—", "—")
             )
         self.detail = tk.Text(
             right,
@@ -476,6 +483,418 @@ class App(tk.Tk):
             padx=22,
             pady=9,
         ).pack(side="right", padx=(10, 0))
+
+    def _field(self, parent, label, variable, width=10):
+        row = tk.Frame(parent, bg=parent.cget("bg"))
+        row.pack(fill="x", padx=16, pady=3)
+        self._label(row, label, 9, self.MUTED).pack(side="left")
+        tk.Entry(
+            row,
+            textvariable=variable,
+            width=width,
+            bg=self.PANEL2,
+            fg=self.TEXT,
+            insertbackground=self.TEXT,
+            relief="flat",
+            justify="right",
+        ).pack(side="right", ipady=3)
+        return row
+
+    def _output(self, parent, height=12):
+        text = tk.Text(
+            parent,
+            bg=self.PANEL2,
+            fg=self.TEXT,
+            relief="flat",
+            wrap="word",
+            font=("Courier", 9),
+            padx=10,
+            pady=8,
+            height=height,
+            width=28,
+        )
+        text.pack(fill="both", expand=True, padx=16, pady=(8, 16))
+        text.insert("end", "—")
+        text.config(state="disabled")
+        return text
+
+    @staticmethod
+    def _write(widget, content):
+        widget.config(state="normal")
+        widget.delete("1.0", "end")
+        widget.insert("end", content)
+        widget.config(state="disabled")
+
+    def _action_button(self, parent, text, command):
+        button = tk.Button(
+            parent,
+            text=text,
+            command=command,
+            bg=self.CYAN,
+            fg=self.BG,
+            activebackground=self.PANEL2,
+            relief="flat",
+            font=("Helvetica", 9, "bold"),
+            padx=12,
+            pady=6,
+        )
+        button.pack(anchor="w", padx=16, pady=(8, 0))
+        return button
+
+    def _tools_page(self):
+        page = self.pages["TOOLS"]
+        self._label(page, "Trader toolkit", 16).pack(anchor="w", pady=(5, 4))
+        self._label(
+            page,
+            "Risk planning, walk-forward backtests, and cross-market ranking "
+            "for the selected market.",
+            10,
+            self.MUTED,
+        ).pack(anchor="w", pady=(0, 14))
+        grid = tk.Frame(page, bg=self.BG)
+        grid.pack(fill="both", expand=True)
+        risk, test, rank = self._panel(grid), self._panel(grid), self._panel(grid)
+        for index, panel in enumerate((risk, test, rank)):
+            panel.pack(
+                side="left", fill="both", expand=True, padx=(0 if index == 0 else 6, 0)
+            )
+
+        self._label(risk, "RISK PLANNER", 9, self.CYAN).pack(
+            anchor="w", padx=16, pady=(14, 8)
+        )
+        self.risk_vars = {
+            "balance": tk.StringVar(value="10000"),
+            "risk": tk.StringVar(value="1.0"),
+            "stop_atr": tk.StringVar(value="1.5"),
+            "reward": tk.StringVar(value="2.0"),
+            "pip_value": tk.StringVar(value="10"),
+        }
+        for key, label in [
+            ("balance", "Account balance"),
+            ("risk", "Risk per trade (%)"),
+            ("stop_atr", "Stop distance (x ATR)"),
+            ("reward", "Reward : risk"),
+            ("pip_value", "Pip value / lot"),
+        ]:
+            self._field(risk, label, self.risk_vars[key])
+        self._action_button(risk, "Plan selected market", self._plan_risk)
+        self.risk_out = self._output(risk)
+
+        self._label(test, "BACKTEST", 9, self.CYAN).pack(
+            anchor="w", padx=16, pady=(14, 8)
+        )
+        self.test_vars = {
+            "min_score": tk.StringVar(value="2"),
+            "stop_atr": tk.StringVar(value="1.5"),
+            "reward": tk.StringVar(value="2.0"),
+            "count": tk.StringVar(value="2000"),
+        }
+        for key, label in [
+            ("min_score", "Min score (1-4)"),
+            ("stop_atr", "Stop (x ATR)"),
+            ("reward", "Reward : risk"),
+            ("count", "History candles"),
+        ]:
+            self._field(test, label, self.test_vars[key])
+        buttons = tk.Frame(test, bg=test.cget("bg"))
+        buttons.pack(fill="x")
+        self._action_button(buttons, "Run on live buffer", self._backtest_buffer)
+        self.fetch_button = self._action_button(
+            buttons, "Fetch history & run", self._backtest_fetch
+        )
+        self.test_out = self._output(test)
+
+        self._label(rank, "MARKET RANKING", 9, self.CYAN).pack(
+            anchor="w", padx=16, pady=(14, 8)
+        )
+        self._action_button(rank, "Refresh ranking", self._refresh_ranking)
+        self.rank_out = self._output(rank, height=20)
+
+    def _float_var(self, variables, key, label):
+        try:
+            return float(variables[key].get())
+        except ValueError:
+            raise ValueError(f"{label} must be a number") from None
+
+    def _plan_risk(self):
+        symbol, result = self.selected, self.results.get(self.selected)
+        candles = self.candles.get(symbol, [])
+        if not result or not candles or not result.get("atr"):
+            self._write(self.risk_out, "Waiting for enough closed candles…")
+            return
+        try:
+            direction = "SELL" if "SELL" in result["signal"] else "BUY"
+            entry = candles[-1][4]
+            stop, _target = atr_levels(
+                direction,
+                entry,
+                result["atr"],
+                self._float_var(self.risk_vars, "stop_atr", "Stop multiple"),
+            )
+            plan = position_size(
+                symbol=symbol,
+                balance=self._float_var(self.risk_vars, "balance", "Balance"),
+                risk_percent=self._float_var(self.risk_vars, "risk", "Risk"),
+                entry=entry,
+                stop=stop,
+                reward_to_risk=self._float_var(self.risk_vars, "reward", "Reward"),
+                pip_value_per_lot=self._float_var(
+                    self.risk_vars, "pip_value", "Pip value"
+                ),
+            )
+        except ValueError as error:
+            self._write(self.risk_out, f"Check inputs: {error}")
+            return
+        f = lambda price: self._fmt(symbol, price)  # noqa: E731
+        bias = "" if result["signal"] != "NEUTRAL" else " (neutral bias, long shown)"
+        self._write(
+            self.risk_out,
+            f"{SYMBOLS[symbol]} · {plan.direction}{bias}\n\n"
+            f"Entry   {f(plan.entry)}\n"
+            f"Stop    {f(plan.stop)}  ({plan.stop_pips:.1f} pips)\n"
+            f"Target  {f(plan.target)}  ({plan.target_pips:.1f} pips)\n\n"
+            f"Size    {plan.lots:.2f} lots\n"
+            f"Units   {plan.units:,}\n"
+            f"Risk    {plan.risk_amount:,.2f}\n"
+            f"Reward  {plan.reward_amount:,.2f}\n\n"
+            "Planning aid only; verify with your broker.",
+        )
+
+    def _backtest_config(self):
+        return BacktestConfig(
+            min_score=int(self._float_var(self.test_vars, "min_score", "Min score")),
+            stop_atr_multiple=self._float_var(self.test_vars, "stop_atr", "Stop"),
+            reward_to_risk=self._float_var(self.test_vars, "reward", "Reward"),
+        )
+
+    def _backtest_buffer(self):
+        candles = self.candles.get(self.selected, [])[:-1]
+        try:
+            result = run_backtest(candles, self._backtest_config())
+        except ValueError as error:
+            self._write(self.test_out, f"Check inputs: {error}")
+            return
+        self._show_backtest(self.selected, self.tf.get(), result)
+
+    def _backtest_fetch(self):
+        if self._backtest_running:
+            return
+        try:
+            config = self._backtest_config()
+            count = int(self._float_var(self.test_vars, "count", "Candles"))
+            if not 100 <= count <= 5000:
+                raise ValueError("History candles must be between 100 and 5000")
+        except ValueError as error:
+            self._write(self.test_out, f"Check inputs: {error}")
+            return
+        symbol, timeframe, seconds = self.selected, self.tf.get(), self.gran
+        self._backtest_running = True
+        self.fetch_button.config(state="disabled")
+        self._write(self.test_out, f"Fetching {count} {timeframe} candles…")
+
+        def work():
+            try:
+                candles = fetch_candles(symbol, seconds, count, url=WS_URL)
+                result = run_backtest(candles[:-1], config)
+                self.bus.publish("backtest", (symbol, timeframe, result))
+            except (OSError, RuntimeError, ValueError) as error:
+                self.bus.publish("backtest_error", str(error))
+            except Exception as error:
+                logger.exception("Backtest worker failed")
+                self.bus.publish("backtest_error", str(error))
+
+        threading.Thread(target=work, name="neezy-backtest", daemon=True).start()
+
+    def _show_backtest(self, symbol, timeframe, result):
+        stats = result.stats
+        if not stats["trades"]:
+            self._write(
+                self.test_out,
+                f"No trades in {stats['candles_tested']} candles. Load more "
+                "history or lower the minimum score.",
+            )
+            return
+        pf = stats["profit_factor"]
+        recent = "\n".join(
+            f"  {t.direction:<4} {t.reason:<15} {t.r_multiple:+.2f}R"
+            for t in result.trades[-6:]
+        )
+        self._write(
+            self.test_out,
+            f"{SYMBOLS[symbol]} · {timeframe} · {stats['candles_tested']} candles\n\n"
+            f"Trades        {stats['trades']} "
+            f"({stats['long_trades']}L/{stats['short_trades']}S)\n"
+            f"Win rate      {stats['win_rate']:.1f}%\n"
+            f"Total         {stats['total_r']:+.2f} R\n"
+            f"Expectancy    {stats['expectancy_r']:+.3f} R\n"
+            f"Profit factor {'inf' if pf == float('inf') else f'{pf:.2f}'}\n"
+            f"Max drawdown  {stats['max_drawdown_r']:.2f} R\n"
+            f"Sharpe/trade  {stats['sharpe_per_trade']:.2f}\n\n"
+            f"Recent trades\n{recent}\n\n"
+            "Simulated; past results do not predict future results.",
+        )
+
+    def _refresh_ranking(self):
+        if not self.results:
+            self._write(self.rank_out, "Collecting live candles…")
+            return
+        lines = ["TOP SETUPS"]
+        for item in rank_opportunities(self.results, include_neutral=True):
+            lines.append(
+                f"  {SYMBOLS[item['symbol']]:<15}{item['signal']:<12}"
+                f"{item['opportunity']:>5.1f}"
+            )
+        closes = {s: [row[4] for row in c[:-1]] for s, c in self.candles.items()}
+        pairs = strongest_pairs(correlation_matrix(closes, window=100), limit=6)
+        lines.append("\nSTRONGEST CORRELATIONS")
+        lines.extend(
+            f"  {SYMBOLS[a]} / {SYMBOLS[b]}  {value:+.2f}" for a, b, value in pairs
+        )
+        lines.append("\nRank 0-100 blends score, ADX, and RSI room.")
+        self._write(self.rank_out, "\n".join(lines))
+
+    def _alerts_page(self):
+        page = self.pages["ALERTS"]
+        self._label(page, "Alert rules", 16).pack(anchor="w", pady=(5, 4))
+        self._label(
+            page,
+            "Fire a desktop alert when price, RSI, score, ADX, signal, or a "
+            "candle pattern matches.",
+            10,
+            self.MUTED,
+        ).pack(anchor="w", pady=(0, 14))
+        form = self._panel(page)
+        form.pack(fill="x", pady=(0, 12))
+        row = tk.Frame(form, bg=self.PANEL)
+        row.pack(fill="x", padx=14, pady=12)
+        self.rule_symbol = ttk.Combobox(
+            row, values=["*", *SYMBOLS.values()], width=14, state="readonly"
+        )
+        self.rule_symbol.set(SYMBOLS[self.selected])
+        self.rule_metric = ttk.Combobox(row, values=METRICS, width=8, state="readonly")
+        self.rule_metric.set("rsi")
+        self.rule_operator = ttk.Combobox(
+            row, values=OPERATORS, width=13, state="readonly"
+        )
+        self.rule_operator.set(">")
+        self.rule_value = tk.Entry(
+            row,
+            width=12,
+            bg=self.PANEL2,
+            fg=self.TEXT,
+            insertbackground=self.TEXT,
+            relief="flat",
+        )
+        self.rule_value.insert(0, "70")
+        for widget in (
+            self.rule_symbol,
+            self.rule_metric,
+            self.rule_operator,
+            self.rule_value,
+        ):
+            widget.pack(side="left", padx=(0, 8), ipady=3)
+        tk.Button(
+            row,
+            text="Add rule",
+            command=self._add_rule,
+            bg=self.CYAN,
+            fg=self.BG,
+            relief="flat",
+            font=("Helvetica", 9, "bold"),
+            padx=12,
+        ).pack(side="left")
+        tk.Button(
+            row,
+            text="Remove selected",
+            command=self._remove_rule,
+            bg=self.PANEL2,
+            fg=self.TEXT,
+            relief="flat",
+            padx=12,
+        ).pack(side="right")
+        self.rule_status = self._label(
+            form,
+            "Signal / pattern rules use ==, e.g. signal == STRONG BUY",
+            9,
+            self.MUTED,
+        )
+        self.rule_status.pack(anchor="w", padx=14, pady=(0, 10))
+        body = tk.Frame(page, bg=self.BG)
+        body.pack(fill="both", expand=True)
+        self.rules_list = tk.Listbox(
+            body, bg=self.PANEL, fg=self.TEXT, relief="flat", font=("Courier", 10)
+        )
+        self.rules_list.pack(side="left", fill="both", expand=True, padx=(0, 6))
+        self.alert_log = tk.Listbox(
+            body, bg=self.PANEL, fg=self.GREEN, relief="flat", font=("Courier", 10)
+        )
+        self.alert_log.pack(side="left", fill="both", expand=True, padx=(6, 0))
+        self.alert_log.insert("end", "Triggered alerts appear here")
+        self._render_rules()
+
+    def _render_rules(self):
+        self.rules_list.delete(0, "end")
+        for rule in self.alert_engine.rules:
+            market = SYMBOLS.get(rule.symbol, "All markets")
+            self.rules_list.insert(
+                "end", f"{market:<15} {rule.metric} {rule.operator} {rule.value}"
+            )
+
+    def _add_rule(self):
+        names = {name: symbol for symbol, name in SYMBOLS.items()}
+        try:
+            rule = AlertRule(
+                symbol=names.get(self.rule_symbol.get(), "*"),
+                metric=self.rule_metric.get(),
+                operator=self.rule_operator.get(),
+                value=self.rule_value.get().strip(),
+            )
+            rules = [*self.alert_engine.rules, rule]
+            self.alert_store.save(rules)
+        except (ValueError, TypeError, OSError) as error:
+            self.rule_status.config(text=str(error), fg=self.RED)
+            return
+        self.alert_engine.rules = rules
+        self._render_rules()
+        self.rule_status.config(text=f"Added: {rule.describe()}", fg=self.GREEN)
+
+    def _remove_rule(self):
+        selection = self.rules_list.curselection()
+        if not selection:
+            return
+        rules = [
+            rule
+            for index, rule in enumerate(self.alert_engine.rules)
+            if index != selection[0]
+        ]
+        try:
+            self.alert_store.save(rules)
+        except OSError as error:
+            self.rule_status.config(text=str(error), fg=self.RED)
+            return
+        self.alert_engine.rules = rules
+        self._render_rules()
+        self.rule_status.config(text="Rule removed", fg=self.GREEN)
+
+    def _evaluate_alerts(self, symbol, result, price, patterns):
+        fired = self.alert_engine.evaluate(symbol, result, price, patterns)
+        if not fired:
+            return
+        if self.alert_log.get(0) == "Triggered alerts appear here":
+            self.alert_log.delete(0)
+        stamp = datetime.now().strftime("%H:%M:%S")
+        for rule in fired:
+            self.alert_log.insert(
+                0,
+                f"{stamp}  {SYMBOLS[symbol]:<14} {rule.metric} {rule.operator} "
+                f"{rule.value}  @ {self._fmt(symbol, price)}",
+            )
+        self.alert_log.delete(500, "end")
+        self.status.config(
+            text=f"●  Alert · {SYMBOLS[symbol]} {fired[0].metric}", fg="#f0bd62"
+        )
+        if self.alerts_enabled.get():
+            self.bell()
 
     def _history_page(self):
         page = self.pages["HISTORY"]
@@ -579,7 +998,7 @@ class App(tk.Tk):
         self._label(left, "UI poll interval (ms)", 10, self.MUTED).pack(
             anchor="w", padx=18, pady=(0, 4)
         )
-        tk.Spinbox(
+        poll_box = tk.Spinbox(
             left,
             from_=50,
             to=2000,
@@ -590,11 +1009,13 @@ class App(tk.Tk):
             buttonbackground=self.PANEL2,
             relief="flat",
             command=self._settings_changed,
-        ).pack(fill="x", padx=18, pady=(0, 10))
+        )
+        self._bind_commit(poll_box)
+        poll_box.pack(fill="x", padx=18, pady=(0, 10))
         self._label(left, "Max candles in memory", 10, self.MUTED).pack(
             anchor="w", padx=18, pady=(0, 4)
         )
-        tk.Spinbox(
+        candle_box = tk.Spinbox(
             left,
             from_=60,
             to=1000,
@@ -605,11 +1026,13 @@ class App(tk.Tk):
             buttonbackground=self.PANEL2,
             relief="flat",
             command=self._settings_changed,
-        ).pack(fill="x", padx=18, pady=(0, 18))
+        )
+        self._bind_commit(candle_box)
+        candle_box.pack(fill="x", padx=18, pady=(0, 18))
         self._label(left, "Alert score threshold", 10, self.MUTED).pack(
             anchor="w", padx=18, pady=(0, 4)
         )
-        tk.Spinbox(
+        score_box = tk.Spinbox(
             left,
             from_=1,
             to=4,
@@ -620,7 +1043,9 @@ class App(tk.Tk):
             buttonbackground=self.PANEL2,
             relief="flat",
             command=self._settings_changed,
-        ).pack(fill="x", padx=18, pady=(0, 18))
+        )
+        self._bind_commit(score_box)
+        score_box.pack(fill="x", padx=18, pady=(0, 18))
         self._label(right, "ENGINE & CONNECTION", 9, self.CYAN).pack(
             anchor="w", padx=18, pady=(18, 12)
         )
@@ -628,13 +1053,17 @@ class App(tk.Tk):
             anchor="w", padx=18, pady=(4, 2)
         )
         self.connection_detail = self._label(
-            right, "App ID 1089 · awaiting connection", 10, self.MUTED
+            right, f"App ID {APP_ID} · awaiting connection", 10, self.MUTED
         )
         self.connection_detail.pack(anchor="w", padx=18, pady=(0, 18))
         self._label(right, "Signal engine", 12).pack(anchor="w", padx=18, pady=(4, 2))
-        self._label(right, "EMA 9/21/50 · RSI 14 · ATR 14 · MACD", 10, self.MUTED).pack(
-            anchor="w", padx=18, pady=(0, 18)
-        )
+        self._label(
+            right,
+            "EMA 9/21/50 · RSI 14 · ATR 14 · MACD\nBollinger · Stochastic · ADX",
+            10,
+            self.MUTED,
+            justify="left",
+        ).pack(anchor="w", padx=18, pady=(0, 18))
         tk.Button(
             right,
             text="Export signal history as CSV",
@@ -659,6 +1088,11 @@ class App(tk.Tk):
             right, "Settings are saved locally", 10, self.GREEN
         )
         self.settings_status.pack(anchor="w", padx=18, pady=(12, 0))
+
+    def _bind_commit(self, widget):
+        """Persist typed values too, not only arrow-button changes."""
+        widget.bind("<Return>", lambda _: self._settings_changed())
+        widget.bind("<FocusOut>", lambda _: self._settings_changed())
 
     def _update_signal_cards(self):
         vals = list(self.results.values())
@@ -693,8 +1127,11 @@ class App(tk.Tk):
         self.settings = candidate
         self._apply_theme()
         if should_refresh:
-            for symbol in self.candles:
-                self._refresh(symbol)
+            for symbol in list(self.candles):
+                try:
+                    self._refresh(symbol)
+                except ValueError as error:
+                    logger.warning("Could not refresh %s: %s", symbol, error)
         self.status_var.set("Settings saved")
         self.settings_status.config(
             text=(
@@ -720,6 +1157,8 @@ class App(tk.Tk):
     def _tf_changed(self):
         self.gran = TIMEFRAMES[self.tf.get()]
         self.last_signal.clear()
+        self.price_action.clear()
+        self.alert_engine.reset()
         self._subscribe_all()
         self.chart_title.config(text=f"{SYMBOLS[self.selected]}  ·  {self.tf.get()}")
 
@@ -732,6 +1171,12 @@ class App(tk.Tk):
             )
             self._show_detail()
             self._draw_chart()
+
+    def _set_selected(self, symbol):
+        self.selected = symbol
+        self.chart_title.config(text=f"{SYMBOLS[symbol]}  ·  {self.tf.get()}")
+        self._show_detail()
+        self._draw_chart()
 
     def _watch_select(self):
         i = self.watch.curselection()
@@ -795,6 +1240,13 @@ class App(tk.Tk):
                     self.connection_detail.config(text=str(detail)[:120])
                     if event.kind == "error":
                         logger.warning("Market stream error: %s", detail)
+                elif event.kind in {"backtest", "backtest_error"}:
+                    self._backtest_running = False
+                    self.fetch_button.config(state="normal")
+                    if event.kind == "backtest":
+                        self._show_backtest(*event.payload)
+                    else:
+                        self._write(self.test_out, f"Backtest failed: {event.payload}")
                 elif event.kind == "message":
                     self.last_message_at = datetime.now().strftime("%H:%M:%S")
                     self._handle(event.payload)
@@ -826,17 +1278,25 @@ class App(tk.Tk):
         )
         if symbol not in SYMBOLS:
             return
+        # Drop late updates from a previous timeframe's subscription.
+        message_gran = (
+            ohlc.get("granularity")
+            if msg.get("msg_type") == "ohlc" and isinstance(ohlc, dict)
+            else request.get("granularity")
+        )
+        if message_gran is not None and int(message_gran) != self.gran:
+            return
         try:
             if msg.get("msg_type") == "candles":
                 rows = msg.get("candles", [])
-                self.candles[symbol] = [self._parse_candle(candle) for candle in rows]
+                self.candles[symbol] = [parse_candle(candle) for candle in rows]
                 self.candles[symbol] = self.candles[symbol][
                     -self.settings.candle_limit :
                 ]
                 if self.settings.auto_refresh:
                     self._refresh(symbol)
             elif msg.get("msg_type") == "ohlc" and isinstance(ohlc, dict):
-                row = self._parse_candle(ohlc, time_key="open_time")
+                row = parse_candle(ohlc, time_key="open_time")
                 current = self.candles.setdefault(symbol, [])
                 if current and current[-1][0] == row[0]:
                     current[-1] = row
@@ -848,25 +1308,8 @@ class App(tk.Tk):
         except (KeyError, TypeError, ValueError, OverflowError) as error:
             logger.warning("Ignoring invalid candle payload for %s: %s", symbol, error)
 
-    @staticmethod
-    def _parse_candle(candle, time_key="epoch"):
-        timestamp = int(candle[time_key])
-        values = [float(candle[name]) for name in ("open", "high", "low", "close")]
-        if not all(math.isfinite(value) and value > 0 for value in values):
-            raise ValueError("OHLC prices must be finite positive numbers")
-        open_, high, low, close = values
-        if high < max(open_, close) or low > min(open_, close) or high < low:
-            raise ValueError("inconsistent OHLC values")
-        return (timestamp, open_, high, low, close)
-
     def _fmt(self, s, p):
-        return (
-            f"{p:.3f}"
-            if "JPY" in s
-            else f"{p:.2f}"
-            if s.startswith("R_")
-            else f"{p:.5f}"
-        )
+        return format_price(s, p)
 
     def _refresh(self, symbol):
         candles = self.candles.get(symbol, [])
@@ -874,6 +1317,9 @@ class App(tk.Tk):
         if not result:
             return
         self.results[symbol] = result
+        action = price_action_summary(candles[:-1])
+        self.price_action[symbol] = action
+        self._evaluate_alerts(symbol, result, candles[-1][4], action["patterns"])
         signal = result["signal"]
         tag = "buy" if "BUY" in signal else "sell" if "SELL" in signal else ""
         previous = self.last_signal.get(symbol)
@@ -906,6 +1352,7 @@ class App(tk.Tk):
                 signal,
                 f"{result['score']:+d}",
                 f"{result['rsi']:.0f}" if result["rsi"] is not None else "—",
+                result.get("regime", "—"),
                 datetime.now().strftime("%H:%M:%S"),
             ),
             tags=(tag,) if tag else (),
@@ -948,17 +1395,59 @@ class App(tk.Tk):
                 f"EMA 21   {self._fmt(symbol, result['ema21'])}\n"
                 f"EMA 50   {self._fmt(symbol, result['ema50'])}\n"
                 f"RSI 14   {result['rsi']:.1f}\n"
-                f"MACD hist {result['macd_histogram']:.6f}\n"
+                f"MACD hist {result['macd_histogram']:.6f}\n",
+            )
+            self.detail.insert("end", self._context_text(symbol, result))
+            self.detail.insert(
+                "end",
                 f"Closed candles {result['closed_candles']}\n\n"
                 "Educational summary only — not financial advice.",
             )
         self.detail.config(state="disabled")
 
+    def _context_text(self, symbol, result):
+        lines = [f"Regime   {result.get('regime', 'Unknown')}"]
+        if result.get("adx"):
+            d = result["adx"]
+            lines.append(
+                f"ADX 14   {d['adx']:.1f} (+DI {d['plus_di']:.0f} / -DI "
+                f"{d['minus_di']:.0f})"
+            )
+        if result.get("stochastic"):
+            k = result["stochastic"]
+            lines.append(f"Stoch    %K {k['k']:.0f} · %D {k['d']:.0f}")
+        if result.get("bollinger"):
+            b = result["bollinger"]
+            lines.append(
+                f"Bands    {self._fmt(symbol, b['lower'])} to "
+                f"{self._fmt(symbol, b['upper'])} (%B {b['percent_b']:.2f})"
+            )
+        action = self.price_action.get(symbol) or {}
+        if action.get("pivots"):
+            p = action["pivots"]
+            lines.append(
+                f"Pivots   S1 {self._fmt(symbol, p['s1'])} · P "
+                f"{self._fmt(symbol, p['pivot'])} · R1 {self._fmt(symbol, p['r1'])}"
+            )
+        levels = action.get("levels") or {}
+        if levels.get("support"):
+            lines.append(f"Support  {self._fmt(symbol, levels['support'][0])}")
+        if levels.get("resistance"):
+            lines.append(f"Resist.  {self._fmt(symbol, levels['resistance'][0])}")
+        patterns = action.get("patterns") or []
+        if patterns:
+            lines.append(
+                "Pattern  " + ", ".join(f"{p['name']} ({p['bias']})" for p in patterns)
+            )
+        return "\n".join(lines) + "\n"
+
     def _draw_chart(self):
         if not hasattr(self, "canvas"):
             return
         self.canvas.delete("all")
-        cs = self.candles.get(self.selected, [])[-80:]
+        visible = 80
+        all_candles = self.candles.get(self.selected, [])
+        cs = all_candles[-visible:]
         if len(cs) < 2:
             self.canvas.create_text(
                 200,
@@ -970,55 +1459,171 @@ class App(tk.Tk):
             return
         w = max(self.canvas.winfo_width(), 500)
         h = max(self.canvas.winfo_height(), 300)
-        lo = min(x[3] for x in cs)
-        hi = max(x[2] for x in cs)
+        plot_w = w - 70
+        closes = [row[4] for row in all_candles]
+        ema21 = ema(closes, 21)[-len(cs) :]
+        bands = self._band_series(closes, len(cs))
+        lo = min([x[3] for x in cs] + [b[1] for b in bands if b])
+        hi = max([x[2] for x in cs] + [b[0] for b in bands if b])
         span = hi - lo or 1
+
+        def y_of(price):
+            return h - 30 - (price - lo) / span * (h - 60)
+
         for i in range(5):
             y = 30 + i * (h - 60) / 4
-            self.canvas.create_line(0, y, w, y, fill="#19304b")
+            self.canvas.create_line(0, y, plot_w, y, fill="#19304b")
             self.canvas.create_text(
                 w - 8,
                 y,
-                text=f"{hi - (span * i / 4):.4f}",
+                text=self._fmt(self.selected, hi - (span * i / 4)),
                 fill=self.MUTED,
                 anchor="e",
                 font=("Helvetica", 8),
             )
-        step = w / len(cs)
+        step = plot_w / len(cs)
+        action = self.price_action.get(self.selected) or {}
+        levels = action.get("levels") or {}
+        for price, colour in [
+            *((level, self.GREEN) for level in levels.get("support", [])[:1]),
+            *((level, self.RED) for level in levels.get("resistance", [])[:1]),
+        ]:
+            if lo <= price <= hi:
+                self.canvas.create_line(
+                    0, y_of(price), plot_w, y_of(price), fill=colour, dash=(2, 6)
+                )
+        upper = [(step * i + step / 2, y_of(b[0])) for i, b in enumerate(bands) if b]
+        lower = [(step * i + step / 2, y_of(b[1])) for i, b in enumerate(bands) if b]
+        for points in (upper, lower):
+            if len(points) > 1:
+                self.canvas.create_line(
+                    *[c for point in points for c in point], fill="#36597d", dash=(4, 3)
+                )
         for i, (_timestamp, o, high, low, c) in enumerate(cs):
             x = step * i + step / 2
-            yo = h - 30 - (o - lo) / span * (h - 60)
-            yc = h - 30 - (c - lo) / span * (h - 60)
-            yh = h - 30 - (high - lo) / span * (h - 60)
-            yl = h - 30 - (low - lo) / span * (h - 60)
+            yo, yc = y_of(o), y_of(c)
             col = self.GREEN if c >= o else self.RED
-            self.canvas.create_line(x, yh, x, yl, fill=col)
+            self.canvas.create_line(x, y_of(high), x, y_of(low), fill=col)
+            half = max(1.5, min(4.0, step * 0.35))
             self.canvas.create_rectangle(
-                x - 3, min(yo, yc), x + 3, max(yo, yc) + 1, fill=col, outline=col
+                x - half, min(yo, yc), x + half, max(yo, yc) + 1, fill=col, outline=col
             )
+        ema_points = [
+            coordinate
+            for i, value in enumerate(ema21)
+            for coordinate in (step * i + step / 2, y_of(value))
+        ]
+        self.canvas.create_line(*ema_points, fill=self.CYAN, width=2, smooth=True)
+        last = cs[-1][4]
+        self.canvas.create_line(0, y_of(last), plot_w, y_of(last), fill="#f0bd62")
+        self.canvas.create_rectangle(
+            plot_w, y_of(last) - 9, w, y_of(last) + 9, fill="#f0bd62", outline=""
+        )
+        self.canvas.create_text(
+            w - 6,
+            y_of(last),
+            text=self._fmt(self.selected, last),
+            fill=self.BG,
+            anchor="e",
+            font=("Helvetica", 8, "bold"),
+        )
+        self.canvas.create_text(
+            10,
+            12,
+            text="EMA 21   ·   Bollinger 20/2   ·   nearest support / resistance",
+            fill=self.MUTED,
+            anchor="w",
+            font=("Helvetica", 8),
+        )
+
+    @staticmethod
+    def _band_series(closes, count, period=20, deviations=2.0):
+        """Rolling Bollinger (upper, lower) aligned with the last ``count`` bars."""
+        series = []
+        for end in range(len(closes) - count + 1, len(closes) + 1):
+            window = closes[max(0, end - period) : end]
+            if len(window) < period:
+                series.append(None)
+                continue
+            mean = sum(window) / period
+            spread = (sum((v - mean) ** 2 for v in window) / period) ** 0.5
+            series.append((mean + deviations * spread, mean - deviations * spread))
+        return series
 
     def _ask(self):
         question = self.prompt.get().strip()
         if not question:
             return
-        result = self.results.get(self.selected)
-        if result:
-            answer = (
-                f"{SYMBOLS[self.selected]} is currently {result['signal']} "
-                f"(score {result['score']:+d}/4, {result['trend'].lower()} trend, "
-                f"RSI {result['rsi']:.1f}, ATR {result['atr_pct']:.2f}%). "
-                f"The signal uses {', '.join(result['why'])}. "
-                "Treat this as an educational "
-                "indicator summary, not a forecast or recommendation."
-            )
-        else:
-            answer = (
-                f"{SYMBOLS[self.selected]} is still collecting enough "
-                "closed candles for analysis."
-            )
+        answer = self._answer(question)
         self.chat.insert("end", f"\nYOU\n{question}\n\nNEEZY\n{answer}\n")
         self.chat.see("end")
         self.prompt.delete(0, "end")
+
+    def _answer(self, question):
+        """Rule-based copilot: route the question to the matching live context."""
+        text = question.lower()
+        for symbol, name in SYMBOLS.items():
+            plain = name.lower().replace("/", "")
+            if name.lower() in text or plain in text.replace("/", ""):
+                self._set_selected(symbol)
+                break
+        name = SYMBOLS[self.selected]
+        result = self.results.get(self.selected)
+        if any(word in text for word in ("best", "rank", "top", "strongest")):
+            ranked = rank_opportunities(self.results)[:3]
+            if not ranked:
+                return "No market has a directional bias right now."
+            return "Strongest current setups: " + "; ".join(
+                f"{SYMBOLS[i['symbol']]} {i['signal']} (rank {i['opportunity']:.0f})"
+                for i in ranked
+            )
+        if not result:
+            return f"{name} is still collecting enough closed candles for analysis."
+        action = self.price_action.get(self.selected) or {}
+        if any(word in text for word in ("risk", "size", "lot", "stop")):
+            self._plan_risk()
+            return (
+                f"I've planned a {name} position in TOOLS → Risk planner using "
+                "an ATR stop. " + self.risk_out.get("1.0", "end").strip()
+            )
+        if any(word in text for word in ("level", "support", "resist", "pivot")):
+            levels = action.get("levels") or {}
+            pivots = action.get("pivots") or {}
+            sup = ", ".join(
+                self._fmt(self.selected, v) for v in levels.get("support", [])
+            )
+            res = ", ".join(
+                self._fmt(self.selected, v) for v in levels.get("resistance", [])
+            )
+            pivot = self._fmt(self.selected, pivots.get("pivot"))
+            return (
+                f"{name} swing support: {sup or 'none nearby'}; resistance: "
+                f"{res or 'none nearby'}; last-bar pivot {pivot}."
+            )
+        if "pattern" in text or "candle" in text:
+            patterns = action.get("patterns") or []
+            if not patterns:
+                return f"No notable candlestick pattern on the last closed {name} bar."
+            return f"{name} last closed bar: " + ", ".join(
+                f"{p['name']} ({p['bias'].lower()})" for p in patterns
+            )
+        if any(word in text for word in ("trend", "adx", "regime", "volatil")):
+            d = result.get("adx") or {}
+            return (
+                f"{name} regime is {result.get('regime', 'unknown').lower()} with "
+                f"ADX {d.get('adx', 0):.1f}; ATR is {result['atr_pct']:.2f}% of "
+                f"price and the EMA trend reads {result['trend'].lower()}."
+            )
+        return (
+            f"{name} is currently {result['signal']} "
+            f"(score {result['score']:+d}/4, {result['trend'].lower()} trend, "
+            f"{result.get('regime', 'unknown').lower()} regime, "
+            f"RSI {result['rsi']:.1f}, ATR {result['atr_pct']:.2f}%). "
+            f"The signal uses {', '.join(result['why'])}. "
+            "Try asking about risk, levels, patterns, trend, or the best setups. "
+            "Treat this as an educational indicator summary, not a forecast or "
+            "recommendation."
+        )
 
     def _on_prompt_key(self, event):
         if event.keysym == "Return":

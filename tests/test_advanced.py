@@ -1,0 +1,405 @@
+"""Tests for NEEZY's advanced analytics, risk, backtest, alert, and CLI tools."""
+
+from __future__ import annotations
+
+import io
+import json
+import math
+import os
+import random
+import tempfile
+import unittest
+from pathlib import Path
+from unittest import mock
+
+from neezy_backend import cli
+from neezy_backend.alerts import AlertEngine, AlertRule, AlertRuleStore
+from neezy_backend.analytics import (
+    correlation_matrix,
+    opportunity_score,
+    pearson,
+    rank_opportunities,
+    strongest_pairs,
+)
+from neezy_backend.backtest import BacktestConfig, run_backtest
+from neezy_backend.indicators import adx, analyze, bollinger, sma, stochastic
+from neezy_backend.markets import format_price, granularity, pip_size
+from neezy_backend.patterns import detect_patterns, pivot_points, swing_levels
+from neezy_backend.risk import atr_levels, position_size
+from neezy_backend.storage import SignalHistoryStore
+from neezy_backend.stream import fetch_candles, parse_candle, parse_history_response
+
+
+def random_walk(count: int, *, seed: int = 7, drift: float = 0.0, start=1.1):
+    rng = random.Random(seed)
+    candles, previous = [], start
+    for index in range(count):
+        close = max(0.5, previous + drift + rng.gauss(0, 0.0004))
+        high = max(previous, close) + abs(rng.gauss(0, 0.0002))
+        low = min(previous, close) - abs(rng.gauss(0, 0.0002))
+        candles.append((index * 300, previous, high, low, close))
+        previous = close
+    return candles
+
+
+class IndicatorExtensionTests(unittest.TestCase):
+    def test_sma_warms_up_then_averages(self) -> None:
+        self.assertEqual(sma([1, 2, 3, 4], 2), [None, 1.5, 2.5, 3.5])
+
+    def test_bollinger_flat_and_wide(self) -> None:
+        flat = bollinger([1.0] * 20)
+        self.assertEqual(flat["upper"], flat["lower"])
+        self.assertEqual(flat["percent_b"], 0.5)
+        bands = bollinger([float(i) for i in range(1, 21)])
+        self.assertGreater(bands["percent_b"], 0.8)
+        self.assertIsNone(bollinger([1.0] * 5))
+
+    def test_stochastic_extremes(self) -> None:
+        highs = [float(i + 1) for i in range(20)]
+        lows = [float(i) for i in range(20)]
+        closes = [float(i + 1) for i in range(20)]
+        result = stochastic(highs, lows, closes)
+        self.assertAlmostEqual(result["k"], 100.0)
+        self.assertIsNone(stochastic(highs[:5], lows[:5], closes[:5]))
+
+    def test_adx_strong_for_trend_and_bounded(self) -> None:
+        candles = random_walk(150, drift=0.0006)
+        highs = [c[2] for c in candles]
+        lows = [c[3] for c in candles]
+        closes = [c[4] for c in candles]
+        result = adx(highs, lows, closes)
+        self.assertGreater(result["adx"], 25)
+        self.assertGreater(result["plus_di"], result["minus_di"])
+        self.assertTrue(0 <= result["adx"] <= 100)
+        self.assertIsNone(adx(highs[:10], lows[:10], closes[:10]))
+
+    def test_analysis_includes_context_without_changing_score_range(self) -> None:
+        result = analyze(random_walk(200, seed=3))
+        for key in ("bollinger", "stochastic", "adx", "regime"):
+            self.assertIn(key, result)
+        self.assertIn(result["regime"], {"Trending", "Ranging", "Squeeze"})
+        self.assertTrue(-4 <= result["score"] <= 4)
+
+
+class PatternTests(unittest.TestCase):
+    def test_engulfing_and_hammer(self) -> None:
+        bullish = [(0, 1.10, 1.105, 1.09, 1.095), (1, 1.094, 1.112, 1.093, 1.111)]
+        names = {p["name"] for p in detect_patterns(bullish)}
+        self.assertIn("Bullish engulfing", names)
+        hammer = [(0, 1.100, 1.1035, 1.092, 1.103)]
+        self.assertEqual(detect_patterns(hammer)[0]["name"], "Hammer")
+        doji = [(0, 1.1, 1.11, 1.09, 1.1001)]
+        self.assertEqual(detect_patterns(doji)[0]["name"], "Doji")
+        self.assertEqual(detect_patterns([]), [])
+
+    def test_pivots_and_swing_levels(self) -> None:
+        pivots = pivot_points((0, 1.0, 2.0, 1.0, 1.5))
+        self.assertAlmostEqual(pivots["pivot"], 1.5)
+        self.assertGreater(pivots["r1"], pivots["pivot"])
+        self.assertLess(pivots["s1"], pivots["pivot"])
+        candles = random_walk(120, seed=11)
+        levels = swing_levels(candles)
+        last = candles[-1][4]
+        self.assertTrue(all(level > last for level in levels["resistance"]))
+        self.assertTrue(all(level < last for level in levels["support"]))
+
+
+class RiskTests(unittest.TestCase):
+    def test_position_size_respects_risk_budget(self) -> None:
+        plan = position_size(
+            symbol="frxEURUSD", balance=10_000, risk_percent=1, entry=1.1, stop=1.098
+        )
+        self.assertEqual(plan.direction, "BUY")
+        self.assertAlmostEqual(plan.stop_pips, 20.0)
+        self.assertAlmostEqual(plan.lots, 0.5)
+        self.assertLessEqual(plan.risk_amount, 100.0 + 1e-9)
+        self.assertAlmostEqual(plan.target, 1.104)
+
+    def test_short_jpy_and_rounding_down(self) -> None:
+        plan = position_size(
+            symbol="frxUSDJPY",
+            balance=5_000,
+            risk_percent=0.7,
+            entry=150.0,
+            stop=150.33,
+            pip_value_per_lot=6.7,
+        )
+        self.assertEqual(plan.direction, "SELL")
+        self.assertAlmostEqual(plan.stop_pips, 33.0)
+        self.assertLessEqual(plan.risk_amount, 35.0)
+        self.assertLess(plan.target, plan.entry)
+
+    def test_invalid_risk_inputs(self) -> None:
+        with self.assertRaises(ValueError):
+            position_size(
+                symbol="frxEURUSD", balance=1000, risk_percent=1, entry=1.1, stop=1.1
+            )
+        with self.assertRaises(ValueError):
+            position_size(
+                symbol="frxEURUSD", balance=-1, risk_percent=1, entry=1.1, stop=1.0
+            )
+        with self.assertRaises(ValueError):
+            atr_levels("HOLD", 1.1, 0.001)
+
+    def test_atr_levels(self) -> None:
+        stop, target = atr_levels("BUY", 1.1, 0.001, 2, 3)
+        self.assertAlmostEqual(stop, 1.098)
+        self.assertAlmostEqual(target, 1.106)
+        stop, target = atr_levels("sell", 1.1, 0.001)
+        self.assertGreater(stop, 1.1)
+        self.assertLess(target, 1.1)
+
+
+class BacktestTests(unittest.TestCase):
+    def test_trending_market_produces_profitable_longs(self) -> None:
+        result = run_backtest(random_walk(600, drift=0.0004, seed=5))
+        stats = result.stats
+        self.assertGreater(stats["trades"], 0)
+        self.assertGreater(stats["long_trades"], stats["short_trades"])
+        self.assertGreater(stats["total_r"], 0)
+        self.assertEqual(len(result.equity_curve), stats["trades"])
+
+    def test_no_lookahead_future_candles_do_not_change_past_trades(self) -> None:
+        candles = random_walk(500, seed=9)
+        short = run_backtest(candles[:300])
+        long = run_backtest(candles)
+        closed_short = [t for t in short.trades if t.reason != "end of data"]
+        self.assertEqual(
+            [(t.entry_time, t.exit_time, t.r_multiple) for t in closed_short],
+            [(t.entry_time, t.exit_time, t.r_multiple) for t in long.trades][
+                : len(closed_short)
+            ],
+        )
+
+    def test_stop_and_target_bound_losses(self) -> None:
+        result = run_backtest(
+            random_walk(500, seed=2),
+            BacktestConfig(exit_on_opposite=False, reward_to_risk=1.5),
+        )
+        for trade in result.trades:
+            if trade.reason == "stop":
+                self.assertAlmostEqual(trade.r_multiple, -1.0)
+            if trade.reason == "target":
+                self.assertAlmostEqual(trade.r_multiple, 1.5)
+
+    def test_short_history_and_invalid_config(self) -> None:
+        self.assertEqual(run_backtest(random_walk(50)).stats["trades"], 0)
+        with self.assertRaises(ValueError):
+            BacktestConfig(min_score=0)
+        with self.assertRaises(ValueError):
+            BacktestConfig(spread=-1)
+
+    def test_result_serialises_to_json(self) -> None:
+        payload = run_backtest(random_walk(300, seed=4)).to_dict()
+        json.dumps(cli._finite(payload))
+
+
+class AnalyticsTests(unittest.TestCase):
+    def test_pearson_and_matrix(self) -> None:
+        self.assertAlmostEqual(pearson([1, 2, 3, 4], [2, 4, 6, 8]), 1.0)
+        self.assertAlmostEqual(pearson([1, 2, 3, 4], [8, 6, 4, 2]), -1.0)
+        self.assertIsNone(pearson([1, 1, 1], [1, 2, 3]))
+        base = [c[4] for c in random_walk(120, seed=1)]
+        mirror = [2.2 - value for value in base]
+        other = [c[4] for c in random_walk(120, seed=99)]
+        matrix = correlation_matrix({"A": base, "B": mirror, "C": other})
+        self.assertLess(matrix["A"]["B"], -0.9)
+        self.assertEqual(matrix["A"]["A"], 1.0)
+        top = strongest_pairs(matrix, limit=1)[0]
+        self.assertEqual({top[0], top[1]}, {"A", "B"})
+
+    def test_opportunity_ranking(self) -> None:
+        strong = {"signal": "STRONG BUY", "score": 4, "rsi": 55, "adx": {"adx": 40}}
+        weak = {"signal": "BUY", "score": 2, "rsi": 70, "adx": {"adx": 10}}
+        neutral = {"signal": "NEUTRAL", "score": 0, "rsi": 50, "adx": None}
+        self.assertGreater(opportunity_score(strong), opportunity_score(weak))
+        ranked = rank_opportunities({"s": strong, "w": weak, "n": neutral})
+        self.assertEqual([item["symbol"] for item in ranked], ["s", "w"])
+        self.assertTrue(0 <= opportunity_score(strong) <= 100)
+
+
+class AlertTests(unittest.TestCase):
+    def test_rules_validate(self) -> None:
+        with self.assertRaises(ValueError):
+            AlertRule("frxEURUSD", "rsi", ">", "abc")
+        with self.assertRaises(ValueError):
+            AlertRule("frxEURUSD", "signal", ">", "BUY")
+        with self.assertRaises(ValueError):
+            AlertRule("frxEURUSD", "volume", ">", "1")
+
+    def test_edge_triggered_threshold_and_cross(self) -> None:
+        engine = AlertEngine(
+            [
+                AlertRule("frxEURUSD", "rsi", ">", "70", rule_id="hot"),
+                AlertRule("*", "price", "crosses above", "1.2", rule_id="cross"),
+                AlertRule("frxEURUSD", "pattern", "==", "doji", rule_id="doji"),
+            ]
+        )
+
+        def fire(rsi, price, patterns=()):
+            rules = engine.evaluate(
+                "frxEURUSD", {"rsi": rsi}, price, [{"name": p} for p in patterns]
+            )
+            return {rule.rule_id for rule in rules}
+
+        self.assertEqual(fire(60, 1.19), set())
+        self.assertEqual(fire(75, 1.21), {"hot", "cross"})
+        self.assertEqual(fire(76, 1.22), set())
+        self.assertEqual(fire(50, 1.18, ["Doji"]), {"doji"})
+        self.assertEqual(fire(71, 1.25), {"hot", "cross"})
+
+    def test_store_round_trip_skips_invalid(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "rules.json"
+            store = AlertRuleStore(path)
+            rule = AlertRule("frxEURUSD", "score", ">=", "3", note="momentum")
+            store.save([rule])
+            self.assertEqual(store.load(), [rule])
+            path.write_text(
+                json.dumps({"rules": [{"symbol": "x", "metric": "bad"}]}),
+                encoding="utf-8",
+            )
+            self.assertEqual(store.load(), [])
+            path.write_text("{oops", encoding="utf-8")
+            self.assertEqual(store.load(), [])
+
+
+class MarketAndParsingTests(unittest.TestCase):
+    def test_market_helpers(self) -> None:
+        self.assertEqual(format_price("frxUSDJPY", 150.12345), "150.123")
+        self.assertEqual(format_price("R_100", 1234.567), "1234.57")
+        self.assertEqual(format_price("frxEURUSD", None), "—")
+        self.assertEqual(pip_size("frxEURUSD"), 0.0001)
+        self.assertEqual(granularity("1h"), 3600)
+        with self.assertRaises(ValueError):
+            granularity("2m")
+
+    def test_history_response_parsing(self) -> None:
+        rows = [
+            {"epoch": 60, "open": 1.1, "high": 1.2, "low": 1.0, "close": 1.15},
+            {"epoch": 0, "open": 1.1, "high": 1.2, "low": 1.0, "close": 1.1},
+        ]
+        parsed = parse_history_response({"candles": rows})
+        self.assertEqual([row[0] for row in parsed], [0, 60])
+        with self.assertRaisesRegex(RuntimeError, "rate"):
+            parse_history_response({"error": {"message": "rate limited"}})
+        with self.assertRaises(ValueError):
+            parse_candle({"epoch": 1, "open": 1, "high": 0.5, "low": 1, "close": 1})
+
+
+class FetchTests(unittest.TestCase):
+    def test_connection_failures_become_connection_errors(self) -> None:
+        import websocket
+
+        failing = mock.Mock(side_effect=websocket.WebSocketBadStatusException("x", 520))
+        with mock.patch.object(websocket, "create_connection", failing):
+            with self.assertRaises(ConnectionError):
+                fetch_candles("frxEURUSD", 60, 10, url="wss://example.invalid")
+
+    def test_fetch_parses_response_and_closes(self) -> None:
+        import websocket
+
+        connection = mock.Mock()
+        connection.recv.return_value = json.dumps(
+            {
+                "msg_type": "candles",
+                "candles": [
+                    {"epoch": 0, "open": 1.1, "high": 1.2, "low": 1.0, "close": 1.1}
+                ],
+            }
+        )
+        with mock.patch.object(websocket, "create_connection", return_value=connection):
+            rows = fetch_candles("frxEURUSD", 60, 10, url="wss://example.invalid")
+        self.assertEqual(rows, [(0, 1.1, 1.2, 1.0, 1.1)])
+        connection.close.assert_called_once()
+        with self.assertRaises(ValueError):
+            fetch_candles("frxEURUSD", 60, 0, url="wss://example.invalid")
+
+
+class HistoryCompactionTests(unittest.TestCase):
+    def test_auto_compaction_and_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = SignalHistoryStore(
+                Path(directory) / "h.jsonl", max_bytes=2000, keep_records=5
+            )
+            for index in range(40):
+                store.append(
+                    symbol="frxEURUSD",
+                    previous="BUY",
+                    current="SELL" if index % 2 else "BUY",
+                    price=1.1,
+                    score=-2,
+                )
+            self.assertLessEqual(len(store.read()), 25)
+            self.assertEqual(store.compact(3), 3)
+            summary = store.summary()
+            self.assertEqual(summary["total"], 3)
+            self.assertEqual(summary["by_symbol"], {"frxEURUSD": 3})
+
+
+class CliTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.directory = tempfile.TemporaryDirectory()
+        patcher = mock.patch.dict(os.environ, {"NEEZY_HOME": self.directory.name})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.addCleanup(self.directory.cleanup)
+
+    @staticmethod
+    def fake_fetch(symbol, seconds, count):
+        seed = sum(map(ord, symbol))
+        return random_walk(max(count, 300), seed=seed, drift=0.0002)[-count:]
+
+    def run_cli(self, *argv):
+        out = io.StringIO()
+        code = cli.main(list(argv), fetch=self.fake_fetch, out=out)
+        return code, out.getvalue()
+
+    def test_scan_json_and_table(self) -> None:
+        code, text = self.run_cli("scan", "EURUSD", "gbp/usd", "--json")
+        self.assertEqual(code, 0)
+        data = json.loads(text)
+        self.assertEqual(
+            {item["symbol"] for item in data["ranked"]}, {"frxEURUSD", "frxGBPUSD"}
+        )
+        code, text = self.run_cli("scan", "-t", "1h")
+        self.assertEqual(code, 0)
+        self.assertIn("EUR/USD", text)
+
+    def test_analyze_backtest_risk_correlation(self) -> None:
+        code, text = self.run_cli("analyze", "frxEURUSD")
+        self.assertEqual(code, 0)
+        self.assertIn("Pivots", text)
+        code, text = self.run_cli("backtest", "EURUSD", "-n", "600", "--json")
+        self.assertEqual(code, 0)
+        self.assertIn("stats", json.loads(text))
+        code, text = self.run_cli(
+            "risk", "EURUSD", "--balance", "1000", "--entry", "1.1", "--stop", "1.099"
+        )
+        self.assertEqual(code, 0)
+        self.assertIn("lots", text)
+        code, text = self.run_cli("correlation", "EURUSD", "GBPUSD", "USDJPY")
+        self.assertEqual(code, 0)
+        self.assertIn("CORRELATION", text)
+
+    def test_alert_and_history_commands(self) -> None:
+        code, text = self.run_cli("alerts", "add", "EURUSD", "rsi", ">", "70")
+        self.assertEqual(code, 0)
+        rule_id = text.split()[1].rstrip(":")
+        code, text = self.run_cli("alerts", "--json")
+        self.assertEqual(json.loads(text)[0]["rule_id"], rule_id)
+        self.assertEqual(self.run_cli("alerts", "remove", rule_id)[0], 0)
+        self.assertEqual(self.run_cli("alerts", "remove", "missing")[0], 1)
+        code, text = self.run_cli("history", "--summary", "--json")
+        self.assertEqual(json.loads(text)["total"], 0)
+
+    def test_unknown_market_is_rejected(self) -> None:
+        with self.assertRaises(SystemExit), mock.patch("sys.stderr", io.StringIO()):
+            self.run_cli("analyze", "NOTAPAIR")
+
+    def test_non_finite_values_are_json_safe(self) -> None:
+        self.assertEqual(cli._finite({"pf": math.inf}), {"pf": "inf"})
+
+
+if __name__ == "__main__":
+    unittest.main()
