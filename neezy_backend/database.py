@@ -20,9 +20,10 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from .migrations import BASELINE_VERSION, apply_migrations, latest_version
 from .storage import get_data_dir
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = latest_version()
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS schema_info (
@@ -147,13 +148,10 @@ class LocalDatabase:
             self._connection.executescript(_SCHEMA)
             self._connection.execute(
                 "INSERT OR IGNORE INTO schema_info (key, value) VALUES ('version', ?)",
-                (str(SCHEMA_VERSION),),
-            )
-            self._connection.execute(
-                "INSERT OR REPLACE INTO schema_info (key, value) VALUES ('version', ?)",
-                (str(SCHEMA_VERSION),),
+                (str(BASELINE_VERSION),),
             )
             self._connection.commit()
+            apply_migrations(self._connection)
 
     # ------------------------------------------------------------------ lifecycle
     @property
@@ -198,7 +196,8 @@ class LocalDatabase:
         if not cleaned:
             return []
         tokens = cleaned.split()
-        match_expr = " AND ".join(f"{token}*" for token in tokens)
+        # Quote each token so FTS5 keywords (AND, OR, NOT, NEAR) are literals.
+        match_expr = " ".join(f'"{token}"*' for token in tokens)
         with self._lock:
             rows = self._connection.execute(
                 "SELECT m.id, m.created_at, m.category, m.content, m.metadata "
