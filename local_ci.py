@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 """Local CI runner for NEEZY.
 
-Runs syntax compilation, ruff checks (if available), type checking, and the pytest test suite.
+Runs syntax compilation, ruff checks (if available), and the test suite.
 """
 
-import sys
 import subprocess
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).parent.resolve()
+
 
 def run_cmd(cmd, cwd=ROOT):
     print(f"\n==> Executing: {' '.join(cmd)}")
     res = subprocess.run(cmd, cwd=cwd)
     return res.returncode
+
 
 def main():
     print("=== NEEZY LOCAL CI CHECK ===")
@@ -21,7 +23,18 @@ def main():
 
     # 1. Compile all Python files
     print("\n1. Checking Python Syntax Compilation...")
-    ret = run_cmd([sys.executable, "-m", "compileall", "-q", "neezy_app", "neezy_backend", "tests", "forex_signals.py"])
+    ret = run_cmd(
+        [
+            sys.executable,
+            "-m",
+            "compileall",
+            "-q",
+            "neezy_app",
+            "neezy_backend",
+            "tests",
+            "forex_signals.py",
+        ]
+    )
     if ret != 0:
         print("ERROR: Syntax compilation failed.")
         errors += 1
@@ -55,6 +68,7 @@ def main():
     else:
         print("\n✅ Local CI PASSED successfully.")
         sys.exit(0)
+
 
 if __name__ == "__main__":
     main()

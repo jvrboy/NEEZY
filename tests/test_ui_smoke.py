@@ -145,6 +145,12 @@ def install_fake_tkinter() -> None:
 
 install_fake_tkinter()
 
+# Other test modules (e.g. ``test_enterprise_ui``) may already have imported
+# ``neezy_app.ui`` against the real ``tkinter``. Drop those cached modules so
+# the import below is bound to the fake, display-free stand-in.
+for _name in [m for m in sys.modules if m == "neezy_app" or m.startswith("neezy_app.")]:
+    del sys.modules[_name]
+
 from neezy_app import ui  # noqa: E402
 from neezy_backend.database import LocalDatabase  # noqa: E402
 from neezy_backend.storage import SettingsStore, get_data_dir  # noqa: E402
