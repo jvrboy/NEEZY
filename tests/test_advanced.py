@@ -13,6 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 from neezy_backend import cli
+from neezy_backend.agent import AgentPlanner
 from neezy_backend.alerts import AlertEngine, AlertRule, AlertRuleStore
 from neezy_backend.analytics import (
     correlation_matrix,
@@ -22,6 +23,7 @@ from neezy_backend.analytics import (
     strongest_pairs,
 )
 from neezy_backend.backtest import BacktestConfig, run_backtest
+from neezy_backend.database import LocalDatabase
 from neezy_backend.indicators import adx, analyze, bollinger, sma, stochastic
 from neezy_backend.markets import (
     format_price,
@@ -39,6 +41,7 @@ from neezy_backend.stream import (
     parse_candle,
     parse_history_response,
 )
+from neezy_backend.tools import ToolPermission, ToolRegistry
 
 
 def random_walk(count: int, *, seed: int = 7, drift: float = 0.0, start=1.1):
@@ -51,6 +54,60 @@ def random_walk(count: int, *, seed: int = 7, drift: float = 0.0, start=1.1):
         candles.append((index * 300, previous, high, low, close))
         previous = close
     return candles
+
+
+class AgentAndMemoryTests(unittest.TestCase):
+    def test_database_fts_memory_retrieval(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "test.sqlite3"
+            db = LocalDatabase(db_path)
+            db.add_memory(
+                "EURUSD trended bullishly after RSI divergence", category="notes"
+            )
+            db.add_memory(
+                "USDJPY showed strong resistance near 150.0", category="notes"
+            )
+
+            results = db.search_memory("EURUSD divergence")
+            self.assertEqual(len(results), 1)
+            self.assertIn("EURUSD", results[0]["content"])
+
+    def test_agent_planner_loop(self) -> None:
+        planner = AgentPlanner()
+        steps = planner.create_plan("Analyze EURUSD")
+        self.assertEqual(len(steps), 1)
+        executed_steps = planner.execute_plan(steps, dry_run=True)
+        self.assertEqual(executed_steps[0].status, "completed")
+        self.assertEqual(executed_steps[0].result["status"], "dry_run")
+
+
+class ToolRegistryTests(unittest.TestCase):
+    def test_registry_registration_and_dry_run(self) -> None:
+        registry = ToolRegistry()
+
+        def sample_tool(text: str) -> str:
+            return f"Processed: {text}"
+
+        registry.register(
+            "sample",
+            "A sample tool",
+            sample_tool,
+            permission=ToolPermission.WRITE,
+        )
+
+        tools = registry.list_tools()
+        self.assertEqual(len(tools), 1)
+        self.assertEqual(tools[0]["name"], "sample")
+        self.assertEqual(tools[0]["permission"], "WRITE")
+
+        # Dry run test
+        dry_res = registry.execute("sample", dry_run=True, text="hello")
+        self.assertEqual(dry_res["status"], "dry_run")
+        self.assertEqual(dry_res["kwargs"], {"text": "hello"})
+
+        # Normal execution test
+        res = registry.execute("sample", dry_run=False, text="hello")
+        self.assertEqual(res, "Processed: hello")
 
 
 class IndicatorExtensionTests(unittest.TestCase):

@@ -85,6 +85,18 @@ CREATE TABLE IF NOT EXISTS kv (
     value TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS memory_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT 'general',
+    content TEXT NOT NULL,
+    metadata TEXT NOT NULL DEFAULT '{}'
+);
+CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(
+    content,
+    content='memory_items',
+    content_rowid='id'
+);
 """
 
 
@@ -108,7 +120,7 @@ def _json_safe(value: Any) -> Any:
 class LocalDatabase:
     """Thread-safe wrapper around one SQLite file with bounded retention."""
 
-    TABLES = ("candles", "signals", "snapshots", "ai_calls", "kv")
+    TABLES = ("candles", "signals", "snapshots", "ai_calls", "kv", "memory_items")
 
     def __init__(
         self,
@@ -157,6 +169,52 @@ class LocalDatabase:
 
     def __exit__(self, *_exc: object) -> None:
         self.close()
+
+    # ----------------------------------------------------------- memory retrieval
+    def add_memory(
+        self,
+        content: str,
+        category: str = "general",
+        metadata: dict[str, Any] | None = None,
+    ) -> int:
+        stamp = _now().isoformat(timespec="seconds")
+        meta_json = json.dumps(_json_safe(metadata or {}))
+        with self._lock:
+            cursor = self._connection.execute(
+                "INSERT INTO memory_items (created_at, category, content, metadata) "
+                "VALUES (?, ?, ?, ?)",
+                (stamp, category, content, meta_json),
+            )
+            item_id = int(cursor.lastrowid or 0)
+            self._connection.execute(
+                "INSERT INTO memory_fts (rowid, content) VALUES (?, ?)",
+                (item_id, content),
+            )
+            self._connection.commit()
+        return item_id
+
+    def search_memory(self, query: str, limit: int = 5) -> list[dict[str, Any]]:
+        cleaned = "".join(c for c in query if c.isalnum() or c.isspace()).strip()
+        if not cleaned:
+            return []
+        tokens = cleaned.split()
+        match_expr = " AND ".join(f"{token}*" for token in tokens)
+        with self._lock:
+            rows = self._connection.execute(
+                "SELECT m.id, m.created_at, m.category, m.content, m.metadata "
+                "FROM memory_items m JOIN memory_fts f ON m.id = f.rowid "
+                "WHERE memory_fts MATCH ? ORDER BY rank LIMIT ?",
+                (match_expr, limit),
+            ).fetchall()
+        results = []
+        for row in rows:
+            rec = dict(row)
+            try:
+                rec["metadata"] = json.loads(rec["metadata"])
+            except (json.JSONDecodeError, TypeError):
+                rec["metadata"] = {}
+            results.append(rec)
+        return results
 
     # --------------------------------------------------------------------- candles
     def save_candles(

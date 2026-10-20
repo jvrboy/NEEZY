@@ -7,6 +7,7 @@ import json
 import os
 import sys
 import tempfile
+import zipfile
 from collections.abc import Iterable
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,15 +20,104 @@ def get_data_dir() -> Path:
     """Return the per-user application data directory, honoring NEEZY_HOME."""
     override = os.environ.get("NEEZY_HOME")
     if override:
-        return Path(override).expanduser()
+        return Path(override).expanduser().resolve()
     if os.name == "nt":
         return (
             Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
             / "NEEZY"
-        )
+        ).resolve()
     if sys.platform == "darwin":
-        return Path.home() / "Library" / "Application Support" / "NEEZY"
-    return Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "neezy"
+        return (Path.home() / "Library" / "Application Support" / "NEEZY").resolve()
+    xdg = os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")
+    return (Path(xdg) / "neezy").resolve()
+
+
+def sanitize_path(
+    path: str | Path,
+    *,
+    base_dir: Path | None = None,
+    allow_absolute: bool = False,
+) -> Path:
+    """Sanitize and sandbox a file path to prevent directory traversal outside base_dir.
+
+    If base_dir is None, get_data_dir() is used as the sandbox boundary.
+    """
+    root = (base_dir or get_data_dir()).resolve()
+    candidate = Path(path).expanduser()
+
+    if not candidate.is_absolute():
+        candidate = root / candidate
+
+    resolved = candidate.resolve()
+
+    try:
+        resolved.relative_to(root)
+    except ValueError as err:
+        if not allow_absolute:
+            msg = f"Path traversal blocked: '{path}' is outside sandboxed root '{root}'"
+            raise ValueError(msg) from err
+
+    return resolved
+
+
+def create_local_backup(
+    destination: str | Path | None = None,
+    *,
+    base_dir: Path | None = None,
+) -> Path:
+    """Create a zipped local backup bundle of all local NEEZY state files.
+
+    Includes sqlite3 db, settings.json, ai-keys.json, signal history, and alerts.
+    """
+    data_dir = (base_dir or get_data_dir()).resolve()
+    if not destination:
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        destination = data_dir / "backups" / f"neezy_backup_{stamp}.zip"
+
+    dest_path = Path(destination).expanduser().resolve()
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+
+    files_to_backup = [
+        "neezy.sqlite3",
+        "settings.json",
+        "ai-keys.json",
+        "signal-history.jsonl",
+        "alerts.json",
+    ]
+
+    with zipfile.ZipFile(dest_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for filename in files_to_backup:
+            file_path = data_dir / filename
+            if file_path.exists() and file_path.is_file():
+                archive.write(file_path, arcname=filename)
+
+    return dest_path
+
+
+def restore_local_backup(
+    backup_zip: str | Path,
+    *,
+    base_dir: Path | None = None,
+) -> list[str]:
+    """Restore local configuration and data files from a backup zip archive.
+
+    Returns list of filenames restored.
+    """
+    data_dir = (base_dir or get_data_dir()).resolve()
+    zip_path = Path(backup_zip).expanduser().resolve()
+
+    if not zip_path.exists():
+        raise FileNotFoundError(f"Backup archive '{zip_path}' not found")
+
+    restored = []
+    with zipfile.ZipFile(zip_path, "r") as archive:
+        for member in archive.infolist():
+            # Prevent zip slip
+            sanitize_path(member.filename, base_dir=data_dir)
+            archive.extract(member, path=data_dir)
+            restored.append(member.filename)
+
+    return restored
 
 
 def _atomic_json_write(path: Path, data: dict[str, Any]) -> None:
