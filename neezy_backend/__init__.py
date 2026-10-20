@@ -1,6 +1,6 @@
 """Reusable backend services for the NEEZY desktop workspace."""
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 
 from .alerts import AlertEngine, AlertRule, AlertRuleStore
 from .analytics import correlation_matrix, rank_opportunities

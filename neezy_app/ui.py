@@ -30,7 +30,13 @@ from neezy_backend.backtest import BacktestConfig, run_backtest
 from neezy_backend.config import AppSettings
 from neezy_backend.events import EventBus
 from neezy_backend.indicators import analyze, ema
-from neezy_backend.markets import APP_ID, SYMBOLS, TIMEFRAMES, WS_URL, format_price
+from neezy_backend.markets import (
+    APP_ID,
+    SYMBOLS,
+    TIMEFRAMES,
+    format_price,
+    ws_urls,
+)
 from neezy_backend.patterns import price_action_summary
 from neezy_backend.risk import atr_levels, position_size
 from neezy_backend.storage import SettingsStore, SignalHistoryStore
@@ -62,7 +68,7 @@ class App(tk.Tk):
         self.settings = self.settings_store.load()
         self.bus = EventBus(subscriber_queue_size=2500)
         self.inbox = self.bus.subscribe()
-        self.client = DerivStreamClient(WS_URL, self.bus)
+        self.client = DerivStreamClient(ws_urls(), self.bus)
         self.alert_store = AlertRuleStore()
         self.alert_engine = AlertEngine(self.alert_store.load())
         self.gran = 300
@@ -694,7 +700,7 @@ class App(tk.Tk):
 
         def work():
             try:
-                candles = fetch_candles(symbol, seconds, count, url=WS_URL)
+                candles = fetch_candles(symbol, seconds, count)
                 result = run_backtest(candles[:-1], config)
                 self.bus.publish("backtest", (symbol, timeframe, result))
             except (OSError, RuntimeError, ValueError) as error:

@@ -2,8 +2,36 @@
 
 from __future__ import annotations
 
+import os
+
 APP_ID = 1089
-WS_URL = f"wss://ws.derivws.com/websockets/v3?app_id={APP_ID}"
+
+# Deriv publishes the same v3 market-data API on several equivalent hosts. Each
+# one sits behind Cloudflare, and any single host intermittently answers HTTP
+# 520 (origin error) from some networks, so clients rotate through all of them.
+# Set NEEZY_WS_URL to pin one endpoint (a proxy, or a host we do not list).
+_DEFAULT_HOSTS: tuple[str, ...] = (
+    "wss://ws.derivws.com/websockets/v3",
+    "wss://ws.binaryws.com/websockets/v3",
+    "wss://frontend.binaryws.com/websockets/v3",
+)
+
+
+def app_id() -> str:
+    """Deriv app id, overridable with NEEZY_APP_ID for a registered app."""
+    return os.environ.get("NEEZY_APP_ID", "").strip() or str(APP_ID)
+
+
+def ws_urls() -> tuple[str, ...]:
+    """Candidate market-data endpoints in preference order."""
+    override = os.environ.get("NEEZY_WS_URL", "").strip()
+    if override:
+        return (override,)
+    query = f"?app_id={app_id()}"
+    return tuple(host + query for host in _DEFAULT_HOSTS)
+
+
+WS_URL = ws_urls()[0]
 
 SYMBOLS: dict[str, str] = {
     "frxEURUSD": "EUR/USD",

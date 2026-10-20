@@ -23,22 +23,23 @@ from .indicators import analyze
 from .markets import (
     SYMBOLS,
     TIMEFRAMES,
-    WS_URL,
     display_name,
     format_price,
     granularity,
     pip_size,
+    ws_urls,
 )
 from .patterns import price_action_summary
 from .risk import atr_levels, position_size
 from .storage import SignalHistoryStore
-from .stream import fetch_candles
+from .stream import fetch_candles, probe_endpoint
 
 Fetcher = Callable[[str, int, int], list[tuple[int, float, float, float, float]]]
 
 
 def _default_fetch(symbol: str, seconds: int, count: int):
-    return fetch_candles(symbol, seconds, count, url=WS_URL)
+    # No explicit url: fetch_candles rotates through every configured endpoint.
+    return fetch_candles(symbol, seconds, count)
 
 
 def _symbol(value: str) -> str:
@@ -106,6 +107,33 @@ def cmd_markets(args, fetch, out) -> int:
         [(s, n, pip_size(s)) for s, n in SYMBOLS.items()],
     )
     out.write("\nTimeframes: " + ", ".join(TIMEFRAMES) + "\n")
+    return 0
+
+
+def cmd_doctor(args, fetch, out) -> int:
+    """Probe each market-data endpoint so connection problems are diagnosable."""
+    results = [(url, *probe_endpoint(url, timeout=args.timeout)) for url in ws_urls()]
+    if args.json:
+        _emit(
+            out,
+            [
+                {"url": url, "reachable": ok, "detail": detail}
+                for url, ok, detail in results
+            ],
+        )
+        return 0 if any(ok for _, ok, _ in results) else 1
+    _table(
+        out,
+        ["ENDPOINT", "STATUS", "DETAIL"],
+        [(url, "ok" if ok else "failed", detail) for url, ok, detail in results],
+    )
+    if not any(ok for _, ok, _ in results):
+        out.write(
+            "\nNo endpoint answered. The network, a VPN/proxy, or a firewall is "
+            "blocking Deriv. Try another network, or set NEEZY_WS_URL to an "
+            "endpoint you know works.\n"
+        )
+        return 1
     return 0
 
 
@@ -427,6 +455,13 @@ def build_parser() -> argparse.ArgumentParser:
         sub.add_parser("markets", help="list supported markets"), timeframe=False
     )
     p.set_defaults(handler=cmd_markets)
+
+    p = common(
+        sub.add_parser("doctor", help="check market-data connectivity"),
+        timeframe=False,
+    )
+    p.add_argument("--timeout", type=float, default=8.0, help="seconds per endpoint")
+    p.set_defaults(handler=cmd_doctor)
 
     p = common(
         sub.add_parser("scan", help="rank all markets by signal strength"), count=300

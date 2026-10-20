@@ -64,6 +64,54 @@ neezy-cli history --summary
 
 Every command accepts `--json`. Markets can be written as `EURUSD`, `EUR/USD`, or `frxEURUSD`.
 
+## Connection troubleshooting
+
+Deriv serves public market data from several equivalent v3 hosts, each behind
+Cloudflare. Any single host can answer `Handshake status 520` (Cloudflare's
+"origin error") for hours at a time from a given network, which is not a NEEZY
+bug and not something the app can fix server-side. NEEZY therefore rotates
+through the configured hosts and sends a normal browser handshake, and it
+reports failures as one readable line instead of a raw header dump.
+
+Diagnose connectivity without opening the GUI:
+
+```bash
+neezy-cli doctor            # probe every endpoint, print status and detail
+neezy-cli doctor --json     # machine-readable
+```
+
+If every endpoint fails, the network path is the problem, not the app. Check,
+in order: VPN or proxy in use, antivirus/firewall TLS inspection, corporate DNS,
+then try a different network (for example a mobile hotspot) and run `doctor`
+again. If one endpoint works and another does not, pin the working one:
+
+```bash
+# Windows CMD
+set NEEZY_WS_URL=wss://ws.derivws.com/websockets/v3?app_id=1089
+neezy
+```
+
+```bash
+# PowerShell
+$env:NEEZY_WS_URL = "wss://ws.derivws.com/websockets/v3?app_id=1089"
+neezy
+```
+
+```bash
+# macOS / Linux
+export NEEZY_WS_URL="wss://ws.derivws.com/websockets/v3?app_id=1089"
+neezy
+```
+
+Related environment variables:
+
+| Variable | Purpose |
+| --- | --- |
+| `NEEZY_WS_URL` | Pin a single market-data endpoint (proxy, or a host not listed above). Disables rotation. |
+| `NEEZY_APP_ID` | Use your own registered Deriv app id instead of the shared `1089` test id. |
+
+Both are read when the app starts, so restart `neezy` after changing them.
+
 ## Local data
 
 Settings, alert rules, and signal history are stored in the user's application configuration directory (Linux: `$XDG_CONFIG_HOME/neezy`, otherwise `~/.config/neezy`; macOS and Windows use their usual per-user application data locations). Set `NEEZY_HOME` to override the directory, useful for portable installs and tests. Settings are written atomically; signal history is an append-only JSON Lines file that is compacted to the newest 5,000 records once it passes about 2 MB. History export creates a standard CSV file at the location selected by the user.
