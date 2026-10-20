@@ -7,8 +7,10 @@ comes from Deriv's public API. Output is educational, not financial advice.
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 import math
+import os
 import sys
 from collections.abc import Callable, Sequence
 from dataclasses import asdict
@@ -16,9 +18,19 @@ from pathlib import Path
 from typing import Any, TextIO
 
 from . import __version__
+from .ai import (
+    PROVIDERS,
+    AIClient,
+    AIKeyStore,
+    free_models,
+    resolve_provider,
+)
 from .alerts import METRICS, OPERATORS, AlertRule, AlertRuleStore
 from .analytics import correlation_matrix, rank_opportunities, strongest_pairs
 from .backtest import BacktestConfig, run_backtest
+from .context import chat_messages, format_context, market_snapshot
+from .database import LocalDatabase
+from .divergence import detect_divergences, rank_correlation_divergences
 from .indicators import analyze
 from .markets import (
     SYMBOLS,
@@ -32,7 +44,15 @@ from .markets import (
 from .patterns import price_action_summary
 from .risk import atr_levels, position_size
 from .storage import SignalHistoryStore
+from .strategies import (
+    STRATEGIES,
+    consensus,
+    describe_strategies,
+    evaluate,
+    run_all,
+)
 from .stream import fetch_candles, probe_endpoint
+from .trend import trend_summary
 
 Fetcher = Callable[[str, int, int], list[tuple[int, float, float, float, float]]]
 
@@ -431,6 +451,519 @@ def cmd_alerts(args, fetch, out) -> int:
     return 0
 
 
+def _closed(candles):
+    return list(candles[:-1]) if len(candles) > 1 else []
+
+
+def cmd_read(args, fetch, out) -> int:
+    """One full advanced read: engine, Supertrend, divergence, strategies."""
+    seconds = granularity(args.timeframe)
+    candles = fetch(args.symbol, seconds, args.count)
+    snapshot = market_snapshot(
+        candles,
+        symbol=args.symbol,
+        timeframe=args.timeframe,
+        strategy=args.strategy,
+        supertrend_period=args.period,
+        supertrend_multiplier=args.multiplier,
+        divergence_lookback=args.lookback,
+    )
+    if snapshot is None:
+        raise RuntimeError("not enough closed candles to analyse this market yet")
+    if args.json:
+        _emit(out, snapshot)
+        return 0
+    out.write(f"{display_name(args.symbol)}  ·  {args.timeframe}\n")
+    out.write(
+        f"price {snapshot['price_display']}   engine {snapshot['signal']} "
+        f"({snapshot['score']:+d}/4)   regime {snapshot['regime']}\n"
+    )
+    trend = snapshot["supertrend"]
+    out.write(
+        f"Supertrend {trend['label']} · line {trend['line']} · "
+        f"{trend['bars_since_flip']} bars since flip\n"
+    )
+    out.write(
+        f"RSI {snapshot['rsi']:.2f}   ATR {snapshot['atr_pct']:.3f}%   "
+        f"MACD hist {snapshot['macd_histogram']:+.6f}\n"
+    )
+    divergences = snapshot["divergences"]
+    out.write(
+        "Divergences: "
+        + (
+            ", ".join(
+                f"{item['kind']} {item['oscillator'].upper()} "
+                f"({item['bars_ago']}b, {item['strength']:.0%})"
+                for item in divergences
+            )
+            or "none"
+        )
+        + "\n"
+    )
+    strategy = snapshot["strategy"]
+    out.write(
+        f"\n{strategy['strategy']}: {strategy['label']} "
+        f"({strategy['confidence']:.0f}% confidence) - {strategy['summary']}\n"
+    )
+    for reason in strategy["reasons"]:
+        out.write(f"  · {reason}\n")
+    verdict = snapshot["consensus"]
+    out.write(
+        f"\nConsensus across strategies: {verdict['label']} "
+        f"({verdict['confidence']:.0f}%) votes {verdict['votes']}\n"
+    )
+    return 0
+
+
+def cmd_supertrend(args, fetch, out) -> int:
+    seconds = granularity(args.timeframe)
+    candles = fetch(args.symbol, seconds, args.count)
+    closed = _closed(candles)
+    summary = trend_summary(closed, args.period, args.multiplier)
+    signal = evaluate(
+        "SUPERTREND", candles, period=args.period, multiplier=args.multiplier
+    )
+    payload = {
+        "symbol": args.symbol,
+        "timeframe": args.timeframe,
+        "period": args.period,
+        "multiplier": args.multiplier,
+        "trend": summary,
+        "signal": signal.to_dict(),
+    }
+    if args.json:
+        _emit(out, payload)
+        return 0
+    _table(
+        out,
+        ["FIELD", "VALUE"],
+        [
+            ("market", display_name(args.symbol)),
+            ("timeframe", args.timeframe),
+            ("direction", summary["label"]),
+            ("line", summary["line"]),
+            (
+                "distance",
+                f"{summary['distance_pct']}%"
+                if summary["distance_pct"] is not None
+                else "n/a",
+            ),
+            ("bars since flip", summary["bars_since_flip"]),
+            ("strategy", f"{signal.label} ({signal.confidence:.0f}%)"),
+            ("summary", signal.summary),
+        ],
+    )
+    return 0
+
+
+def cmd_divergence(args, fetch, out) -> int:
+    seconds = granularity(args.timeframe)
+    candles = fetch(args.symbol, seconds, args.count)
+    found = detect_divergences(_closed(candles), args.lookback)
+    payload = {
+        "symbol": args.symbol,
+        "timeframe": args.timeframe,
+        "lookback": args.lookback,
+        "divergences": found,
+    }
+    if args.json:
+        _emit(out, payload)
+        return 0
+    if not found:
+        out.write(
+            f"No RSI or MACD divergence within {args.lookback} bars of the last "
+            f"swing for {display_name(args.symbol)}.\n"
+        )
+        return 0
+    _table(
+        out,
+        ["OSCILLATOR", "KIND", "BARS AGO", "STRENGTH", "PRICE PIVOTS", "OSC PIVOTS"],
+        [
+            (
+                item["oscillator"].upper(),
+                item["kind"],
+                item["bars_ago"],
+                f"{item['strength']:.0%}",
+                " -> ".join(f"{point['price']:.5f}" for point in item["price_points"]),
+                " -> ".join(
+                    f"{point['value']:.2f}" for point in item["oscillator_points"]
+                ),
+            )
+            for item in found
+        ],
+    )
+    return 0
+
+
+def cmd_corrdiv(args, fetch, out) -> int:
+    seconds = granularity(args.timeframe)
+    symbols = args.symbols or list(SYMBOLS)
+    closes = {}
+    for symbol in symbols:
+        try:
+            closes[symbol] = [
+                row[4] for row in fetch(symbol, seconds, args.window + args.baseline)
+            ]
+        except (OSError, RuntimeError, ValueError) as error:
+            out.write(f"! {display_name(symbol)}: {error}\n")
+    ranked = rank_correlation_divergences(
+        closes, window=args.window, baseline=args.baseline, limit=args.top
+    )
+    if args.json:
+        _emit(out, ranked)
+        return 0
+    if not ranked:
+        out.write("Not enough overlapping history to compare these markets.\n")
+        return 0
+    _table(
+        out,
+        ["PAIR", "STATE", "BASELINE", "RECENT", "DELTA", "STRENGTH"],
+        [
+            (
+                f"{display_name(item['first'])} / {display_name(item['second'])}",
+                item["state"],
+                f"{item['baseline']:+.2f}",
+                f"{item['recent']:+.2f}",
+                f"{item['delta']:+.2f}",
+                f"{item['strength']:.0%}",
+            )
+            for item in ranked
+        ],
+    )
+    return 0
+
+
+def cmd_strategies(args, fetch, out) -> int:
+    if not args.symbol:
+        catalogue = describe_strategies()
+        if args.json:
+            _emit(out, catalogue)
+            return 0
+        _table(
+            out,
+            ["NAME", "LABEL", "MARKETS", "DESCRIPTION"],
+            [
+                (
+                    item["name"],
+                    item["label"],
+                    "pair" if item["pair"] else "single",
+                    item["description"],
+                )
+                for item in catalogue
+            ],
+        )
+        out.write("\nRun 'neezy-cli strategies EURUSD -t 15m' to score them all.\n")
+        return 0
+    seconds = granularity(args.timeframe)
+    candles = fetch(args.symbol, seconds, args.count)
+    signals = run_all(candles)
+    verdict = consensus(signals)
+    payload = {
+        "symbol": args.symbol,
+        "timeframe": args.timeframe,
+        "strategies": [signal.to_dict() for signal in signals],
+        "consensus": verdict,
+    }
+    if args.json:
+        _emit(out, payload)
+        return 0
+    _table(
+        out,
+        ["STRATEGY", "CALL", "CONFIDENCE", "SUMMARY"],
+        [
+            (
+                signal.strategy,
+                signal.label,
+                f"{signal.confidence:.0f}%",
+                signal.summary,
+            )
+            for signal in signals
+        ],
+    )
+    out.write(
+        f"\nConsensus: {verdict['label']} ({verdict['confidence']:.0f}%) "
+        f"- votes {verdict['votes']}\n"
+    )
+    return 0
+
+
+def _open_database() -> LocalDatabase:
+    return LocalDatabase()
+
+
+def cmd_db(args, fetch, out) -> int:
+    with _open_database() as database:
+        if args.action == "stats":
+            payload = database.stats()
+            if args.json:
+                _emit(out, payload)
+                return 0
+            _table(
+                out,
+                ["FIELD", "VALUE"],
+                [
+                    ("database", payload["path"]),
+                    ("size", f"{payload['size_mb']} MB"),
+                    ("journal", payload["journal_mode"]),
+                    ("retention", f"{payload['retention_days']} days"),
+                    *[(name, count) for name, count in payload["counts"].items()],
+                ],
+            )
+            return 0
+        if args.action == "signals":
+            records = database.recent_signals(
+                args.limit, _symbol(args.symbol) if args.symbol else None
+            )
+            if args.json:
+                _emit(out, records)
+                return 0
+            _table(
+                out,
+                ["TIME", "MARKET", "TIMEFRAME", "SIGNAL", "SCORE", "STRATEGY"],
+                [
+                    (
+                        record["created_at"][:19],
+                        display_name(record["symbol"]),
+                        record["timeframe"],
+                        record["signal"],
+                        f"{record['score']:+.1f}",
+                        record["strategy"] or "-",
+                    )
+                    for record in records
+                ],
+            )
+            return 0
+        if args.action == "candles":
+            symbol = _symbol(args.symbol)
+            rows = database.load_candles(symbol, args.timeframe, args.limit)
+            if args.json:
+                _emit(
+                    out,
+                    [
+                        {
+                            "epoch": row[0],
+                            "open": row[1],
+                            "high": row[2],
+                            "low": row[3],
+                            "close": row[4],
+                        }
+                        for row in rows
+                    ],
+                )
+                return 0
+            _table(
+                out,
+                ["EPOCH", "OPEN", "HIGH", "LOW", "CLOSE"],
+                rows[-args.limit :],
+            )
+            return 0
+        if args.action == "save":
+            symbol = _symbol(args.symbol)
+            seconds = granularity(args.timeframe)
+            candles = fetch(symbol, seconds, args.count)
+            written = database.save_candles(symbol, args.timeframe, candles)
+            snapshot = market_snapshot(candles, symbol=symbol, timeframe=args.timeframe)
+            if snapshot is not None:
+                database.save_snapshot(
+                    symbol=symbol, timeframe=args.timeframe, result=snapshot
+                )
+            if args.json:
+                _emit(
+                    out,
+                    {"symbol": symbol, "written": written},
+                )
+                return 0
+            out.write(
+                f"Stored {written} candles for {display_name(symbol)} "
+                f"{args.timeframe} locally.\n"
+            )
+            return 0
+        if args.action == "export":
+            destination = Path(args.path).expanduser()
+            counts = database.export_json(destination)
+            if args.json:
+                _emit(out, {"destination": str(destination), "counts": counts})
+                return 0
+            out.write(f"Exported local database to {destination}\n")
+            for name, count in counts.items():
+                out.write(f"  {name}: {count}\n")
+            return 0
+        if args.action == "prune":
+            removed = database.prune(retention_days=args.days)
+            if args.json:
+                _emit(out, removed)
+                return 0
+            out.write(
+                "Pruned rows: "
+                + ", ".join(f"{k}={v}" for k, v in removed.items())
+                + "\n"
+            )
+            return 0
+        if args.action == "vacuum":
+            database.vacuum()
+            out.write("Database vacuumed.\n")
+            return 0
+    raise ValueError(f"unknown db action {args.action!r}")
+
+
+def _ai_store() -> AIKeyStore:
+    return AIKeyStore()
+
+
+def _resolve_secret(args, provider: str) -> str:
+    if args.key:
+        return args.key
+    from_env = os.environ.get("NEEZY_AI_KEY", "").strip()
+    if from_env:
+        return from_env
+    return getpass.getpass(f"Paste the {provider} API key (input hidden): ")
+
+
+def cmd_ai(args, fetch, out) -> int:
+    store = _ai_store()
+    if args.action == "providers":
+        payload = [
+            {
+                **spec.to_dict(),
+                "keys": store.count(spec.key),
+                "usable_keys": store.usable_count(spec.key),
+            }
+            for spec in PROVIDERS.values()
+        ]
+        if args.json:
+            _emit(out, payload)
+            return 0
+        _table(
+            out,
+            ["PROVIDER", "MODELS", "KEYS", "USABLE", "BASE URL"],
+            [
+                (
+                    item["label"],
+                    len(item["models"]),
+                    item["keys"],
+                    item["usable_keys"],
+                    item["base_url"],
+                )
+                for item in payload
+            ],
+        )
+        out.write(
+            "\nFree models only; add keys with 'neezy-cli ai keys add PROVIDER'.\n"
+        )
+        return 0
+    if args.action == "models":
+        spec = resolve_provider(args.provider)
+        models = free_models(spec.key)
+        if args.json:
+            _emit(out, {"provider": spec.key, "models": models})
+            return 0
+        out.write(f"{spec.label} free models:\n")
+        for model in models:
+            out.write(f"  {model}\n")
+        return 0
+    if args.action == "keys":
+        if not args.verb:
+            summaries = []
+            for spec in PROVIDERS.values():
+                for status in store.statuses(spec.key):
+                    summaries.append({**status.to_dict(), "provider_label": spec.label})
+            if args.json:
+                _emit(out, summaries)
+                return 0
+            _table(
+                out,
+                ["PROVIDER", "ID", "LABEL", "KEY", "USABLE", "USES", "LAST ERROR"],
+                [
+                    (
+                        item["provider_label"],
+                        item["id"],
+                        item["label"],
+                        item["hint"],
+                        "yes" if item["usable"] else "no",
+                        item["uses"],
+                        item["last_error"][:40],
+                    )
+                    for item in summaries
+                ],
+            )
+            return 0
+        if args.verb == "add":
+            spec = resolve_provider(args.provider)
+            status = store.add(
+                spec.key, _resolve_secret(args, spec.label), args.label or ""
+            )
+            if args.json:
+                _emit(out, status.to_dict())
+                return 0
+            out.write(f"Stored {spec.label} key '{status.label}' ({status.hint}).\n")
+            return 0
+        if args.verb == "remove":
+            spec = resolve_provider(args.provider)
+            removed = store.remove(spec.key, args.key_id)
+            out.write(
+                f"Removed key {args.key_id}\n" if removed else f"No key {args.key_id}\n"
+            )
+            return 0 if removed else 1
+        if args.verb == "reset":
+            changed = store.reset(args.provider.lower() if args.provider else None)
+            out.write(f"Cleared cooldowns on {changed} key(s).\n")
+            return 0
+        raise ValueError(f"unknown ai keys action {args.verb!r}")
+    if args.action == "chat":
+        spec = resolve_provider(args.provider)
+        context = ""
+        if args.symbol:
+            symbol = _symbol(args.symbol)
+            try:
+                candles = fetch(symbol, granularity(args.timeframe), args.count)
+                snapshot = market_snapshot(
+                    candles, symbol=symbol, timeframe=args.timeframe
+                )
+                if snapshot:
+                    context = format_context(snapshot)
+            except (OSError, RuntimeError, ValueError) as error:
+                out.write(f"! market context unavailable: {error}\n")
+        messages = chat_messages(args.prompt, context or "No live context supplied.")
+        with _open_database() as database:
+            client = AIClient(store, recorder=database.record_ai_call)
+            result = client.chat(
+                spec.key,
+                messages,
+                model=args.model,
+                temperature=args.temperature,
+                max_tokens=args.max_tokens,
+                timeout=args.timeout,
+            )
+        if args.json:
+            _emit(out, result.to_dict())
+            return 0
+        out.write(f"{result.text}\n\n")
+        out.write(
+            f"[{spec.label} · {result.model} · key {result.key_label} · "
+            f"{result.latency_ms} ms]\n"
+        )
+        return 0
+    if args.action == "usage":
+        with _open_database() as database:
+            payload = database.ai_usage(args.limit)
+        if args.json:
+            _emit(out, payload)
+            return 0
+        out.write(f"{payload['total']} recent AI calls\n")
+        _table(
+            out,
+            ["PROVIDER", "CALLS"],
+            sorted(payload["by_provider"].items()),
+        )
+        _table(out, ["STATUS", "CALLS"], sorted(payload["by_status"].items()))
+        return 0
+    if args.action == "reset":
+        changed = store.reset()
+        out.write(f"Cleared cooldowns on {changed} key(s).\n")
+        return 0
+    raise ValueError(f"unknown ai action {args.action!r}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="neezy-cli",
@@ -529,6 +1062,129 @@ def build_parser() -> argparse.ArgumentParser:
     add.add_argument("--note")
     remove = actions.add_parser("remove")
     remove.add_argument("rule_id")
+    p = common(sub.add_parser("read", help="full advanced market read"), count=300)
+    p.add_argument("symbol", type=_symbol)
+    p.add_argument("--strategy", choices=sorted(STRATEGIES), default="SUPERTREND")
+    p.add_argument("--period", type=int, default=10)
+    p.add_argument("--multiplier", type=float, default=3.0)
+    p.add_argument("--lookback", type=int, default=5)
+    p.set_defaults(handler=cmd_read)
+
+    p = common(
+        sub.add_parser("supertrend", help="Supertrend line and flip state"), count=300
+    )
+    p.add_argument("symbol", type=_symbol)
+    p.add_argument("--period", type=int, default=10)
+    p.add_argument("--multiplier", type=float, default=3.0)
+    p.set_defaults(handler=cmd_supertrend)
+
+    p = common(
+        sub.add_parser("divergence", help="RSI/MACD divergence near the last swing"),
+        count=300,
+    )
+    p.add_argument("symbol", type=_symbol)
+    p.add_argument("--lookback", type=int, default=5)
+    p.set_defaults(handler=cmd_divergence)
+
+    p = common(
+        sub.add_parser("corrdiv", help="correlation divergence across markets"),
+        timeframe=True,
+    )
+    p.add_argument("symbols", nargs="*", type=_symbol)
+    p.add_argument("--window", type=int, default=50)
+    p.add_argument("--baseline", type=int, default=200)
+    p.add_argument("--top", type=int, default=8)
+    p.set_defaults(handler=cmd_corrdiv)
+
+    p = common(
+        sub.add_parser("strategies", help="list or score every strategy"), count=300
+    )
+    p.add_argument("symbol", nargs="?", type=_symbol)
+    p.set_defaults(handler=cmd_strategies)
+
+    p = sub.add_parser("db", help="local SQLite database tools")
+    p.set_defaults(handler=cmd_db)
+    db_actions = p.add_subparsers(dest="action", required=True)
+
+    a = db_actions.add_parser("stats", help="database size and row counts")
+    a.add_argument("--json", action="store_true")
+
+    a = db_actions.add_parser("signals", help="signals saved on this PC")
+    a.add_argument("--limit", type=int, default=20)
+    a.add_argument("--symbol", help="restrict to one market")
+    a.add_argument("--json", action="store_true")
+
+    a = db_actions.add_parser("candles", help="stored candles for a market")
+    a.add_argument("symbol")
+    a.add_argument("-t", "--timeframe", choices=TIMEFRAMES, default="5m")
+    a.add_argument("--limit", type=int, default=20)
+    a.add_argument("--json", action="store_true")
+
+    a = db_actions.add_parser("save", help="fetch candles and store them locally")
+    a.add_argument("symbol")
+    a.add_argument("-t", "--timeframe", choices=TIMEFRAMES, default="5m")
+    a.add_argument("-n", "--count", type=int, default=300)
+    a.add_argument("--json", action="store_true")
+
+    a = db_actions.add_parser("export", help="export the whole database to JSON")
+    a.add_argument("path")
+    a.add_argument("--json", action="store_true")
+
+    a = db_actions.add_parser("prune", help="apply the retention window now")
+    a.add_argument("--days", type=int)
+    a.add_argument("--json", action="store_true")
+
+    a = db_actions.add_parser("vacuum", help="reclaim disk space")
+    a.add_argument("--json", action="store_true")
+
+    p = sub.add_parser("ai", help="AI providers, key pools, and chat")
+    p.set_defaults(handler=cmd_ai)
+    ai_actions = p.add_subparsers(dest="action", required=True)
+
+    a = ai_actions.add_parser("providers", help="list providers and key counts")
+    a.add_argument("--json", action="store_true")
+
+    a = ai_actions.add_parser("models", help="list free models for a provider")
+    a.add_argument("provider", choices=sorted(PROVIDERS))
+    a.add_argument("--json", action="store_true")
+
+    keys = ai_actions.add_parser("keys", help="manage the local key pool")
+    keys.add_argument("--json", action="store_true")
+    key_actions = keys.add_subparsers(dest="verb")
+
+    a = key_actions.add_parser("add", help="store another key for a provider")
+    a.add_argument("provider", choices=sorted(PROVIDERS))
+    a.add_argument(
+        "--key", help="key value; omit to paste it hidden or use NEEZY_AI_KEY"
+    )
+    a.add_argument("--label", help="friendly name, e.g. 'work laptop'")
+
+    a = key_actions.add_parser("remove", help="delete a stored key")
+    a.add_argument("provider", choices=sorted(PROVIDERS))
+    a.add_argument("key_id")
+
+    a = key_actions.add_parser("reset", help="clear cooldowns and failure counters")
+    a.add_argument("provider", nargs="?", choices=sorted(PROVIDERS))
+
+    a = ai_actions.add_parser("chat", help="ask the configured provider a question")
+    a.add_argument("prompt")
+    a.add_argument("--provider", choices=sorted(PROVIDERS), default="openrouter")
+    a.add_argument("--model", help="free model id (default: provider default)")
+    a.add_argument("--temperature", type=float, default=0.3)
+    a.add_argument("--max-tokens", type=int, default=700)
+    a.add_argument("--timeout", type=float, default=45.0)
+    a.add_argument("--symbol", help="attach live indicator context for this market")
+    a.add_argument("-t", "--timeframe", choices=TIMEFRAMES, default="15m")
+    a.add_argument("-n", "--count", type=int, default=300)
+    a.add_argument("--json", action="store_true")
+
+    a = ai_actions.add_parser("usage", help="recent AI calls logged locally")
+    a.add_argument("--limit", type=int, default=50)
+    a.add_argument("--json", action="store_true")
+
+    a = ai_actions.add_parser("reset", help="clear every key cooldown")
+    a.add_argument("--json", action="store_true")
+
     return parser
 
 

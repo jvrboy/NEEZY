@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "neezy-market-workspace"
-version = "1.1.1"
+version = "1.2.0"
 description = "A native Python market-monitoring desktop workspace"
 readme = "README.md"
 requires-python = ">=3.10"
