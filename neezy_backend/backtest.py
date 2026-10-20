@@ -10,7 +10,9 @@ independent of account size. Past simulated results do not predict the future.
 
 from __future__ import annotations
 
+import hashlib
 import math
+import struct
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from typing import Any
@@ -130,19 +132,36 @@ def _close(trade: Trade, time: int, price: float, reason: str, bars: int) -> Non
 
 @dataclass(frozen=True, slots=True)
 class DecisionCache:
-    """``analyze()`` output for every decision point of one candle series.
+    """Minimal decision metrics for one fingerprinted candle series.
 
-    The analysis depends only on the candles and the lookback, not on stops,
-    targets or score thresholds, so a parameter grid can share one cache.
+    Analysis depends only on candles and lookback, not on stops, targets, or
+    score thresholds, so a parameter grid can share one cache. Only fields used
+    by the simulator are retained; full ``analyze()`` outputs contain per-window
+    close arrays and can multiply cache memory on long histories.
     """
 
     lookback: int
     length: int
+    fingerprint: str
     values: dict[int, dict[str, Any] | None]
 
 
 def _rows(candles: Sequence[Candle]) -> list[tuple[float, ...]]:
-    return [tuple(float(value) for value in candle[:5]) for candle in candles]
+    rows = []
+    for candle in candles:
+        if len(candle) < 5:
+            raise ValueError(
+                "each candle must contain timestamp, open, high, low, close"
+            )
+        rows.append(tuple(float(value) for value in candle[:5]))
+    return rows
+
+
+def _fingerprint(rows: Sequence[Sequence[float]]) -> str:
+    digest = hashlib.blake2b(digest_size=16)
+    for row in rows:
+        digest.update(struct.pack("!5d", *row))
+    return digest.hexdigest()
 
 
 def build_decision_cache(
@@ -152,11 +171,24 @@ def build_decision_cache(
     if lookback < 61:
         raise ValueError("lookback must be at least 61 candles")
     rows = _rows(candles)
-    values = {
-        i: analyze(rows[max(0, i + 2 - lookback) : i + 2])
-        for i in range(61, len(rows) - 1)
-    }
-    return DecisionCache(lookback=lookback, length=len(rows), values=values)
+    values: dict[int, dict[str, Any] | None] = {}
+    for index in range(61, len(rows) - 1):
+        analysis = analyze(rows[max(0, index + 2 - lookback) : index + 2])
+        values[index] = (
+            None
+            if analysis is None
+            else {
+                "signal": analysis["signal"],
+                "score": analysis["score"],
+                "atr": analysis["atr"],
+            }
+        )
+    return DecisionCache(
+        lookback=lookback,
+        length=len(rows),
+        fingerprint=_fingerprint(rows),
+        values=values,
+    )
 
 
 def run_backtest(
@@ -173,7 +205,9 @@ def run_backtest(
     config = config or BacktestConfig()
     rows = _rows(candles)
     if cache is not None and (
-        cache.lookback != config.lookback or cache.length != len(rows)
+        cache.lookback != config.lookback
+        or cache.length != len(rows)
+        or cache.fingerprint != _fingerprint(rows)
     ):
         raise ValueError("cache was built for different candles or lookback")
     result = BacktestResult(candles_tested=len(rows))

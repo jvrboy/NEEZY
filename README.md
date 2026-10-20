@@ -17,7 +17,7 @@ NEEZY is a native Python/Tkinter market-monitoring workspace. It reads public ma
 - **Supertrend** (`neezy_backend/trend.py`) with ATR bands, flip detection, bars-since-flip, and distance from the active line. Also adds Donchian and Keltner channels, Williams %R, CCI, rate of change, linear-regression slope, Stochastic RSI, and Bollinger bandwidth percentiles.
 - **Divergence engine** (`neezy_backend/divergence.py`): fractal pivot detection, bullish/bearish RSI and MACD-histogram divergence with a 0-1 strength score, and **correlation divergence** — short rolling correlation versus a long baseline, labelled `stable`, `converging`, `decoupling`, or `inverted`, ranked across a basket of markets.
 - **Named strategies** (`neezy_backend/strategies.py`): `SUPERTREND`, `EMA_PULLBACK`, `DIVERGENCE`, `DONCHIAN`, `SQUEEZE`, `MACD`, `KELTNER`, plus the pair strategy `CORRELATION_DIVERGENCE`. Each returns a direction, a 0-100 confidence, reasons, and its metrics; `run_all()` scores them together and `consensus()` turns them into a vote-weighted verdict.
-- **Local SQLite database** (`neezy_backend/database.py`): candles, signal transitions, analysis snapshots, AI usage, and key/value state in one WAL-mode file. Retention pruning, `VACUUM`, JSON export, and per-table counts are built in. No server, no cloud.
+- **Local SQLite database** (`neezy_backend/database.py`): candles, signal transitions, analysis snapshots, AI usage, memory, and key/value state in one WAL-mode file. Retention pruning, `VACUUM`, JSON export, and per-table counts are built in. The database is local; there is no hosted database service.
 - **Bring-your-own-key AI** (`neezy_backend/ai.py`): Gemini, Grok (xAI), OpenRouter, and Ollama Cloud, each with multiple API keys. Keys rotate automatically on quota (402/429), auth (401/403), or transient errors, with per-key cooldowns and usage logging.
 - **Local context builder** (`neezy_backend/context.py`): one compact indicator summary feeds both `neezy-cli read` and the chat, so the AI always sees the same numbers the UI shows.
 
@@ -33,6 +33,35 @@ Open **SETTINGS → AI PROVIDERS**, pick a provider, paste a key, and press **Ad
 | Ollama Cloud | `https://ollama.com/v1` | `gpt-oss:20b`, `gpt-oss:120b`, `deepseek-v3.1:671b` |
 
 Keys are written to `ai-keys.json` in the NEEZY data directory with owner-only permissions (`0600`) on POSIX; on Windows the `%APPDATA%` ACL applies. They are stored in plain text because the app must send them to the provider, so treat that file like any other credential store. Keys are never logged, printed in full, or sent anywhere except the provider you selected.
+
+### Local generative models (offline inference)
+
+In **SETTINGS → LOCAL MODELS**, register a `.gguf` file or a complete local Transformers model folder (SafeTensors or standard PyTorch `.bin` weights, with `config.json` and tokenizer files). Registration stores the path and metadata only; NEEZY does not copy or download multi-gigabyte weights. Keep the source path intact. GGUF inference uses the optional `llama-cpp-python` runtime with mmap enabled, CPU-only execution, and bounded context/batch/thread settings. mmap can reduce eager allocation, but it does **not** guarantee that only one model layer is resident in RAM; the OS page cache and KV cache also consume memory. SafeTensors files are weights, not a runtime: use Transformers + PyTorch, and optionally Accelerate for best-effort CPU/SSD module offload. Offload can require extra temporary disk space, which NEEZY removes after generation. The runtime never downloads model files and sets `trust_remote_code=False`; PyTorch `.bin` loading also requests restricted `weights_only` deserialization. Only import trusted models, and expect CPU inference to be slow on mobile.
+
+Optional installation extras (some packages need platform-specific wheels or native build tools):
+
+```bash
+python -m pip install '.[local-gguf]'
+python -m pip install '.[local-transformers,local-disk-offload]'
+```
+
+The local model can be selected for CHAT without an API key; if inference cannot start, NEEZY falls back to its deterministic on-device rule-based read. Available model formats/runtimes depend on the operating system and Python build.
+
+### MCP agent bridge, Telegram and local learning
+
+**MCP for local clients.** In **SETTINGS → MCP SERVER**, enable the server and copy the displayed URL and bearer token into an MCP client that runs on the same computer and supports Streamable HTTP. The default endpoint is `http://127.0.0.1:8765/mcp`. It is loopback-only and token-protected; rotate the token from Settings to revoke old clients. Read tools cover market analysis, strategy scans, recent signals, alerts, settings, local memory, outcomes and the optional research model. Write tools (alert changes, safe workspace settings, selection, memory saves and model training) are hidden and denied until **Allow write tools on the local MCP server** is enabled. This switch never enables writes through the public tunnel. There is no shell, arbitrary-file or broker/trade tool.
+
+**Public tunnel (opt-in).** If you explicitly enable **Enable public Cloudflare quick tunnel (read-only)**, install `cloudflared` separately and point the Settings field to its executable. NEEZY launches it only while the local MCP server is enabled and displays a temporary HTTPS URL after Cloudflare provisions one. No inbound firewall port is opened; traffic is proxied through Cloudflare. The public listener has a distinct bearer token, a 60-request/minute limit, and a strict market-only read allow-list (`app_status`, market list/analysis/scan, outcome report, and advisory model status/prediction). It does not expose settings, local memory, signal history, chat, alerts, model training, or any writes—even when local MCP writes are enabled. Only connect an agent that supports MCP Streamable HTTP and a custom bearer token; not every hosted agent supports those options. Any agent with the public token can read the exposed market tools, so only share it with a trusted client. Disable the tunnel or rotate its token to revoke access; quick-tunnel URLs are temporary. Cloudflare is an external service and can observe proxied traffic/metadata. Browser clients that send a non-loopback `Origin` are rejected; this is intended for server-to-server MCP clients. The loopback MCP token is never reused for the tunnel. A local MCP client may forward tool results to its model provider, so review that provider's data policy.
+
+**Telegram alerts and commands.** Create a bot with `@BotFather`; in **SETTINGS → TELEGRAM**, paste and save the bot token, optionally test it, enter your numeric Telegram chat ID(s), then enable the bot. Message the bot with `/start` after adding the chat ID. Alert-rule triggers and qualifying signal changes can be sent to authorized chats. Read commands (`/status`, `/markets`, `/signals`, `/analyze`, `/scan`, `/ask`, `/alerts`, `/help`) are available to allow-listed chats. The separate write-permission checkbox enables `/alert`, `/remember`, `/set` and `/delete-alert`. The bot token is stored separately in `telegram-bot.json` with owner-only permissions (`0600` when supported); chat IDs and feature flags are in `settings.json`. Telegram is an external service: messages and enabled alert content are sent through Telegram's Bot API.
+
+**Local memory and neural experiment.** Stored notes stay in the local SQLite database. **Include relevant local memory in provider prompts** is off by default; enable it only if you want relevant notes included in AI-provider requests. In **SETTINGS → ENGINE**, train the optional local model from saved candles; the separate context checkbox controls whether its advisory output is included in app context. The model is research-only, uses chronological holdout validation, and never changes the core signal score or places trades. The UI needs at least 300 saved candles for a training attempt; performance must be assessed on untouched data and is not a guarantee of future results. Headless commands are also available:
+
+```bash
+neezy-cli brain train EURUSD -t 15m
+neezy-cli brain status EURUSD -t 15m
+neezy-cli brain predict EURUSD -t 15m
+```
 
 ### Advanced analytics (v1.1)
 
@@ -51,7 +80,7 @@ Decisions use closed candles only and fill at the *next* candle's open. When the
 
 ## Install and run
 
-Python 3.10 or newer is required. Tkinter must be installed with Python by the operating system (on Debian/Ubuntu, the `python3-tk` package may be needed). Install the app and its WebSocket dependency from the repository root:
+Python 3.10 or newer is required. The existing CI matrix covers Python 3.10–3.12; other versions are not claimed until tested. Tkinter must be installed separately by the operating system (on Debian/Ubuntu, the `python3-tk` package may be needed). Install the desktop app and its WebSocket dependency from the repository root:
 
 ```bash
 python -m pip install .
@@ -65,7 +94,9 @@ python -m pip install -r requirements.txt
 python -m neezy_app
 ```
 
-The original `python forex_signals.py` entry point remains available. A graphical desktop session is required.
+The original `python forex_signals.py` entry point remains available. The GUI requires a desktop session.
+
+**Android / Pydroid 3:** NEEZY's Python backend and `neezy-cli` are headless and do not import Tkinter. In Pydroid, install/clone the project in a writable directory, install the base dependency (`websocket-client`) with Pydroid's pip/quick-install support, and run `python -m neezy_backend --help` or `python -m neezy_backend markets`. Grant the app storage permission if you choose a shared location; set `NEEZY_HOME` to a writable app-owned directory if the default config path is unsuitable. Market data still needs an internet connection. Tkinter/desktop widgets are not expected to work in Pydroid. Native `llama-cpp-python`, PyTorch, Transformers, and `cloudflared` availability depends on compatible Android wheels/binaries; NEEZY does not bundle them, and the optional model/tunnel features may therefore be unavailable on a particular phone. This repository has not been validated on a physical Android/Pydroid device.
 
 ## Command-line tools
 
@@ -119,6 +150,18 @@ neezy-cli ai usage
 ```
 
 `NEEZY_AI_KEY` supplies a key without putting it in shell history, and `ai chat` records every attempt in the local `ai_calls` table.
+
+Local models can also be managed without a display (including from a mobile terminal):
+
+```bash
+neezy-cli local-model runtime --json
+neezy-cli local-model add ~/models/my-model.gguf --name "Small local model"
+neezy-cli local-model list
+neezy-cli local-model chat <MODEL_ID> "Summarize the current market context"
+neezy-cli local-model remove <MODEL_ID>    # removes the index entry, not weight files
+```
+
+Use `neezy-cli local-model --help` for context, output, thread, batch, and offload options. Headless CLI commands do not require Tkinter.
 
 
 ## Connection troubleshooting
@@ -178,14 +221,16 @@ Settings, alert rules, signal history, and the SQLite database live in the user'
 | File | Contents |
 | --- | --- |
 | `neezy.sqlite3` | Candles, signal transitions, analysis snapshots, AI call log, key/value state |
-| `settings.json` | Workspace, engine, storage, and AI settings |
+| `settings.json` | Workspace, engine, storage, AI, MCP and Telegram settings; contains Telegram chat IDs but no bot token |
 | `ai-keys.json` | Provider API keys and their cooldown/usage state (`0600` when supported) |
+| `mcp-token.json` | Local MCP bearer token (`0600` when supported) |
+| `telegram-bot.json` | Telegram Bot API token (`0600` when supported) |
 | `signal-history.jsonl` | Append-only signal log kept for CSV export |
 | `alerts.json` | Alert rules |
 
 Settings are written atomically. The database runs in WAL mode, prunes rows older than the configured retention (default 90 days) via `db prune` or **SETTINGS → LOCAL DATA → Apply retention now**, and can be exported as JSON from the same tab. The JSONL history compacts itself to the newest 5,000 records once it passes about 2 MB, and history export creates a standard CSV at the location you choose.
 
-Nothing leaves the machine: the only network traffic is Deriv's public market feed and, if you enable AI, the provider you configured.
+NEEZY does not upload the database or send telemetry. Network traffic includes Deriv's public market feed, requests to a configured AI provider when AI answers are enabled, and Telegram messages/alerts when the Telegram bot is enabled. Local notes enter AI-provider prompts only when the memory-context option is enabled. The MCP endpoint is bound to loopback and serves a local MCP client; a hosted service cannot reach it without a separately secured tunnel.
 
 ## Project layout
 
@@ -196,8 +241,13 @@ neezy_backend/         validated settings, stream events/client, analysis, persi
   divergence.py        pivot detection, RSI/MACD divergence, correlation divergence
   strategies.py        named strategy registry, consensus voting
   context.py           one market snapshot shared by CLI and AI prompts
-  database.py          local SQLite store (candles, signals, snapshots, AI usage)
+  database.py          local SQLite store (candles, signals, snapshots, AI usage, memory)
   ai.py                provider catalogue, multi-key pools, rotation, chat client
+  brain.py             local MLP experiment with chronological holdout validation
+  mcp.py               bearer-protected loopback Streamable HTTP server
+  mcp_tools.py         allow-listed desktop tools for MCP and Telegram
+  remote.py            bounded bridge to the Tk-owning thread
+  telegram.py          Bot API adapter, authorized chats, and queued notifications
   indicators.py        EMA/RSI/ATR/MACD/Bollinger/Stochastic/ADX + signal engine
   patterns.py          candlestick patterns, pivots, swing support/resistance
   backtest.py          walk-forward backtester with R-multiple statistics

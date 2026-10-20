@@ -94,6 +94,39 @@ class AppSettings:
     # Add each market's backtest record (neezy-cli knowledge) to AI context.
     # Off by default: the records are simulations, not evidence of future profit.
     use_knowledge: bool = False
+    # Include relevant on-device notes in provider prompts only when explicitly enabled.
+    use_memory: bool = False
+
+    # Optional local neural experiment. It is advisory-only and never changes
+    # the deterministic signal score or places trades.
+    use_brain_model: bool = False
+
+    # Optional local generative model. Imported weights remain where the user
+    # selected them; inference is CPU-oriented and never downloads model files.
+    local_llm_enabled: bool = False
+    local_llm_model_id: str = ""
+    local_llm_context_tokens: int = 512
+    local_llm_max_tokens: int = 128
+    local_llm_threads: int = 1
+    local_llm_batch_size: int = 32
+    local_llm_disk_offload: bool = False
+    local_llm_cpu_memory_mb: int = 512
+
+    # Local Model Context Protocol bridge. The default server binds to loopback.
+    # Public access is an opt-in Cloudflare quick tunnel to a separate read-only
+    # endpoint with its own bearer token.
+    mcp_enabled: bool = False
+    mcp_port: int = 8765
+    mcp_allow_writes: bool = False
+    mcp_tunnel_enabled: bool = False
+    mcp_tunnel_executable: str = "cloudflared"
+
+    # Telegram secrets are stored separately in an owner-only file. These
+    # non-secret controls remain in settings.json.
+    telegram_enabled: bool = False
+    telegram_chat_ids: str = ""
+    telegram_alerts_enabled: bool = True
+    telegram_allow_commands: bool = False
 
     def __post_init__(self) -> None:
         if self.theme not in THEMES:
@@ -140,6 +173,17 @@ class AppSettings:
             "store_candles",
             "save_snapshots",
             "ai_enabled",
+            "use_knowledge",
+            "use_memory",
+            "use_brain_model",
+            "local_llm_enabled",
+            "local_llm_disk_offload",
+            "mcp_enabled",
+            "mcp_allow_writes",
+            "mcp_tunnel_enabled",
+            "telegram_enabled",
+            "telegram_alerts_enabled",
+            "telegram_allow_commands",
         ):
             _require_bool(field_name, getattr(self, field_name))
         if self.strategy not in STRATEGIES:
@@ -155,6 +199,36 @@ class AppSettings:
         if self.correlation_baseline < self.correlation_window:
             raise ValueError("correlation baseline must be at least the window")
         _require_int("retention_days", self.retention_days, 1, 3650)
+        _require_int("mcp_port", self.mcp_port, 1024, 65535)
+        _require_int(
+            "local_llm_context_tokens", self.local_llm_context_tokens, 128, 32768
+        )
+        _require_int("local_llm_max_tokens", self.local_llm_max_tokens, 1, 8192)
+        _require_int("local_llm_threads", self.local_llm_threads, 1, 16)
+        _require_int("local_llm_batch_size", self.local_llm_batch_size, 1, 1024)
+        _require_int(
+            "local_llm_cpu_memory_mb", self.local_llm_cpu_memory_mb, 256, 262144
+        )
+        if (
+            not isinstance(self.local_llm_model_id, str)
+            or len(self.local_llm_model_id) > 64
+        ):
+            raise ValueError(
+                "local_llm_model_id must be a string of at most 64 characters"
+            )
+        if not isinstance(self.mcp_tunnel_executable, str):
+            raise TypeError("mcp_tunnel_executable must be a string")
+        if (
+            not self.mcp_tunnel_executable.strip()
+            or len(self.mcp_tunnel_executable) > 1024
+        ):
+            raise ValueError("mcp_tunnel_executable must contain 1 to 1024 characters")
+        if any(ord(character) < 32 for character in self.mcp_tunnel_executable):
+            raise ValueError("mcp_tunnel_executable cannot contain control characters")
+        if not isinstance(self.telegram_chat_ids, str):
+            raise TypeError("telegram_chat_ids must be a string")
+        if len(self.telegram_chat_ids) > 1000:
+            raise ValueError("telegram_chat_ids must be at most 1000 characters")
         if self.ai_provider not in AI_PROVIDERS:
             raise ValueError(f"Unsupported AI provider {self.ai_provider!r}")
         _require_float("ai_temperature", self.ai_temperature, 0.0, 2.0)

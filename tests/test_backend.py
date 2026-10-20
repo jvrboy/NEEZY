@@ -44,6 +44,12 @@ class SettingsTests(unittest.TestCase):
             AppSettings().updated(alerts_enabled=1)
         with self.assertRaises(ValueError):
             AppSettings().updated(alert_min_score=5)
+        with self.assertRaises(ValueError):
+            AppSettings().updated(local_llm_threads=0)
+        with self.assertRaises(ValueError):
+            AppSettings().updated(local_llm_cpu_memory_mb=128)
+        with self.assertRaises(ValueError):
+            AppSettings().updated(mcp_tunnel_executable="")
 
     def test_settings_round_trip_and_corrupt_file_fallback(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -129,6 +129,7 @@ def install_fake_tkinter() -> None:
     filedialog = types.ModuleType("tkinter.filedialog")
     filedialog.asksaveasfilename = lambda **_kwargs: ""
     filedialog.askopenfilename = lambda **_kwargs: ""
+    filedialog.askdirectory = lambda **_kwargs: ""
     messagebox = types.ModuleType("tkinter.messagebox")
     messagebox.showerror = lambda *_args, **_kwargs: None
     messagebox.showinfo = lambda *_args, **_kwargs: None
@@ -193,7 +194,15 @@ class AppSmokeTests(unittest.TestCase):
             for call in self.app.settings_notebook.calls
             if call[0] == "add"
         ]
-        for name in ("WORKSPACE", "ENGINE", "LOCAL DATA", "AI PROVIDERS"):
+        for name in (
+            "WORKSPACE",
+            "ENGINE",
+            "LOCAL DATA",
+            "AI PROVIDERS",
+            "LOCAL MODELS",
+            "MCP SERVER",
+            "TELEGRAM",
+        ):
             self.assertIn(name, added)
         self.assertTrue(hasattr(self.app, "ai_model_combo"))
         self.assertTrue(hasattr(self.app, "db_stats_label"))
@@ -219,6 +228,21 @@ class AppSmokeTests(unittest.TestCase):
         self.app.ai_timeout_var.set(20.0)
         self.app.ai_system_var.set("Answer in three bullets.")
         self.app.overlay_var.set(False)
+        self.app.use_knowledge_var.set(True)
+        self.app.use_memory_var.set(True)
+        self.app.use_brain_var.set(True)
+        self.app.local_llm_enabled_var.set(True)
+        self.app.local_llm_context_var.set(1024)
+        self.app.local_llm_tokens_var.set(64)
+        self.app.local_llm_threads_var.set(2)
+        self.app.local_llm_batch_var.set(16)
+        self.app.local_llm_disk_offload_var.set(True)
+        self.app.local_llm_memory_var.set(2048)
+        self.app.mcp_port_var.set(9876)
+        self.app.mcp_writes_var.set(True)
+        self.app.mcp_tunnel_enabled_var.set(True)
+        self.app.mcp_tunnel_executable_var.set("/opt/cloudflared")
+        self.app.telegram_chat_ids_var.set("123456789")
         self.app._settings_changed()
 
         saved = SettingsStore(get_data_dir() / "settings.json").load()
@@ -239,7 +263,159 @@ class AppSmokeTests(unittest.TestCase):
         self.assertAlmostEqual(saved.ai_timeout, 20.0)
         self.assertEqual(saved.ai_system_prompt, "Answer in three bullets.")
         self.assertFalse(saved.show_strategy_overlay)
+        self.assertTrue(saved.use_knowledge)
+        self.assertTrue(saved.use_memory)
+        self.assertTrue(saved.use_brain_model)
+        self.assertTrue(saved.local_llm_enabled)
+        self.assertEqual(saved.local_llm_context_tokens, 1024)
+        self.assertEqual(saved.local_llm_max_tokens, 64)
+        self.assertEqual(saved.local_llm_threads, 2)
+        self.assertEqual(saved.local_llm_batch_size, 16)
+        self.assertTrue(saved.local_llm_disk_offload)
+        self.assertEqual(saved.local_llm_cpu_memory_mb, 2048)
+        self.assertEqual(saved.mcp_port, 9876)
+        self.assertTrue(saved.mcp_allow_writes)
+        self.assertTrue(saved.mcp_tunnel_enabled)
+        self.assertEqual(saved.mcp_tunnel_executable, "/opt/cloudflared")
+        self.assertEqual(saved.telegram_chat_ids, "123456789")
         self.assertFalse(self.app.db.store_candles)
+
+    def test_chat_uses_the_selected_local_model_without_a_provider_key(self) -> None:
+        model_path = Path(self.directory.name) / "chat.gguf"
+        model_path.write_bytes(b"GGUF" + (3).to_bytes(4, "little") + bytes(16))
+        self.app._register_local_model(str(model_path))
+        self.app.local_llm_enabled_var.set(True)
+        self.app._settings_changed()
+        self.app.prompt.get = lambda: "Explain this market"
+        self.app.after = lambda _delay, callback: callback()
+
+        class ImmediateThread:
+            def __init__(self, *, target, **_kwargs):
+                self.target = target
+
+            def start(self):
+                self.target()
+
+        with (
+            mock.patch(
+                "neezy_app.ui.generate_chat", return_value="Offline answer"
+            ) as generate,
+            mock.patch("neezy_app.ui.threading.Thread", ImmediateThread),
+        ):
+            self.app._ask()
+
+        generate.assert_called_once()
+        inserted = " ".join(str(call[1]) for call in self.app.chat.calls)
+        self.assertIn("Offline answer", inserted)
+        self.assertIn("local", inserted)
+
+    def test_mcp_settings_start_and_stop_the_local_server(self) -> None:
+        server = mock.Mock()
+        server.url = "http://127.0.0.1:9876/mcp"
+        server.running = True
+        with mock.patch("neezy_app.ui.MCPServer", return_value=server) as factory:
+            self.app.mcp_enabled_var.set(True)
+            self.app.mcp_port_var.set(9876)
+            self.app._settings_changed()
+
+            factory.assert_called_once()
+            server.start.assert_called_once_with()
+            self.assertTrue(self.app.settings.mcp_enabled)
+            self.assertEqual(self.app.settings.mcp_port, 9876)
+            self.assertEqual(self.app.mcp_url_var.get(), server.url)
+            self.assertIn("Running", self.app.mcp_status.options["text"])
+            self.assertIsNotNone(self.app.mcp_token_store.load())
+
+            self.app.mcp_enabled_var.set(False)
+            self.app._settings_changed()
+            server.stop.assert_called_once_with()
+            self.assertIsNone(self.app.mcp_server)
+            self.assertEqual(
+                self.app.mcp_status.options["text"], "MCP server is disabled."
+            )
+
+    def test_local_model_import_registers_reference_and_selects_it(self) -> None:
+        model_path = Path(self.directory.name) / "offline.gguf"
+        model_path.write_bytes(b"GGUF" + (3).to_bytes(4, "little") + bytes(16))
+        self.app._register_local_model(str(model_path))
+        self.assertEqual(len(self.app._local_model_labels), 1)
+        model_id = next(iter(self.app._local_model_labels.values()))
+        self.assertEqual(self.app.settings.local_llm_model_id, model_id)
+        self.assertTrue(model_path.exists())
+        self.assertIn("not copied", self.app.local_model_status.options["text"])
+
+    def test_public_tunnel_uses_separate_read_only_mcp_endpoint(self) -> None:
+        local_server = mock.Mock()
+        local_server.url = "http://127.0.0.1:9876/mcp"
+        local_server.running = True
+        public_server = mock.Mock()
+        public_server.url = "http://127.0.0.1:45321/mcp"
+        public_server.port = 45321
+        public_server.running = True
+        tunnel = mock.Mock()
+        tunnel.running = False
+        tunnel.public_url = None
+        tunnel.error = ""
+        tunnel.start.side_effect = lambda *_args: setattr(tunnel, "running", True)
+        self.app.mcp_tunnel_service = tunnel
+
+        with mock.patch(
+            "neezy_app.ui.MCPServer", side_effect=[local_server, public_server]
+        ) as factory:
+            self.app.mcp_enabled_var.set(True)
+            self.app.mcp_port_var.set(9876)
+            self.app.mcp_tunnel_enabled_var.set(True)
+            self.app._settings_changed()
+
+        self.assertEqual(factory.call_count, 2)
+        public_call = factory.call_args_list[1]
+        public_args = public_call.kwargs
+        self.assertIs(public_call.args[0], self.app.public_remote_registry)
+        self.assertFalse(public_args["write_enabled"])
+        self.assertEqual(public_args["requests_per_minute"], 60)
+        self.assertEqual(public_args["port"], 0)
+        tunnel.start.assert_called_once_with("cloudflared", 45321)
+        self.assertTrue(self.app.mcp_public_token_store.load())
+        self.app._stop_mcp_server()
+        public_server.stop.assert_called_once_with()
+        local_server.stop.assert_called_once_with()
+        tunnel.stop.assert_called_once_with()
+
+    def test_telegram_settings_save_token_and_enforce_chat_allow_list(self) -> None:
+        token = "123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi"
+        service = mock.Mock()
+        service.running = True
+        service.last_error = ""
+        with mock.patch(
+            "neezy_app.ui.TelegramBotService", return_value=service
+        ) as factory:
+            self.app.telegram_token_var.set(token)
+            self.app._telegram_save_token()
+            self.assertEqual(self.app.telegram_token_store.load(), token)
+            self.assertEqual(self.app.telegram_token_var.get(), "")
+
+            self.app.telegram_enabled_var.set(True)
+            self.app.telegram_chat_ids_var.set("123456789")
+            self.app.telegram_alerts_var.set(False)
+            self.app.telegram_commands_var.set(True)
+            self.app._settings_changed()
+            self.assertTrue(self.app.settings.telegram_enabled)
+            self.assertFalse(self.app.settings.telegram_alerts_enabled)
+            self.assertTrue(self.app.settings.telegram_allow_commands)
+            factory.assert_called_once_with(
+                token, ("123456789",), command_handler=self.app._telegram_command
+            )
+            service.start.assert_called_once_with()
+            self.assertIn("Running", self.app.telegram_status.options["text"])
+
+            self.app.telegram_chat_ids_var.set("")
+            self.app._settings_changed()
+            service.stop.assert_called_once_with()
+            self.assertIsNone(self.app.telegram_service)
+            self.assertEqual(
+                self.app.telegram_status.options["text"],
+                "Add at least one authorized chat ID.",
+            )
 
     def test_connection_and_workspace_settings_persist(self) -> None:
         self.app.default_tf_var.set("1h")

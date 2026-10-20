@@ -2,6 +2,7 @@ import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from neezy_backend.database import SCHEMA_VERSION, LocalDatabase
 from neezy_backend.migrations import (
@@ -80,6 +81,45 @@ class DatabaseMigrationIntegrationTest(unittest.TestCase):
                 db.add_memory("gold and silver rally")
                 self.assertEqual(len(db.search_memory("NOT")), 0)
                 self.assertEqual(len(db.search_memory("gold AND silver")), 1)
+
+    def test_memory_search_has_a_fallback_without_fts5(self):
+        import neezy_backend.database as database_module
+
+        real_connect = sqlite3.connect
+
+        class NoFtsConnection:
+            def __init__(self, connection):
+                object.__setattr__(self, "_connection", connection)
+
+            def __getattr__(self, name):
+                return getattr(self._connection, name)
+
+            def __setattr__(self, name, value):
+                if name == "_connection":
+                    object.__setattr__(self, name, value)
+                else:
+                    setattr(self._connection, name, value)
+
+            def execute(self, sql, parameters=()):
+                if sql.lstrip().upper().startswith("CREATE VIRTUAL TABLE"):
+                    raise sqlite3.OperationalError("no such module: fts5")
+                return self._connection.execute(sql, parameters)
+
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "neezy.sqlite3"
+            with mock.patch.object(
+                database_module.sqlite3,
+                "connect",
+                side_effect=lambda *args, **kwargs: NoFtsConnection(
+                    real_connect(*args, **kwargs)
+                ),
+            ):
+                with LocalDatabase(path) as db:
+                    self.assertFalse(db.fts5_available)
+                    db.add_memory("mobile runner on Pydroid")
+                    matches = db.search_memory("Pydroid mobile")
+                    self.assertEqual(len(matches), 1)
+                    self.assertIn("Pydroid", matches[0]["content"])
 
 
 if __name__ == "__main__":

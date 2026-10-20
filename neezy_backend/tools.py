@@ -5,7 +5,8 @@ from __future__ import annotations
 import inspect
 from collections.abc import Callable
 from enum import Enum, auto
-from typing import Any
+from types import UnionType
+from typing import Any, Union, get_args, get_origin, get_type_hints
 
 
 class ToolPermission(Enum):
@@ -14,8 +15,36 @@ class ToolPermission(Enum):
     DESTRUCTIVE = auto()
 
 
+def _json_schema(annotation: Any, fallback: Any = None) -> dict[str, Any]:
+    """Translate a Python parameter annotation into a JSON Schema fragment."""
+    origin = get_origin(annotation)
+    if origin in (Union, UnionType):
+        choices = [_json_schema(arg) for arg in get_args(annotation)]
+        return {"anyOf": choices}
+    if origin is list:
+        args = get_args(annotation)
+        return {
+            "type": "array",
+            "items": _json_schema(args[0]) if args else {},
+        }
+    if origin is dict:
+        return {"type": "object"}
+    types = {
+        str: "string",
+        int: "integer",
+        float: "number",
+        bool: "boolean",
+        list: "array",
+        dict: "object",
+    }
+    json_type = types.get(annotation)
+    if json_type is None and fallback is not None:
+        json_type = types.get(type(fallback))
+    return {"type": json_type or "string"}
+
+
 class Tool:
-    """Wrapped backend tool with schema, permissions, and dry-run execution support."""
+    """Wrapped backend tool with schema, permissions, and dry-run execution."""
 
     def __init__(
         self,
@@ -30,19 +59,25 @@ class Tool:
         self.description = description.strip()
         self.func = func
         self.permission = permission
+        self._signature = inspect.signature(func)
         self.schema = schema or self._generate_schema(func)
 
     def _generate_schema(self, func: Callable[..., Any]) -> dict[str, Any]:
         sig = inspect.signature(func)
-        properties = {}
-        required = []
+        try:
+            hints = get_type_hints(func)
+        except (NameError, TypeError):
+            hints = {}
+        properties: dict[str, Any] = {}
+        required: list[str] = []
         for param_name, param in sig.parameters.items():
             if param_name in ("self", "dry_run"):
                 continue
-            properties[param_name] = {
-                "type": "string",
-                "description": f"Parameter {param_name}",
-            }
+            annotation = hints.get(param_name, param.annotation)
+            properties[param_name] = _json_schema(
+                annotation,
+                None if param.default is inspect.Parameter.empty else param.default,
+            )
             if param.default == inspect.Parameter.empty:
                 required.append(param_name)
         return {
@@ -52,10 +87,37 @@ class Tool:
                 "type": "object",
                 "properties": properties,
                 "required": required,
+                "additionalProperties": False,
             },
         }
 
     def execute(self, dry_run: bool = False, **kwargs: Any) -> Any:
+        parameters = {
+            key: value
+            for key, value in self._signature.parameters.items()
+            if key not in ("self", "dry_run")
+        }
+        accepts_extra = any(
+            parameter.kind is inspect.Parameter.VAR_KEYWORD
+            for parameter in parameters.values()
+        )
+        unknown = set(kwargs) - set(parameters)
+        if unknown and not accepts_extra:
+            raise ValueError(
+                f"Unknown parameter(s) for {self.name}: {', '.join(sorted(unknown))}"
+            )
+        missing = [
+            key
+            for key, parameter in parameters.items()
+            if parameter.default is inspect.Parameter.empty
+            and parameter.kind
+            not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+            and key not in kwargs
+        ]
+        if missing:
+            raise ValueError(
+                f"Missing parameter(s) for {self.name}: {', '.join(missing)}"
+            )
         if dry_run:
             return {
                 "status": "dry_run",
@@ -80,7 +142,14 @@ class ToolRegistry:
         permission: ToolPermission = ToolPermission.READ_ONLY,
         schema: dict[str, Any] | None = None,
     ) -> None:
-        tool = Tool(name, description, func, permission=permission, schema=schema)
+        cleaned_name = name.strip()
+        if not cleaned_name or not cleaned_name.replace("_", "").isalnum():
+            raise ValueError(
+                "tool name must contain only letters, numbers, and underscores"
+            )
+        tool = Tool(
+            cleaned_name, description, func, permission=permission, schema=schema
+        )
         self._tools[tool.name] = tool
 
     def get(self, name: str) -> Tool | None:
@@ -97,14 +166,14 @@ class ToolRegistry:
             for tool in self._tools.values()
         ]
 
-    def execute(self, name: str, dry_run: bool = False, **kwargs: Any) -> Any:
-        tool = self.get(name)
+    def execute(self, tool_name: str, dry_run: bool = False, **kwargs: Any) -> Any:
+        tool = self.get(tool_name)
         if not tool:
-            raise KeyError(f"Tool '{name}' not found in registry")
+            raise KeyError(f"Tool '{tool_name}' not found in registry")
         return tool.execute(dry_run=dry_run, **kwargs)
 
 
-# Global default tool registry instance
+# Global default registry instance
 DEFAULT_REGISTRY = ToolRegistry()
 
 

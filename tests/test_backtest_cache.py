@@ -30,6 +30,8 @@ class DecisionCacheTests(unittest.TestCase):
     def test_cached_results_match_uncached_across_a_grid(self) -> None:
         candles = _walk(900)
         cache = build_decision_cache(candles)
+        cached_analysis = next(value for value in cache.values.values() if value)
+        self.assertEqual(set(cached_analysis), {"signal", "score", "atr"})
         grid = [
             BacktestConfig(min_score=score, stop_atr_multiple=stop, reward_to_risk=rr)
             for score in (2, 3)
@@ -49,6 +51,11 @@ class DecisionCacheTests(unittest.TestCase):
             run_backtest(candles, BacktestConfig(lookback=200), cache=cache)
         with self.assertRaises(ValueError):
             run_backtest(candles[:250], BacktestConfig(lookback=100), cache=cache)
+        changed_candles = list(candles)
+        epoch, open_, high, low, close = changed_candles[100]
+        changed_candles[100] = (epoch, open_, high * 1.001, low, close)
+        with self.assertRaisesRegex(ValueError, "different candles"):
+            run_backtest(changed_candles, BacktestConfig(lookback=100), cache=cache)
         with self.assertRaises(ValueError):
             build_decision_cache(candles, lookback=10)
 
