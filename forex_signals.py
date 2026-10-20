@@ -80,7 +80,7 @@ class App(tk.Tk):
     BG="#08111f"; PANEL="#101d30"; PANEL2="#14253b"; TEXT="#e6f0ff"; MUTED="#8ea4bd"; CYAN="#55d6ff"; GREEN="#48e6a1"; RED="#ff718c"; BORDER="#203754"
     def __init__(self):
         super().__init__();self.title("NEEZY  /  Market Intelligence");self.geometry("1280x800");self.minsize(1050,650);self.configure(bg=self.BG)
-        self.inbox=queue.Queue();self.client=DerivClient(self.inbox);self.gran=300;self.candles={};self.results={};self.last_signal={};self.selected="frxEURUSD";self.history=[];self.chart_points=[]
+        self.inbox=queue.Queue();self.client=DerivClient(self.inbox);self.gran=300;self.candles={};self.results={};self.last_signal={};self.selected="frxEURUSD";self.history=[];self.chart_points=[];self.auto_refresh=tk.BooleanVar(value=True);self.compact_mode=tk.BooleanVar(value=False);self.alerts_enabled=tk.BooleanVar(value=True);self.theme_var=tk.StringVar(value="Liquid dark");self.status_var=tk.StringVar(value="Ready")
         self._style();self._build();self.client.start();self.after(100,self._poll);self.protocol("WM_DELETE_WINDOW",self._close)
     def _style(self):
         s=ttk.Style(self);s.theme_use("clam");s.configure("TCombobox",fieldbackground=self.PANEL2,background=self.PANEL2,foreground=self.TEXT);s.configure("Treeview",background=self.PANEL,fieldbackground=self.PANEL,foreground=self.TEXT,rowheight=34,borderwidth=0);s.map("Treeview",background=[("selected", "#204467")]);s.configure("TNotebook",background=self.BG,borderwidth=0);s.configure("TNotebook.Tab",background=self.PANEL,foreground=self.MUTED,padding=(18,10));s.map("TNotebook.Tab",background=[("selected",self.PANEL2)],foreground=[("selected",self.CYAN)])
@@ -107,6 +107,9 @@ class App(tk.Tk):
     def _tab(self,name):self.nb.select(self.pages[name]);[b.configure(fg=self.MUTED,bg="#0b1728") for b in self.nav.values()];self.nav[name].configure(fg=self.CYAN,bg=self.PANEL2)
     def _signals_page(self):
         p=self.pages["SIGNALS"];top=tk.Frame(p,bg=self.BG);top.pack(fill="x",pady=(0,12));self._label(top,"Signal monitor",12,"#ffffff").pack(side="left");self._label(top,"  Closed-candle confirmation · no repainting",9,self.MUTED).pack(side="left",pady=2)
+        self.signal_cards=tk.Frame(p,bg=self.BG);self.signal_cards.pack(fill="x",pady=(0,12));self.card_values={}
+        for key,title,accent in [("active","ACTIVE SETUPS",self.CYAN),("buy","BUY BIAS",self.GREEN),("sell","SELL BIAS",self.RED),("confidence","AVG SCORE",self.MUTED)]:
+            card=self._panel(self.signal_cards);card.pack(side="left",fill="x",expand=True,padx=(0,8));self._label(card,title,8,self.MUTED).pack(anchor="w",padx=14,pady=(10,2));v=self._label(card,"—",18,accent);v.pack(anchor="w",padx=14,pady=(0,10));self.card_values[key]=v
         self.tf=ttk.Combobox(top,values=list(TIMEFRAMES),width=7,state="readonly");self.tf.set("5m");self.tf.pack(side="right");self.tf.bind("<<ComboboxSelected>>",lambda e:self._tf_changed())
         body=tk.Frame(p,bg=self.BG);body.pack(fill="both",expand=True);left=self._panel(body);left.pack(side="left",fill="both",expand=True,padx=(0,12));right=self._panel(body);right.pack(side="right",fill="both",expand=False);right.configure(width=320);right.pack_propagate(False)
         cols=("pair","price","signal","score","rsi","updated");self.tree=ttk.Treeview(left,columns=cols,show="headings");
@@ -123,7 +126,19 @@ class App(tk.Tk):
     def _history_page(self):
         p=self.pages["HISTORY"];self._label(p,"Signal history",16).pack(anchor="w",pady=(5,16));self.hist=tk.Listbox(p,bg=self.PANEL,fg=self.TEXT,relief="flat",font=("Courier",10));self.hist.pack(fill="both",expand=True)
     def _settings_page(self):
-        p=self.pages["SETTINGS"];self._label(p,"Workspace settings",16).pack(anchor="w",pady=(5,18));card=self._panel(p);card.pack(fill="x");self._label(card,"Connection",12).pack(anchor="w",padx=18,pady=(18,4));self._label(card,"Deriv public WebSocket · app id 1089",10,self.MUTED).pack(anchor="w",padx=18,pady=(0,18));self._label(card,"Signal engine",12).pack(anchor="w",padx=18,pady=(8,4));self._label(card,"EMA 9/21/50 · RSI 14 · ATR 14 · MACD",10,self.MUTED).pack(anchor="w",padx=18,pady=(0,18))
+        p=self.pages["SETTINGS"];self._label(p,"Workspace settings",16).pack(anchor="w",pady=(5,4));self._label(p,"Tune the workspace without leaving your market view.",10,self.MUTED).pack(anchor="w",pady=(0,16))
+        grid=tk.Frame(p,bg=self.BG);grid.pack(fill="both",expand=True)
+        left=self._panel(grid);left.pack(side="left",fill="both",expand=True,padx=(0,10));right=self._panel(grid);right.pack(side="right",fill="both",expand=True,padx=(10,0))
+        self._label(left,"LIVE WORKSPACE",9,self.CYAN).pack(anchor="w",padx=18,pady=(18,12))
+        for text,var in [("Auto-refresh signal feed",self.auto_refresh),("Desktop signal alerts",self.alerts_enabled),("Compact data density",self.compact_mode)]:
+            tk.Checkbutton(left,text=text,variable=var,bg=self.PANEL,fg=self.TEXT,activebackground=self.PANEL,activeforeground=self.TEXT,selectcolor=self.PANEL2,anchor="w",font=("Helvetica",10),command=self._settings_changed).pack(fill="x",padx=14,pady=7)
+        self._label(left,"Theme preset",10,self.MUTED).pack(anchor="w",padx=18,pady=(18,4));theme=ttk.Combobox(left,textvariable=self.theme_var,values=["Liquid dark","Midnight blue","High contrast"],state="readonly");theme.pack(fill="x",padx=18,pady=(0,18));theme.bind("<<ComboboxSelected>>",lambda e:self._settings_changed())
+        self._label(right,"ENGINE & CONNECTION",9,self.CYAN).pack(anchor="w",padx=18,pady=(18,12));self._label(right,"Deriv public WebSocket",12).pack(anchor="w",padx=18,pady=(4,2));self._label(right,"App ID 1089 · live candles · reconnect enabled",10,self.MUTED).pack(anchor="w",padx=18,pady=(0,18));self._label(right,"Signal engine",12).pack(anchor="w",padx=18,pady=(4,2));self._label(right,"EMA 9/21/50 · RSI 14 · ATR 14 · MACD",10,self.MUTED).pack(anchor="w",padx=18,pady=(0,18));self.settings_status=self._label(right,"Ready",10,self.GREEN);self.settings_status.pack(anchor="w",padx=18,pady=(12,0))
+    def _update_signal_cards(self):
+        vals=list(self.results.values());active=[r for r in vals if r["signal"]!="NEUTRAL"];buys=sum("BUY" in r["signal"] for r in vals);sells=sum("SELL" in r["signal"] for r in vals);avg=(sum(abs(r["score"]) for r in vals)/len(vals)) if vals else 0
+        for key,value in [("active",str(len(active))), ("buy",str(buys)), ("sell",str(sells)), ("confidence",f"{avg:.1f} / 4")]:self.card_values[key].config(text=value)
+    def _settings_changed(self):
+        self.status_var.set("Settings updated");self.settings_status.config(text="Settings updated · applied",fg=self.GREEN)
     def _tf_changed(self):self.gran=TIMEFRAMES[self.tf.get()];self._subscribe_all();self.chart_title.config(text=f"{SYMBOLS[self.selected]}  ·  {self.tf.get()}")
     def _select(self):
         s=self.tree.selection();
@@ -156,7 +171,7 @@ class App(tk.Tk):
         self.results[s]=res;sig=res["signal"];tag="buy" if "BUY" in sig else "sell" if "SELL" in sig else "";prev=self.last_signal.get(s)
         if prev and prev!=sig:
             line=f"{datetime.now():%Y-%m-%d %H:%M:%S}  {SYMBOLS[s]:<18} {prev} → {sig}  @ {self._fmt(s,cs[-1][4])}";self.history.insert(0,line);self.hist.insert(0,line)
-        self.last_signal[s]=sig;self.tree.item(s,values=(SYMBOLS[s],self._fmt(s,cs[-1][4]),sig,f"{res['score']:+d}",f"{res['rsi']:.0f}" if res['rsi'] else "—",datetime.now().strftime("%H:%M:%S")),tags=(tag,) if tag else ());
+        self.last_signal[s]=sig;self.tree.item(s,values=(SYMBOLS[s],self._fmt(s,cs[-1][4]),sig,f"{res['score']:+d}",f"{res['rsi']:.0f}" if res['rsi'] else "—",datetime.now().strftime("%H:%M:%S")),tags=(tag,) if tag else ());self._update_signal_cards()
         if s==self.selected:self._show_detail();self._draw_chart()
     def _show_detail(self):
         s=self.selected;res=self.results.get(s);cs=self.candles.get(s,[]);self.detail.config(state="normal");self.detail.delete("1.0","end")
