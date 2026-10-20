@@ -6,11 +6,14 @@ import os
 
 APP_ID = 1089
 
-# Deriv publishes the same v3 market-data API on several equivalent hosts. Each
-# one sits behind Cloudflare, and any single host intermittently answers HTTP
-# 520 (origin error) from some networks, so clients rotate through all of them.
-# Set NEEZY_WS_URL to pin one endpoint (a proxy, or a host we do not list).
-_DEFAULT_HOSTS: tuple[str, ...] = (
+# Deriv's current public market-data endpoint. It needs no app id or login and
+# answers the same v3 request format (ticks_history, ticks, active_symbols) as
+# the legacy hosts, which sit behind Cloudflare and answer HTTP 520 (origin
+# error) from many networks. It is tried first; the legacy hosts remain as
+# fallbacks. Set NEEZY_WS_URL to pin one endpoint (a proxy, or a host we do not
+# list).
+PUBLIC_WS_URL = "wss://api.derivws.com/trading/v1/options/ws/public"
+_LEGACY_HOSTS: tuple[str, ...] = (
     "wss://ws.derivws.com/websockets/v3",
     "wss://ws.binaryws.com/websockets/v3",
     "wss://frontend.binaryws.com/websockets/v3",
@@ -28,7 +31,7 @@ def ws_urls() -> tuple[str, ...]:
     if override:
         return (override,)
     query = f"?app_id={app_id()}"
-    return tuple(host + query for host in _DEFAULT_HOSTS)
+    return (PUBLIC_WS_URL, *(host + query for host in _LEGACY_HOSTS))
 
 
 WS_URL = ws_urls()[0]

@@ -26,6 +26,7 @@ from neezy_backend.backtest import BacktestConfig, run_backtest
 from neezy_backend.database import LocalDatabase
 from neezy_backend.indicators import adx, analyze, bollinger, sma, stochastic
 from neezy_backend.markets import (
+    PUBLIC_WS_URL,
     format_price,
     granularity,
     pip_size,
@@ -356,14 +357,17 @@ class MarketAndParsingTests(unittest.TestCase):
 
 
 class EndpointTests(unittest.TestCase):
-    def test_default_endpoints_share_the_app_id_and_prefer_derivws(self) -> None:
+    def test_default_endpoints_prefer_public_api_then_legacy_hosts(self) -> None:
         with mock.patch.dict(os.environ, {}, clear=False):
             os.environ.pop("NEEZY_WS_URL", None)
             os.environ.pop("NEEZY_APP_ID", None)
             urls = ws_urls()
-        self.assertGreaterEqual(len(urls), 2)
-        self.assertTrue(urls[0].startswith("wss://ws.derivws.com/"))
-        self.assertTrue(all("app_id=1089" in url for url in urls))
+        self.assertEqual(urls[0], PUBLIC_WS_URL)
+        self.assertTrue(urls[0].startswith("wss://api.derivws.com/"))
+        legacy = urls[1:]
+        self.assertGreaterEqual(len(legacy), 2)
+        self.assertTrue(all("app_id=1089" in url for url in legacy))
+        self.assertEqual(len(set(urls)), len(urls))
 
     def test_endpoint_and_app_id_can_be_overridden(self) -> None:
         with mock.patch.dict(
@@ -373,7 +377,7 @@ class EndpointTests(unittest.TestCase):
         ):
             self.assertEqual(ws_urls(), ("wss://proxy.internal/v3",))
             os.environ.pop("NEEZY_WS_URL")
-            self.assertTrue(all("app_id=12345" in url for url in ws_urls()))
+            self.assertTrue(all("app_id=12345" in url for url in ws_urls()[1:]))
 
     def test_cloudflare_520_becomes_one_readable_line(self) -> None:
         raw = (
@@ -383,6 +387,7 @@ class EndpointTests(unittest.TestCase):
         )
         message = describe_connection_error(raw)
         self.assertIn("520", message)
+        self.assertIn("down or refused", message)
         self.assertNotIn("cf-ray", message)
         self.assertNotIn("content-type", message)
         self.assertLess(len(message), 200)

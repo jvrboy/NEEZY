@@ -123,12 +123,14 @@ neezy-cli ai usage
 
 ## Connection troubleshooting
 
-Deriv serves public market data from several equivalent v3 hosts, each behind
-Cloudflare. Any single host can answer `Handshake status 520` (Cloudflare's
-"origin error") for hours at a time from a given network, which is not a NEEZY
-bug and not something the app can fix server-side. NEEZY therefore rotates
-through the configured hosts and sends a normal browser handshake, and it
-reports failures as one readable line instead of a raw header dump.
+NEEZY tries Deriv's current public market-data endpoint
+(`wss://api.derivws.com/trading/v1/options/ws/public`, no app id or login needed)
+first, then the legacy v3 hosts (`ws.derivws.com`, `ws.binaryws.com`,
+`frontend.binaryws.com`). The legacy hosts sit behind Cloudflare and can answer
+`Handshake status 520` ("origin error") for long stretches; that means Deriv's
+host is down or refusing the request, and the app cannot fix it server-side. The
+app rotates to the next endpoint and reports failures as one readable line
+instead of a raw header dump.
 
 Diagnose connectivity without opening the GUI:
 
@@ -144,19 +146,19 @@ again. If one endpoint works and another does not, pin the working one:
 
 ```bash
 # Windows CMD
-set NEEZY_WS_URL=wss://ws.derivws.com/websockets/v3?app_id=1089
+set NEEZY_WS_URL=wss://api.derivws.com/trading/v1/options/ws/public
 neezy
 ```
 
 ```bash
 # PowerShell
-$env:NEEZY_WS_URL = "wss://ws.derivws.com/websockets/v3?app_id=1089"
+$env:NEEZY_WS_URL = "wss://api.derivws.com/trading/v1/options/ws/public"
 neezy
 ```
 
 ```bash
 # macOS / Linux
-export NEEZY_WS_URL="wss://ws.derivws.com/websockets/v3?app_id=1089"
+export NEEZY_WS_URL="wss://api.derivws.com/trading/v1/options/ws/public"
 neezy
 ```
 

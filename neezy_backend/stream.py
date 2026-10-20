@@ -31,7 +31,7 @@ _STATUS_HINTS: dict[int, str] = {
     401: "Deriv rejected the app id (HTTP 401)",
     403: "Deriv refused the connection (HTTP 403)",
     429: "Deriv rate-limited this network (HTTP 429)",
-    520: "Deriv's edge returned HTTP 520 (origin error)",
+    520: "Deriv's edge could not reach its origin (HTTP 520)",
     521: "Deriv's origin refused the connection (HTTP 521)",
     522: "Deriv's origin timed out (HTTP 522)",
     525: "Deriv's TLS handshake failed (HTTP 525)",
@@ -47,6 +47,8 @@ def describe_connection_error(error: object) -> str:
         hint = _STATUS_HINTS.get(
             status, f"WebSocket handshake failed with HTTP {status}"
         )
+        if status == 520:
+            return f"{hint}; this Deriv host is down or refused the request."
         return f"{hint}; this endpoint is unavailable from your network."
     lowered = text.lower()
     if "getaddrinfo" in lowered or "name or service not known" in lowered:
