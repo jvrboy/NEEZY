@@ -128,12 +128,54 @@ def _close(trade: Trade, time: int, price: float, reason: str, bars: int) -> Non
     trade.r_multiple = move / risk if risk else 0.0
 
 
+@dataclass(frozen=True, slots=True)
+class DecisionCache:
+    """``analyze()`` output for every decision point of one candle series.
+
+    The analysis depends only on the candles and the lookback, not on stops,
+    targets or score thresholds, so a parameter grid can share one cache.
+    """
+
+    lookback: int
+    length: int
+    values: dict[int, dict[str, Any] | None]
+
+
+def _rows(candles: Sequence[Candle]) -> list[tuple[float, ...]]:
+    return [tuple(float(value) for value in candle[:5]) for candle in candles]
+
+
+def build_decision_cache(
+    candles: Sequence[Candle], lookback: int = 200
+) -> DecisionCache:
+    """Precompute the analysis the simulator would otherwise repeat per config."""
+    if lookback < 61:
+        raise ValueError("lookback must be at least 61 candles")
+    rows = _rows(candles)
+    values = {
+        i: analyze(rows[max(0, i + 2 - lookback) : i + 2])
+        for i in range(61, len(rows) - 1)
+    }
+    return DecisionCache(lookback=lookback, length=len(rows), values=values)
+
+
 def run_backtest(
-    candles: Sequence[Candle], config: BacktestConfig | None = None
+    candles: Sequence[Candle],
+    config: BacktestConfig | None = None,
+    *,
+    cache: DecisionCache | None = None,
 ) -> BacktestResult:
-    """Simulate the signal engine over historical candles, oldest first."""
+    """Simulate the signal engine over historical candles, oldest first.
+
+    Pass a ``cache`` built from the same candles and lookback to skip re-running
+    the indicator analysis; the result is identical to running without one.
+    """
     config = config or BacktestConfig()
-    rows = [tuple(float(value) for value in candle[:5]) for candle in candles]
+    rows = _rows(candles)
+    if cache is not None and (
+        cache.lookback != config.lookback or cache.length != len(rows)
+    ):
+        raise ValueError("cache was built for different candles or lookback")
     result = BacktestResult(candles_tested=len(rows))
     equity = 0.0
     trade: Trade | None = None
@@ -166,8 +208,11 @@ def run_backtest(
                 equity += trade.r_multiple
                 result.equity_curve.append(equity)
                 trade = None
-        window = rows[max(0, i + 2 - config.lookback) : i + 2]
-        analysis = analyze(window)
+        if cache is not None:
+            analysis = cache.values[i]
+        else:
+            window = rows[max(0, i + 2 - config.lookback) : i + 2]
+            analysis = analyze(window)
         direction = _direction(analysis, config.min_score)
         if trade is not None:
             if config.exit_on_opposite and direction and direction != trade.direction:
