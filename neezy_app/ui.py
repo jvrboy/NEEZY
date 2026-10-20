@@ -2193,6 +2193,8 @@ class App(tk.Tk):
         settings = self.settings
 
         def work():
+            # Worker thread: no Tk calls here. The local fallback touches
+            # widgets (_answer may select a market), so it runs on the main thread.
             try:
                 result = self.ai_client.chat(
                     provider,
@@ -2209,10 +2211,15 @@ class App(tk.Tk):
                     f"key {result.key_label} · {result.latency_ms} ms]"
                 )
             except (AIError, OSError, ValueError) as error:
-                text = (
-                    f"AI unavailable ({error}). Local read instead:\n"
-                    f"{self._answer(question)}"
+                reason = str(error)
+                self.after(
+                    0,
+                    lambda: self._append_ai(
+                        f"AI unavailable ({reason}). Local read instead:\n"
+                        f"{self._answer(question)}"
+                    ),
                 )
+                return
             except Exception as error:
                 logger.exception("AI request failed")
                 text = f"AI request failed: {error}"

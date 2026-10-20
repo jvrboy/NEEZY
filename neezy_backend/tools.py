@@ -110,13 +110,19 @@ DEFAULT_REGISTRY = ToolRegistry()
 
 def register_default_tools(registry: ToolRegistry = DEFAULT_REGISTRY) -> None:
     """Populate default registry with core NEEZY capabilities."""
+    from neezy_backend.markets import SYMBOLS, granularity
     from neezy_backend.storage import create_local_backup, restore_local_backup
     from neezy_backend.stream import fetch_candles
 
-    def tool_read_market(symbol: str = "EURUSD", timeframe: str = "15m") -> str:
+    def tool_read_market(symbol: str = "frxEURUSD", timeframe: str = "15m") -> str:
         from neezy_backend.context import format_context, market_snapshot
 
-        candles = fetch_candles(symbol, seconds=60, count=100)
+        if symbol not in SYMBOLS:
+            raise ValueError(
+                f"Unknown market {symbol!r}; choose from {', '.join(SYMBOLS)}"
+            )
+        seconds = granularity(timeframe)
+        candles = fetch_candles(symbol, seconds, 100)
         snapshot = market_snapshot(candles, symbol=symbol, timeframe=timeframe)
         return format_context(snapshot) if snapshot else "No candles fetched."
 

@@ -364,6 +364,61 @@ class AppSmokeTests(unittest.TestCase):
         inserted = " ".join(str(call[1]) for call in self.app.chat.calls)
         self.assertIn("Add a key", inserted)
 
+    def test_ai_failure_fallback_is_built_on_the_main_thread(self) -> None:
+        import threading
+
+        self.app.ai_enabled_var.set(True)
+        self.app._settings_changed()
+        self.app.prompt.get = lambda: "what is the trend?"
+        self.app.candles[self.app.selected] = sample_candles()
+        self.app.results[self.app.selected] = {
+            "signal": "BUY",
+            "score": 3,
+            "trend": "Bullish",
+            "regime": "Trending",
+            "rsi": 60.0,
+            "atr_pct": 0.1,
+            "why": ["EMA 9 above EMA 21"],
+        }
+        answer_threads = []
+
+        def fake_answer(question):
+            answer_threads.append(threading.current_thread())
+            return "LOCAL READ"
+
+        self.app._answer = fake_answer
+        queued = []
+        started = []
+        real_thread = threading.Thread
+
+        def make_thread(**kwargs):
+            thread = real_thread(**kwargs)
+            started.append(thread)
+            return thread
+
+        with (
+            mock.patch.object(self.app.ai_keys, "secrets", return_value=["key"]),
+            mock.patch.object(
+                self.app.ai_client, "chat", side_effect=ValueError("offline")
+            ),
+            mock.patch.object(
+                self.app, "after", side_effect=lambda _ms, fn: queued.append(fn)
+            ),
+            mock.patch.object(ui.threading, "Thread", side_effect=make_thread),
+        ):
+            self.app._ask()
+            for thread in started:
+                thread.join(5)
+
+        # The worker must not build the fallback itself; it only queues it.
+        self.assertEqual(answer_threads, [])
+        self.assertEqual(len(queued), 1)
+        queued[0]()
+        self.assertEqual(answer_threads, [threading.main_thread()])
+        inserted = " ".join(str(call[1]) for call in self.app.chat.calls)
+        self.assertIn("Local read instead", inserted)
+        self.assertIn("LOCAL READ", inserted)
+
     def test_append_ai_writes_into_chat(self) -> None:
         self.app._append_ai("Answer text")
         inserted = " ".join(str(call[1]) for call in self.app.chat.calls)

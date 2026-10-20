@@ -80,6 +80,10 @@ class AgentAndMemoryTests(unittest.TestCase):
         executed_steps = planner.execute_plan(steps, dry_run=True)
         self.assertEqual(executed_steps[0].status, "completed")
         self.assertEqual(executed_steps[0].result["status"], "dry_run")
+        from neezy_backend.markets import SYMBOLS
+
+        symbol = steps[0].tool_args["symbol"]
+        self.assertIn(symbol, SYMBOLS)
 
 
 class ToolRegistryTests(unittest.TestCase):
@@ -109,6 +113,44 @@ class ToolRegistryTests(unittest.TestCase):
         # Normal execution test
         res = registry.execute("sample", dry_run=False, text="hello")
         self.assertEqual(res, "Processed: hello")
+
+    def test_read_market_tool_uses_real_granularity_and_market_keys(self) -> None:
+        from neezy_backend.tools import register_default_tools
+
+        candles, previous = [], 1.1
+        for index in range(120):
+            close = previous + 0.00001
+            candles.append(
+                (
+                    index * 900,
+                    previous,
+                    max(previous, close) + 0.0004,
+                    min(previous, close) - 0.0004,
+                    close,
+                )
+            )
+            previous = close
+        registry = ToolRegistry()
+        with mock.patch(
+            "neezy_backend.stream.fetch_candles", return_value=candles
+        ) as fetch:
+            # Register inside the patch: the tool binds fetch_candles at registration.
+            register_default_tools(registry)
+            default_output = registry.execute("read_market", dry_run=False)
+            registry.execute(
+                "read_market",
+                dry_run=False,
+                symbol="frxGBPUSD",
+                timeframe="1h",
+            )
+        self.assertIn("Market: EUR/USD (15m)", default_output)
+        self.assertEqual(fetch.call_args_list[0].args, ("frxEURUSD", 900, 100))
+        self.assertEqual(fetch.call_args_list[1].args, ("frxGBPUSD", 3600, 100))
+
+        with self.assertRaisesRegex(ValueError, "Unknown market"):
+            registry.execute("read_market", dry_run=False, symbol="EURUSD")
+        with self.assertRaisesRegex(ValueError, "Unknown timeframe"):
+            registry.execute("read_market", dry_run=False, timeframe="7m")
 
 
 class IndicatorExtensionTests(unittest.TestCase):

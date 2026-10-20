@@ -40,7 +40,7 @@ class AgentPlanner:
                 step_id=1,
                 task=f"Analyze market data for goal: {user_goal}",
                 tool_name="read_market",
-                tool_args={"symbol": "EURUSD", "timeframe": "15m"},
+                tool_args={"symbol": "frxEURUSD", "timeframe": "15m"},
             )
         ]
         return steps
