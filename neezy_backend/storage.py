@@ -83,6 +83,7 @@ def create_local_backup(
         "ai-keys.json",
         "signal-history.jsonl",
         "alerts.json",
+        "local-models.json",
     ]
 
     with zipfile.ZipFile(dest_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:

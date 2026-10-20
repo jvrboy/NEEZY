@@ -28,6 +28,8 @@ from .ai import (
 from .alerts import METRICS, OPERATORS, AlertRule, AlertRuleStore
 from .analytics import correlation_matrix, rank_opportunities, strongest_pairs
 from .backtest import BacktestConfig, run_backtest
+from .brain import predict as predict_brain
+from .brain import train_model as train_brain_model
 from .catalog import instrument, instruments
 from .context import chat_messages, format_context, market_snapshot
 from .database import LocalDatabase
@@ -884,6 +886,89 @@ def _open_database() -> LocalDatabase:
     return LocalDatabase()
 
 
+def cmd_brain(args, fetch, out) -> int:
+    """Train, inspect, or query the opt-in local neural research model."""
+    del fetch
+    key = f"brain:model:{args.symbol}:{args.timeframe}"
+    with _open_database() as database:
+        if args.action == "train":
+            candles = database.load_candles(
+                args.symbol, args.timeframe, limit=args.limit
+            )
+            trained = train_brain_model(
+                candles,
+                symbol=args.symbol,
+                timeframe=args.timeframe,
+                horizon=args.horizon,
+                min_samples=args.min_samples,
+            )
+            database.set_value(key, trained["model"])
+            report = trained["report"]
+            if args.json:
+                _emit(out, report)
+                return 0
+            test = report["test"]
+            candidate_status = (
+                "validated candidate" if report["deployment_ready"] else "research-only"
+            )
+            out.write(
+                f"Trained local research model · {args.symbol} {args.timeframe}\n"
+                f"Labeled examples {report['labeled_examples']} · "
+                f"test samples {test['samples']} · accuracy "
+                f"{test['accuracy']:.1%} · balanced "
+                f"{test['balanced_accuracy']:.1%}\n"
+                f"Status: {candidate_status}\n"
+                f"{report['validation_note']}\n"
+                "This does not change the core signal or guarantee future results.\n"
+            )
+            return 0
+        model = database.get_value(key)
+        if args.action == "status":
+            if not isinstance(model, dict):
+                payload = {
+                    "symbol": args.symbol,
+                    "timeframe": args.timeframe,
+                    "trained": False,
+                }
+            else:
+                payload = {
+                    "symbol": args.symbol,
+                    "timeframe": args.timeframe,
+                    "trained": True,
+                    "trained_at": model.get("trained_at"),
+                    "deployment_ready": model.get("deployment_ready", False),
+                    "test_metrics": model.get("test_metrics", {}),
+                    "validation_note": model.get("validation_note", ""),
+                }
+            if args.json:
+                _emit(out, payload)
+            else:
+                out.write(json.dumps(payload, indent=2) + "\n")
+            return 0
+        if args.action == "predict":
+            if not isinstance(model, dict):
+                raise ValueError(
+                    "no local model; run 'neezy-cli brain train SYMBOL' first"
+                )
+            candles = database.load_candles(
+                args.symbol, args.timeframe, limit=args.limit
+            )
+            prediction = predict_brain(candles, model)
+            if prediction is None:
+                raise ValueError("not enough saved candles to create a prediction")
+            if args.json:
+                _emit(out, prediction)
+            else:
+                out.write(
+                    f"{args.symbol} {args.timeframe} · {prediction['direction']} "
+                    f"· P(up) {prediction['up_probability']:.1%} · "
+                    f"{prediction['validation_note']}\n"
+                    "Experimental research output only; not financial advice.\n"
+                )
+            return 0
+    raise ValueError(f"unknown brain action {args.action!r}")
+
+
 def cmd_db(args, fetch, out) -> int:
     with _open_database() as database:
         if args.action == "stats":
@@ -1157,6 +1242,85 @@ def cmd_ai(args, fetch, out) -> int:
     raise ValueError(f"unknown ai action {args.action!r}")
 
 
+def cmd_local_model(args, fetch, out) -> int:
+    """Inspect, register, or run user-supplied local generative models."""
+    del fetch
+    from .local_llm import LocalModelRegistry, generate_chat, runtime_status
+
+    registry = LocalModelRegistry()
+    if args.action == "runtime":
+        payload = runtime_status()
+        if args.json:
+            _emit(out, payload)
+        else:
+            for name, available in payload.items():
+                out.write(f"{name}: {'available' if available else 'not installed'}\n")
+        return 0
+    if args.action == "list":
+        models = registry.list_models()
+        payload = [model.to_dict() for model in models]
+        if args.json:
+            _emit(out, payload)
+        else:
+            _table(
+                out,
+                ["ID", "NAME", "FORMAT", "MODEL TYPE", "SIZE", "PATH"],
+                [
+                    (
+                        model.model_id,
+                        model.name,
+                        model.format,
+                        model.model_type,
+                        f"{model.size_bytes / (1024**3):.2f} GiB",
+                        model.path,
+                    )
+                    for model in models
+                ],
+            )
+        return 0
+    if args.action == "add":
+        model = registry.register(args.path, name=args.name)
+        if args.json:
+            _emit(out, model.to_dict())
+        else:
+            out.write(
+                f"Registered {model.name} ({model.format}, "
+                f"{model.size_bytes / (1024**3):.2f} GiB) as {model.model_id}.\n"
+                "Model files were not copied.\n"
+            )
+        return 0
+    if args.action == "remove":
+        model = registry.remove(args.model_id)
+        if args.json:
+            _emit(out, {"removed": model.model_id, "name": model.name})
+        else:
+            out.write(
+                f"Removed {model.name} from NEEZY's index; source files were kept.\n"
+            )
+        return 0
+    if args.action == "chat":
+        model = registry.get(args.model_id)
+        answer = generate_chat(
+            model,
+            [{"role": "user", "content": args.prompt}],
+            context_tokens=args.context,
+            max_tokens=args.max_tokens,
+            threads=args.threads,
+            batch_size=args.batch_size,
+            disk_offload=args.disk_offload,
+            cpu_memory_mb=args.cpu_memory_mb,
+            temperature=args.temperature,
+        )
+        if args.json:
+            _emit(
+                out, {"model_id": model.model_id, "model": model.name, "text": answer}
+            )
+        else:
+            out.write(f"{answer}\n\n[local model · {model.name}]\n")
+        return 0
+    raise ValueError(f"unknown local-model action {args.action!r}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="neezy-cli",
@@ -1371,6 +1535,35 @@ def build_parser() -> argparse.ArgumentParser:
     a = db_actions.add_parser("vacuum", help="reclaim disk space")
     a.add_argument("--json", action="store_true")
 
+    p = sub.add_parser("brain", help="local neural research model tools")
+    p.set_defaults(handler=cmd_brain)
+    brain_actions = p.add_subparsers(dest="action", required=True)
+
+    brain_train = brain_actions.add_parser(
+        "train", help="train from stored candles with a chronological holdout"
+    )
+    brain_train.add_argument("symbol", type=_symbol)
+    brain_train.add_argument("-t", "--timeframe", choices=TIMEFRAMES, default="5m")
+    brain_train.add_argument("--limit", type=int, default=5000)
+    brain_train.add_argument("--horizon", type=int, default=5)
+    brain_train.add_argument("--min-samples", type=int, default=200)
+    brain_train.add_argument("--json", action="store_true")
+
+    brain_status = brain_actions.add_parser(
+        "status", help="inspect a saved model and holdout metrics"
+    )
+    brain_status.add_argument("symbol", type=_symbol)
+    brain_status.add_argument("-t", "--timeframe", choices=TIMEFRAMES, default="5m")
+    brain_status.add_argument("--json", action="store_true")
+
+    brain_predict = brain_actions.add_parser(
+        "predict", help="get an advisory local prediction"
+    )
+    brain_predict.add_argument("symbol", type=_symbol)
+    brain_predict.add_argument("-t", "--timeframe", choices=TIMEFRAMES, default="5m")
+    brain_predict.add_argument("--limit", type=int, default=2000)
+    brain_predict.add_argument("--json", action="store_true")
+
     p = sub.add_parser("ai", help="AI providers, key pools, and chat")
     p.set_defaults(handler=cmd_ai)
     ai_actions = p.add_subparsers(dest="action", required=True)
@@ -1417,6 +1610,37 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--json", action="store_true")
 
     a = ai_actions.add_parser("reset", help="clear every key cooldown")
+    a.add_argument("--json", action="store_true")
+
+    p = sub.add_parser("local-model", help="manage offline GGUF/Transformers models")
+    p.set_defaults(handler=cmd_local_model)
+    local_actions = p.add_subparsers(dest="action", required=True)
+
+    a = local_actions.add_parser("runtime", help="show optional local runtimes")
+    a.add_argument("--json", action="store_true")
+
+    a = local_actions.add_parser("list", help="list registered local models")
+    a.add_argument("--json", action="store_true")
+
+    a = local_actions.add_parser("add", help="register a GGUF file or model folder")
+    a.add_argument("path", help="local model file/folder; no download or copy")
+    a.add_argument("--name", help="friendly display name")
+    a.add_argument("--json", action="store_true")
+
+    a = local_actions.add_parser("remove", help="remove a model index entry only")
+    a.add_argument("model_id")
+    a.add_argument("--json", action="store_true")
+
+    a = local_actions.add_parser("chat", help="prompt one registered local model")
+    a.add_argument("model_id")
+    a.add_argument("prompt")
+    a.add_argument("--context", type=int, default=512)
+    a.add_argument("--max-tokens", type=int, default=128)
+    a.add_argument("--threads", type=int, default=1)
+    a.add_argument("--batch-size", type=int, default=32)
+    a.add_argument("--disk-offload", action="store_true")
+    a.add_argument("--cpu-memory-mb", type=int, default=512)
+    a.add_argument("--temperature", type=float, default=0.3)
     a.add_argument("--json", action="store_true")
 
     return parser

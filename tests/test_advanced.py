@@ -701,6 +701,22 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("CORRELATION", text)
 
+    def test_local_model_management_is_available_headlessly(self) -> None:
+        model_path = Path(self.directory.name) / "small.gguf"
+        model_path.write_bytes(b"GGUF" + (3).to_bytes(4, "little") + bytes(64))
+        code, text = self.run_cli("local-model", "add", str(model_path), "--json")
+        self.assertEqual(code, 0)
+        model = json.loads(text)
+        self.assertEqual(model["format"], "gguf")
+        code, text = self.run_cli("local-model", "list", "--json")
+        self.assertEqual(json.loads(text)[0]["model_id"], model["model_id"])
+        code, text = self.run_cli("local-model", "remove", model["model_id"], "--json")
+        self.assertEqual(code, 0)
+        self.assertTrue(model_path.exists())
+        code, text = self.run_cli("local-model", "runtime", "--json")
+        self.assertEqual(code, 0)
+        self.assertIn("llama_cpp", json.loads(text))
+
     def test_alert_and_history_commands(self) -> None:
         code, text = self.run_cli("alerts", "add", "EURUSD", "rsi", ">", "70")
         self.assertEqual(code, 0)

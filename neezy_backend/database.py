@@ -5,8 +5,9 @@ overrides it) and is the single on-PC source of truth for history. SQLite is
 part of the Python standard library, so this adds no dependency and no server.
 WAL mode keeps the UI responsive while a backtest or AI call writes.
 
-Nothing here is ever uploaded: the file only leaves the machine if the user
-exports it.
+The database file is never uploaded as a file; it only leaves the machine if
+the user exports it. Relevant note excerpts can be added to an AI-provider
+prompt only when the user explicitly enables memory context in Settings.
 """
 
 from __future__ import annotations
@@ -93,11 +94,6 @@ CREATE TABLE IF NOT EXISTS memory_items (
     content TEXT NOT NULL,
     metadata TEXT NOT NULL DEFAULT '{}'
 );
-CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(
-    content,
-    content='memory_items',
-    content_rowid='id'
-);
 """
 
 
@@ -146,6 +142,16 @@ class LocalDatabase:
             self._connection.execute("PRAGMA synchronous=NORMAL")
             self._connection.execute("PRAGMA foreign_keys=ON")
             self._connection.executescript(_SCHEMA)
+            try:
+                self._connection.execute(
+                    "CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5("
+                    "content, content='memory_items', content_rowid='id')"
+                )
+                self.fts5_available = True
+            except sqlite3.OperationalError as error:
+                if "fts5" not in str(error).lower():
+                    raise
+                self.fts5_available = False
             self._connection.execute(
                 "INSERT OR IGNORE INTO schema_info (key, value) VALUES ('version', ?)",
                 (str(BASELINE_VERSION),),
@@ -184,10 +190,11 @@ class LocalDatabase:
                 (stamp, category, content, meta_json),
             )
             item_id = int(cursor.lastrowid or 0)
-            self._connection.execute(
-                "INSERT INTO memory_fts (rowid, content) VALUES (?, ?)",
-                (item_id, content),
-            )
+            if self.fts5_available:
+                self._connection.execute(
+                    "INSERT INTO memory_fts (rowid, content) VALUES (?, ?)",
+                    (item_id, content),
+                )
             self._connection.commit()
         return item_id
 
@@ -195,16 +202,67 @@ class LocalDatabase:
         cleaned = "".join(c for c in query if c.isalnum() or c.isspace()).strip()
         if not cleaned:
             return []
-        tokens = cleaned.split()
-        # Quote each token so FTS5 keywords (AND, OR, NOT, NEAR) are literals.
-        match_expr = " ".join(f'"{token}"*' for token in tokens)
+        stop_words = {
+            "a",
+            "an",
+            "and",
+            "are",
+            "about",
+            "be",
+            "but",
+            "by",
+            "did",
+            "do",
+            "for",
+            "from",
+            "how",
+            "i",
+            "in",
+            "is",
+            "it",
+            "me",
+            "of",
+            "on",
+            "or",
+            "our",
+            "the",
+            "this",
+            "to",
+            "was",
+            "what",
+            "when",
+            "where",
+            "with",
+            "you",
+            "your",
+            "not",
+            "near",
+        }
+        tokens = [
+            token for token in cleaned.split() if token.lower() not in stop_words
+        ][:12]
+        if not tokens:
+            return []
         with self._lock:
-            rows = self._connection.execute(
-                "SELECT m.id, m.created_at, m.category, m.content, m.metadata "
-                "FROM memory_items m JOIN memory_fts f ON m.id = f.rowid "
-                "WHERE memory_fts MATCH ? ORDER BY rank LIMIT ?",
-                (match_expr, limit),
-            ).fetchall()
+            if self.fts5_available:
+                # OR plus FTS rank handles natural questions and partial market
+                # names; quoting prevents tokens becoming FTS query syntax.
+                match_expr = " OR ".join(f'"{token}"*' for token in tokens)
+                rows = self._connection.execute(
+                    "SELECT m.id, m.created_at, m.category, m.content, m.metadata "
+                    "FROM memory_items m JOIN memory_fts f ON m.id = f.rowid "
+                    "WHERE memory_fts MATCH ? ORDER BY rank LIMIT ?",
+                    (match_expr, limit),
+                ).fetchall()
+            else:
+                conditions = " OR ".join("lower(content) LIKE ?" for _token in tokens)
+                patterns = tuple(f"%{token.lower()}%" for token in tokens)
+                rows = self._connection.execute(
+                    "SELECT id, created_at, category, content, metadata "
+                    "FROM memory_items WHERE "
+                    f"{conditions} ORDER BY id DESC LIMIT ?",
+                    (*patterns, limit),
+                ).fetchall()
         results = []
         for row in rows:
             rec = dict(row)

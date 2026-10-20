@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import random
+import subprocess
+import sys
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -33,7 +35,7 @@ from neezy_backend.config import (
 from neezy_backend.config import (
     STRATEGIES as CONFIG_STRATEGIES,
 )
-from neezy_backend.database import LocalDatabase
+from neezy_backend.database import SCHEMA_VERSION, LocalDatabase
 from neezy_backend.divergence import (
     _divergence_between,
     correlation_divergence,
@@ -447,7 +449,7 @@ class DatabaseTests(unittest.TestCase):
         counts = self.db.export_json(export_path)
         self.assertEqual(counts["signals"], 1)
         payload = json.loads(export_path.read_text(encoding="utf-8"))
-        self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(payload["schema_version"], SCHEMA_VERSION)
         self.db.clear("signals")
         self.assertEqual(self.db.recent_signals(5), [])
         with self.assertRaises(ValueError):
@@ -807,6 +809,31 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(updated.strategy, "SQUEEZE")
         self.assertFalse(updated.store_candles)
         self.assertTrue(updated.ai_enabled)
+
+
+class HeadlessCliTests(unittest.TestCase):
+    def test_cli_parser_imports_without_tkinter(self) -> None:
+        code = """
+import builtins
+original = builtins.__import__
+def no_tkinter(name, *args, **kwargs):
+    if name == 'tkinter' or name.startswith('tkinter.'):
+        raise ModuleNotFoundError('desktop toolkit is absent')
+    return original(name, *args, **kwargs)
+builtins.__import__ = no_tkinter
+from neezy_backend.cli import build_parser
+args = build_parser().parse_args(['local-model', 'runtime'])
+assert args.command == 'local-model'
+"""
+        completed = subprocess.run(
+            [sys.executable, "-c", code],
+            cwd=Path(__file__).resolve().parents[1],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
 
 
 if __name__ == "__main__":
