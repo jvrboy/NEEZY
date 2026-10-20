@@ -286,6 +286,44 @@ def probe_endpoint(url: str, timeout: float = 8.0) -> tuple[bool, str]:
         connection.close()
 
 
+MAX_HISTORY_COUNT = 5000
+Candle = tuple[int, float, float, float, float]
+
+
+def _candidate_urls(url: str | Sequence[str] | None) -> tuple[str, ...]:
+    if isinstance(url, str):
+        return (url,)
+    return tuple(url) if url else tuple(ws_urls())
+
+
+def _history_request(
+    symbol: str, granularity: int, count: int, end: int | str
+) -> dict[str, Any]:
+    return {
+        "ticks_history": symbol,
+        "adjust_start_time": 1,
+        "count": count,
+        "end": end,
+        "granularity": granularity,
+        "style": "candles",
+    }
+
+
+def _request_with_failover(
+    candidates: Sequence[str], request: Mapping[str, Any], timeout: float
+) -> tuple[str, list[Candle]]:
+    """Try each endpoint in order; return the one that answered with its rows."""
+    failures: list[str] = []
+    for candidate in candidates:
+        try:
+            return candidate, _request_candles(candidate, request, timeout)
+        except ConnectionError as error:
+            failures.append(str(error))
+    raise ConnectionError(
+        "Could not reach any market data endpoint. " + " ".join(failures)
+    )
+
+
 def fetch_candles(
     symbol: str,
     granularity: int,
@@ -300,26 +338,55 @@ def fetch_candles(
     Cloudflare-rejected host does not take the whole request down. ``url`` may
     be one endpoint or an ordered candidate list.
     """
-    if not 1 <= count <= 5000:
+    if not 1 <= count <= MAX_HISTORY_COUNT:
         raise ValueError("count must be between 1 and 5000 (Deriv API limit)")
-    request = {
-        "ticks_history": symbol,
-        "adjust_start_time": 1,
-        "count": count,
-        "end": "latest",
-        "granularity": granularity,
-        "style": "candles",
-    }
-    if isinstance(url, str):
-        candidates = (url,)
-    else:
-        candidates = tuple(url) if url else ws_urls()
-    failures: list[str] = []
-    for candidate in candidates:
-        try:
-            return _request_candles(candidate, request, timeout)
-        except ConnectionError as error:
-            failures.append(str(error))
-    raise ConnectionError(
-        "Could not reach any market data endpoint. " + " ".join(failures)
-    )
+    request = _history_request(symbol, granularity, count, "latest")
+    _, rows = _request_with_failover(_candidate_urls(url), request, timeout)
+    return rows
+
+
+def fetch_history(
+    symbol: str,
+    granularity: int,
+    total: int,
+    *,
+    url: str | Sequence[str] | None = None,
+    timeout: float = 20.0,
+    page_size: int = MAX_HISTORY_COUNT,
+    max_pages: int = 200,
+) -> list[Candle]:
+    """Deep candle history by paging ``ticks_history`` backwards from now.
+
+    Returns up to ``total`` candles, oldest first, de-duplicated by epoch. Each
+    page ends just before the oldest candle already held. Paging stops once
+    ``total`` is reached, a page adds nothing new (history exhausted), or
+    ``max_pages`` is hit. Deriv may retain less than requested; the result then
+    holds what exists. The endpoint that answered a page is tried first for the
+    next one.
+    """
+    if total < 1:
+        raise ValueError("total must be at least 1")
+    if not 1 <= page_size <= MAX_HISTORY_COUNT:
+        raise ValueError("page_size must be between 1 and 5000 (Deriv API limit)")
+    if granularity < 1:
+        raise ValueError("granularity must be a positive number of seconds")
+    if max_pages < 1:
+        raise ValueError("max_pages must be at least 1")
+    candidates = _candidate_urls(url)
+    collected: dict[int, Candle] = {}
+    end: int | str = "latest"
+    for _ in range(max_pages):
+        remaining = total - len(collected)
+        if remaining <= 0:
+            break
+        count = min(page_size, remaining)
+        request = _history_request(symbol, granularity, count, end)
+        endpoint, rows = _request_with_failover(candidates, request, timeout)
+        candidates = (endpoint, *(c for c in candidates if c != endpoint))
+        fresh = [row for row in rows if row[0] not in collected]
+        if not fresh:
+            break
+        for row in fresh:
+            collected[row[0]] = row
+        end = min(collected) - 1
+    return sorted(collected.values())[-total:]
