@@ -25,9 +25,13 @@ def app_id() -> str:
     return os.environ.get("NEEZY_APP_ID", "").strip() or str(APP_ID)
 
 
-def ws_urls() -> tuple[str, ...]:
-    """Candidate market-data endpoints in preference order."""
-    override = os.environ.get("NEEZY_WS_URL", "").strip()
+def ws_urls(custom: str = "") -> tuple[str, ...]:
+    """Candidate market-data endpoints in preference order.
+
+    NEEZY_WS_URL or the ``custom`` endpoint (from settings) pins a single URL.
+    The environment variable wins when both are set.
+    """
+    override = os.environ.get("NEEZY_WS_URL", "").strip() or custom.strip()
     if override:
         return (override,)
     query = f"?app_id={app_id()}"

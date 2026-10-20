@@ -411,6 +411,13 @@ class EndpointTests(unittest.TestCase):
         self.assertTrue(all("app_id=1089" in url for url in legacy))
         self.assertEqual(len(set(urls)), len(urls))
 
+    def test_settings_endpoint_pins_one_url_and_env_wins(self) -> None:
+        with mock.patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(ws_urls("wss://proxy.local/v3"), ("wss://proxy.local/v3",))
+            self.assertEqual(ws_urls("  "), ws_urls(""))
+        with mock.patch.dict(os.environ, {"NEEZY_WS_URL": "wss://env.local"}):
+            self.assertEqual(ws_urls("wss://proxy.local/v3"), ("wss://env.local",))
+
     def test_endpoint_and_app_id_can_be_overridden(self) -> None:
         with mock.patch.dict(
             os.environ,

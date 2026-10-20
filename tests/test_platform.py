@@ -752,6 +752,32 @@ class SettingsTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             AppSettings(store_candles="yes")
 
+    def test_workspace_and_connection_validation(self) -> None:
+        defaults = AppSettings()
+        self.assertEqual(defaults.default_timeframe, "5m")
+        self.assertEqual(defaults.history_candles, 300)
+        self.assertEqual(defaults.deriv_endpoint, "")
+        self.assertEqual(
+            AppSettings(deriv_endpoint="wss://proxy.local/v3").deriv_endpoint,
+            "wss://proxy.local/v3",
+        )
+        with self.assertRaises(ValueError):
+            AppSettings(default_timeframe="7m")
+        with self.assertRaises(ValueError):
+            AppSettings(history_candles=2000)
+        with self.assertRaises(ValueError):
+            AppSettings(history_candles=500, candle_limit=300)
+        with self.assertRaises(ValueError):
+            AppSettings(deriv_endpoint="https://api.derivws.com")
+        with self.assertRaises(ValueError):
+            AppSettings(deriv_endpoint="wss://has space.example")
+        with self.assertRaises(TypeError):
+            AppSettings(deriv_endpoint=None)
+        with self.assertRaises(ValueError):
+            AppSettings(reconnect_seconds=0.1)
+        with self.assertRaises(ValueError):
+            AppSettings(reconnect_seconds=10.0, max_reconnect_seconds=5.0)
+
     def test_forward_and_backward_compatibility(self) -> None:
         settings = AppSettings.from_dict(
             {

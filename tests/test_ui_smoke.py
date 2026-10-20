@@ -241,6 +241,61 @@ class AppSmokeTests(unittest.TestCase):
         self.assertFalse(saved.show_strategy_overlay)
         self.assertFalse(self.app.db.store_candles)
 
+    def test_connection_and_workspace_settings_persist(self) -> None:
+        self.app.default_tf_var.set("1h")
+        self.app.history_var.set(180)
+        self.app.endpoint_var.set("  wss://proxy.local/v3  ")
+        self.app.reconnect_var.set(3.0)
+        self.app.max_reconnect_var.set(45.0)
+        self.app._settings_changed()
+
+        saved = SettingsStore(get_data_dir() / "settings.json").load()
+        self.assertEqual(saved.default_timeframe, "1h")
+        self.assertEqual(saved.history_candles, 180)
+        self.assertEqual(saved.deriv_endpoint, "wss://proxy.local/v3")
+        self.assertAlmostEqual(saved.reconnect_seconds, 3.0)
+        self.assertAlmostEqual(saved.max_reconnect_seconds, 45.0)
+        self.assertIn("restart", self.app.settings_status.options["text"])
+
+    def test_saved_endpoint_and_reconnect_reach_the_live_client(self) -> None:
+        from neezy_backend.config import AppSettings
+
+        SettingsStore(get_data_dir() / "settings.json").save(
+            AppSettings(
+                deriv_endpoint="wss://proxy.local/v3",
+                reconnect_seconds=4.0,
+                max_reconnect_seconds=40.0,
+                history_candles=120,
+                default_timeframe="15m",
+            )
+        )
+        restarted = ui.App()
+        try:
+            self.assertEqual(restarted.client.urls, ("wss://proxy.local/v3",))
+            self.assertAlmostEqual(restarted.client.reconnect_seconds, 4.0)
+            self.assertAlmostEqual(restarted.client.max_reconnect_seconds, 40.0)
+            self.assertEqual(restarted.gran, 900)
+            self.assertIn(("set", ("15m",), {}), restarted.tf.calls)
+        finally:
+            restarted.client.stop()
+            restarted.db.close()
+
+    def test_invalid_connection_settings_are_rejected(self) -> None:
+        self.app.endpoint_var.set("https://api.derivws.com")
+        self.app._settings_changed()
+        self.assertEqual(
+            SettingsStore(get_data_dir() / "settings.json").load().deriv_endpoint,
+            "",
+        )
+        self.assertIn("ws://", self.app.settings_status.options["text"])
+
+        self.app.endpoint_var.set("")
+        self.app.reconnect_var.set(10.0)
+        self.app.max_reconnect_var.set(5.0)
+        self.app._settings_changed()
+        saved = SettingsStore(get_data_dir() / "settings.json").load()
+        self.assertEqual(saved.reconnect_seconds, 2.0)
+
     def test_invalid_settings_are_rejected_without_saving(self) -> None:
         self.app.corr_window_var.set(900)
         self.app.corr_baseline_var.set(100)

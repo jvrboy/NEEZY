@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, replace
 from typing import Any
 
+from neezy_backend.markets import TIMEFRAMES
+
 THEMES = frozenset({"Liquid dark", "Midnight blue", "High contrast"})
 STRATEGIES = frozenset(
     {
@@ -55,6 +57,13 @@ class AppSettings:
     polling_ms: int = 100
     candle_limit: int = 300
     alert_min_score: int = 2
+    default_timeframe: str = "5m"
+    history_candles: int = 300
+
+    # Connection (applied when the feed starts; restart NEEZY to change)
+    deriv_endpoint: str = ""
+    reconnect_seconds: float = 2.0
+    max_reconnect_seconds: float = 30.0
 
     # Strategy engine
     strategy: str = "SUPERTREND"
@@ -86,6 +95,28 @@ class AppSettings:
         _require_int("polling_ms", self.polling_ms, 50, 2000)
         _require_int("candle_limit", self.candle_limit, 60, 1000)
         _require_int("alert_min_score", self.alert_min_score, 1, 4)
+        if self.default_timeframe not in TIMEFRAMES:
+            raise ValueError(
+                f"Unsupported timeframe {self.default_timeframe!r}; "
+                f"choose from {', '.join(TIMEFRAMES)}"
+            )
+        _require_int("history_candles", self.history_candles, 60, 1000)
+        if self.history_candles > self.candle_limit:
+            raise ValueError("history candles cannot exceed max candles in memory")
+        if not isinstance(self.deriv_endpoint, str):
+            raise TypeError("deriv_endpoint must be a string")
+        endpoint = self.deriv_endpoint.strip()
+        if endpoint and (
+            not endpoint.startswith(("ws://", "wss://"))
+            or any(char.isspace() for char in endpoint)
+        ):
+            raise ValueError(
+                "deriv_endpoint must be a ws:// or wss:// URL with no spaces"
+            )
+        _require_float("reconnect_seconds", self.reconnect_seconds, 0.5, 60.0)
+        _require_float("max_reconnect_seconds", self.max_reconnect_seconds, 1.0, 600.0)
+        if self.max_reconnect_seconds < self.reconnect_seconds:
+            raise ValueError("max reconnect delay must be at least the first delay")
         for field_name in (
             "auto_refresh",
             "alerts_enabled",

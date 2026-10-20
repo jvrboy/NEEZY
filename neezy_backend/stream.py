@@ -291,13 +291,14 @@ def fetch_candles(
     granularity: int,
     count: int = 1000,
     *,
-    url: str | None = None,
+    url: str | Sequence[str] | None = None,
     timeout: float = 20.0,
 ) -> list[tuple[int, float, float, float, float]]:
     """Historical candles, oldest first.
 
     With ``url`` unset, every configured endpoint is tried in order so one
-    Cloudflare-rejected host does not take the whole request down.
+    Cloudflare-rejected host does not take the whole request down. ``url`` may
+    be one endpoint or an ordered candidate list.
     """
     if not 1 <= count <= 5000:
         raise ValueError("count must be between 1 and 5000 (Deriv API limit)")
@@ -309,7 +310,10 @@ def fetch_candles(
         "granularity": granularity,
         "style": "candles",
     }
-    candidates = (url,) if url else ws_urls()
+    if isinstance(url, str):
+        candidates = (url,)
+    else:
+        candidates = tuple(url) if url else ws_urls()
     failures: list[str] = []
     for candidate in candidates:
         try:

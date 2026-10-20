@@ -59,7 +59,6 @@ from neezy_backend.strategies import (
 from neezy_backend.stream import DerivStreamClient, fetch_candles, parse_candle
 
 logger = logging.getLogger(__name__)
-HISTORY = 300
 NAV = ["CHAT", "SYMBOLS", "CHART", "SIGNALS", "TOOLS", "ALERTS", "HISTORY", "SETTINGS"]
 
 
@@ -92,10 +91,15 @@ class App(tk.Tk):
         self._ai_key_rows = []
         self.bus = EventBus(subscriber_queue_size=2500)
         self.inbox = self.bus.subscribe()
-        self.client = DerivStreamClient(ws_urls(), self.bus)
+        self.client = DerivStreamClient(
+            ws_urls(self.settings.deriv_endpoint),
+            self.bus,
+            reconnect_seconds=self.settings.reconnect_seconds,
+            max_reconnect_seconds=self.settings.max_reconnect_seconds,
+        )
         self.alert_store = AlertRuleStore()
         self.alert_engine = AlertEngine(self.alert_store.load())
-        self.gran = 300
+        self.gran = TIMEFRAMES[self.settings.default_timeframe]
         self.candles = {}
         self.results = {}
         self.price_action = {}
@@ -110,6 +114,11 @@ class App(tk.Tk):
         self.polling_var = tk.IntVar(value=self.settings.polling_ms)
         self.candle_limit_var = tk.IntVar(value=self.settings.candle_limit)
         self.alert_min_score_var = tk.IntVar(value=self.settings.alert_min_score)
+        self.default_tf_var = tk.StringVar(value=self.settings.default_timeframe)
+        self.history_var = tk.IntVar(value=self.settings.history_candles)
+        self.endpoint_var = tk.StringVar(value=self.settings.deriv_endpoint)
+        self.reconnect_var = tk.DoubleVar(value=self.settings.reconnect_seconds)
+        self.max_reconnect_var = tk.DoubleVar(value=self.settings.max_reconnect_seconds)
         self.strategy_var = tk.StringVar(value=self.settings.strategy)
         self.st_period_var = tk.IntVar(value=self.settings.supertrend_period)
         self.st_mult_var = tk.DoubleVar(value=self.settings.supertrend_multiplier)
@@ -411,7 +420,7 @@ class App(tk.Tk):
             v.pack(anchor="w", padx=14, pady=(0, 10))
             self.card_values[key] = v
         self.tf = ttk.Combobox(top, values=list(TIMEFRAMES), width=7, state="readonly")
-        self.tf.set("5m")
+        self.tf.set(self.settings.default_timeframe)
         self.tf.pack(side="right")
         self.tf.bind("<<ComboboxSelected>>", lambda e: self._tf_changed())
         body = tk.Frame(p, bg=self.BG)
@@ -744,13 +753,14 @@ class App(tk.Tk):
             self._write(self.test_out, f"Check inputs: {error}")
             return
         symbol, timeframe, seconds = self.selected, self.tf.get(), self.gran
+        endpoints = ws_urls(self.settings.deriv_endpoint)
         self._backtest_running = True
         self.fetch_button.config(state="disabled")
         self._write(self.test_out, f"Fetching {count} {timeframe} candles…")
 
         def work():
             try:
-                candles = fetch_candles(symbol, seconds, count)
+                candles = fetch_candles(symbol, seconds, count, url=endpoints)
                 result = run_backtest(candles[:-1], config)
                 self.bus.publish("backtest", (symbol, timeframe, result))
             except (OSError, RuntimeError, ValueError) as error:
@@ -1143,17 +1153,46 @@ class App(tk.Tk):
             left, "Max candles in memory", self.candle_limit_var, 60, 1000, 20
         )
         self._spin_row(left, "Alert score threshold", self.alert_min_score_var, 1, 4, 1)
+        self._combo_row(
+            left,
+            "Startup timeframe",
+            self.default_tf_var,
+            list(TIMEFRAMES),
+        )
+        self._spin_row(
+            left,
+            "History candles per market",
+            self.history_var,
+            60,
+            1000,
+            20,
+        )
 
         self._label(right, "ENGINE & CONNECTION", 9, self.CYAN).pack(
             anchor="w", padx=16, pady=(14, 8)
         )
-        self._label(right, "Deriv public WebSocket", 12).pack(
+        self._label(right, "Market data connection", 12).pack(
             anchor="w", padx=16, pady=(2, 2)
         )
         self.connection_detail = self._label(
             right, f"App ID {APP_ID} · awaiting connection", 10, self.MUTED
         )
-        self.connection_detail.pack(anchor="w", padx=16, pady=(0, 12))
+        self.connection_detail.pack(anchor="w", padx=16, pady=(0, 4))
+        self._entry_row(
+            right, "Custom WebSocket URL (blank = automatic)", self.endpoint_var
+        )
+        self._spin_row(
+            right, "First reconnect delay (s)", self.reconnect_var, 0.5, 60, 0.5
+        )
+        self._spin_row(
+            right, "Max reconnect delay (s)", self.max_reconnect_var, 1, 600, 1
+        )
+        self._label(
+            right,
+            "Connection fields apply after you restart NEEZY.",
+            9,
+            self.MUTED,
+        ).pack(anchor="w", padx=16, pady=(0, 10))
         self._label(right, "Signal engine", 12).pack(anchor="w", padx=16, pady=(2, 2))
         self._label(
             right,
@@ -1660,6 +1699,11 @@ class App(tk.Tk):
                 polling_ms=int(self.polling_var.get()),
                 candle_limit=int(self.candle_limit_var.get()),
                 alert_min_score=int(self.alert_min_score_var.get()),
+                default_timeframe=self.default_tf_var.get(),
+                history_candles=int(self.history_var.get()),
+                deriv_endpoint=self.endpoint_var.get().strip(),
+                reconnect_seconds=float(self.reconnect_var.get()),
+                max_reconnect_seconds=float(self.max_reconnect_var.get()),
                 strategy=self._strategy_name(),
                 supertrend_period=int(self.st_period_var.get()),
                 supertrend_multiplier=float(self.st_mult_var.get()),
@@ -1687,6 +1731,15 @@ class App(tk.Tk):
             self.db.retention_days = candidate.retention_days
             self.db.store_candles = candidate.store_candles
         should_refresh = not self.settings.auto_refresh and candidate.auto_refresh
+        restart_needed = (
+            candidate.deriv_endpoint,
+            candidate.reconnect_seconds,
+            candidate.max_reconnect_seconds,
+        ) != (
+            self.settings.deriv_endpoint,
+            self.settings.reconnect_seconds,
+            self.settings.max_reconnect_seconds,
+        )
         self.settings = candidate
         self._apply_theme()
         if should_refresh:
@@ -1696,12 +1749,12 @@ class App(tk.Tk):
                 except ValueError as error:
                     logger.warning("Could not refresh %s: %s", symbol, error)
         self.status_var.set("Settings saved")
-        self.settings_status.config(
-            text=(
-                f"Saved · {candidate.polling_ms} ms · {candidate.candle_limit} candles"
-            ),
-            fg=self.GREEN,
+        summary = (
+            f"Saved · {candidate.polling_ms} ms · {candidate.candle_limit} candles"
         )
+        if restart_needed:
+            summary += " · connection changes apply after restart"
+        self.settings_status.config(text=summary, fg=self.GREEN)
 
     def _clear_history(self):
         try:
@@ -1760,7 +1813,7 @@ class App(tk.Tk):
                 {
                     "ticks_history": symbol,
                     "adjust_start_time": 1,
-                    "count": HISTORY,
+                    "count": self.settings.history_candles,
                     "end": "latest",
                     "granularity": self.gran,
                     "style": "candles",

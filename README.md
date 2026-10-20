@@ -8,7 +8,7 @@ NEEZY is a native Python/Tkinter market-monitoring workspace. It reads public ma
 - Candlestick canvas and per-market indicator detail for EMA 9/21/50, RSI 14, ATR 14, and MACD histogram.
 - Closed-candle analysis, explicit trend/volatility context, and finite/OHLC validation before data reaches the signal engine.
 - Reconnecting background WebSocket service with bounded backoff, observable status events, and clean shutdown.
-- Local persistent settings (theme, polling rate, data density, candle buffer, refresh, and alert threshold).
+- Local persistent settings (theme, polling rate, data density, candle buffer, refresh, alert threshold, startup timeframe, history size, and market-data connection: custom WebSocket URL and reconnect delays).
 - Signal-transition history stored locally with CSV export and configurable desktop beeps.
 - Three theme presets, chat input shortcut (Enter), and a compatibility launcher for older instructions.
 
