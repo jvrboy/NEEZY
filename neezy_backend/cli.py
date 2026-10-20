@@ -60,7 +60,7 @@ from .strategies import (
     run_all,
 )
 from .stream import MAX_HISTORY_COUNT, fetch_candles, fetch_history, probe_endpoint
-from .study import StudySettings, run_study
+from .study import StudySettings, describe_method, run_study
 from .trend import trend_summary
 
 Fetcher = Callable[[str, int, int], list[tuple[int, float, float, float, float]]]
@@ -395,22 +395,32 @@ def cmd_study(args, fetch, out) -> int:
     def progress(symbol: str, verdict: str) -> None:
         sys.stderr.write(f"{symbol}: {verdict}\n")
 
+    merged = dict(previous["symbols"])
+    kept: list[str] = []
+    method = describe_method(settings)
+    saved: Path | None = None
+
+    def checkpoint(symbol: str, record: dict[str, Any]) -> None:
+        # Written after every market: a later hang or crash keeps earlier results.
+        nonlocal saved
+        # A failed fetch must not erase a verdict from an earlier, successful run.
+        if record["verdict"] == "error" and symbol in merged:
+            kept.append(symbol)
+        else:
+            merged[symbol] = record
+        if not args.dry_run:
+            saved = save_knowledge(
+                {**previous, "method": method, "symbols": merged}, target
+            )
+
     document = run_study(
         symbols,
         settings,
         fetch=fetch,
         progress=None if args.json else progress,
+        on_record=checkpoint,
     )
-    merged = dict(previous["symbols"])
-    kept: list[str] = []
-    for symbol, record in document["symbols"].items():
-        # A failed fetch must not erase a verdict from an earlier, successful run.
-        if record["verdict"] == "error" and symbol in merged:
-            kept.append(symbol)
-            continue
-        merged[symbol] = record
-    combined = {**previous, "method": document["method"], "symbols": merged}
-    saved = None if args.dry_run else save_knowledge(combined, target)
+    combined = {**previous, "method": method, "symbols": merged}
     final = load_knowledge(saved) if saved else combined
 
     if args.json:

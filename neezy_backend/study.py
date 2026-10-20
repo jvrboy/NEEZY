@@ -14,6 +14,7 @@ about one historical window, not a forecast.
 from __future__ import annotations
 
 import math
+import threading
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import asdict, dataclass, field, replace
 from itertools import accumulate
@@ -58,6 +59,9 @@ class StudySettings:
     # report pre-cost edges; the default charges one pip, a deliberately rough
     # assumption that the caller should adjust per market.
     spread_pips: float = 1.0
+    # Longest wait for one instrument's history. A stalled connection is then
+    # recorded as an error for that market instead of blocking the whole run.
+    fetch_timeout: float = 240.0
     grid: tuple[BacktestConfig, ...] = field(default_factory=default_grid)
 
     def __post_init__(self) -> None:
@@ -77,6 +81,8 @@ class StudySettings:
             raise ValueError("grid must contain at least one setting")
         if not math.isfinite(self.spread_pips) or self.spread_pips < 0:
             raise ValueError("spread_pips must be zero or a positive number")
+        if not math.isfinite(self.fetch_timeout) or self.fetch_timeout <= 0:
+            raise ValueError("fetch_timeout must be a positive number of seconds")
 
 
 def _clean(stats: dict[str, Any]) -> dict[str, Any]:
@@ -177,17 +183,45 @@ def describe_method(settings: StudySettings) -> str:
     )
 
 
+def _bounded_fetch(
+    fetch: Fetch, symbol: str, seconds: int, count: int, timeout: float
+) -> list[Candle]:
+    """Run ``fetch`` on a worker thread and give up after ``timeout`` seconds.
+
+    The abandoned worker is a daemon thread, so it cannot keep the process alive.
+    """
+    outcome: dict[str, Any] = {}
+
+    def work() -> None:
+        try:
+            outcome["candles"] = fetch(symbol, seconds, count)
+        except BaseException as error:  # noqa: BLE001 - re-raised on the caller below
+            outcome["error"] = error
+
+    worker = threading.Thread(target=work, daemon=True)
+    worker.start()
+    worker.join(timeout)
+    if worker.is_alive():
+        raise TimeoutError(f"no history for {symbol} within {timeout:g}s")
+    if "error" in outcome:
+        raise outcome["error"]
+    return outcome["candles"]
+
+
 def run_study(
     symbols: Iterable[str],
     settings: StudySettings | None = None,
     *,
     fetch: Fetch = fetch_history,
     progress: Callable[[str, str], None] | None = None,
+    on_record: Callable[[str, dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     """Study each symbol and return a knowledge document (not yet saved).
 
-    A failed fetch or a short history is recorded against that symbol rather
-    than stopping the run, so one unreachable market does not hide the rest.
+    A failed or timed-out fetch and a short history are recorded against that
+    symbol rather than stopping the run, so one unreachable market does not
+    hide the rest. ``on_record`` is called as each symbol finishes, so a caller
+    can checkpoint partial results.
     """
     settings = settings or StudySettings()
     document = empty_document()
@@ -197,7 +231,13 @@ def run_study(
         item = instrument(symbol)
         market = item.market if item else "unknown"
         try:
-            candles = fetch(symbol, settings.granularity, settings.candles)
+            candles = _bounded_fetch(
+                fetch,
+                symbol,
+                settings.granularity,
+                settings.candles,
+                settings.fetch_timeout,
+            )
         except (ConnectionError, OSError, RuntimeError, ValueError) as error:
             record: dict[str, Any] = {
                 "market": market,
@@ -227,6 +267,8 @@ def run_study(
                 )
             record = {"market": market, "candles": len(candles), **outcome}
         records[symbol] = record
+        if on_record is not None:
+            on_record(symbol, record)
         if progress is not None:
             progress(symbol, record["verdict"])
     document["symbols"] = records
