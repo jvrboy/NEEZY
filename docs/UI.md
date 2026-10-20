@@ -1,26 +1,30 @@
-# NEEZY UI & Workspace Guide
+# NEEZY UI
 
-## Overview
+The desktop UI is the base `neezy_app.ui.App` plus the enterprise layer in
+`neezy_app/enterprise.py` (`EnterpriseApp`, started by `neezy` / the launcher).
 
-The NEEZY desktop application is built with native Python Tkinter for instant startup, zero external binary dependencies, and 100% offline desktop performance.
+## Design system
+- Palette tokens and presets (Liquid dark, Midnight blue, High contrast) live in
+  `App._apply_theme`; the enterprise layer re-themes ttk widgets on every change.
+- Fonts resolve at start-up: Segoe UI / SF Pro / Inter / DejaVu Sans for UI and
+  Cascadia Mono / Consolas / SF Mono / Menlo / DejaVu Sans Mono for data.
+- Sidebar is the single navigation surface (the duplicate top tab strip is hidden).
 
----
+## Interaction
+| Shortcut | Action |
+|---|---|
+| Ctrl+K | Command palette (navigate, timeframe, markets, scan, themes) |
+| Ctrl+1..8 | Jump to a page |
+| F5 | Re-subscribe all market streams |
+| Double-click a row | Open that market's chart |
 
-## Design Tokens & Theme Engine
+## Feedback
+- Toast notifications for triggered alert rules and signal changes.
+- Status bar: connection/status text, selected market, analysed markets, last tick, UTC clock.
 
-Supported themes:
-- **Midnight Blue** (Default enterprise dark)
-- **Terminal Dark** (High-contrast matrix theme)
-- **Clean Slate** (Professional light mode)
-
-Tokens manage background colors, card surfaces, border accents, positive/negative signal colors (`#10b981` / `#ef4444`), and font hierarchies.
-
----
-
-## Key Workspace Views
-
-1. **WATCHLIST & SIGNAL BOARD**: Live multi-market grid with real-time price ticks and indicator score badges.
-2. **CHART & INDICATOR DETAILS**: Custom canvas candle charts with overlaid EMA 9/21/50, Bollinger Bands, and sub-charts for MACD, RSI, and ATR.
-3. **TOOLS TAB**: ATR risk planner, walk-forward backtester, and correlation matrix.
-4. **ALERTS TAB**: Edge-triggered rule engine with desktop sound notifications.
-5. **AI COPILOT**: Multi-key AI provider configuration and context-aware chat assistant.
+## Fixes shipped with the layer
+- Sidebar highlight now stays in sync with the active page; header title updates per page.
+- Watchlist selection now selects the market everywhere (detail pane, signals table).
+- Chart empty-state is centred; transient Tk draw errors no longer propagate.
+- Combobox pop-downs, scrollbars and table headers follow the active theme.
+- "Temperature x10" label corrected.

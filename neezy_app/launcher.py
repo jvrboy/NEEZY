@@ -10,6 +10,6 @@ def main() -> None:
             "NEEZY needs Tkinter. Install the operating-system Tk package "
             "(for example, python3-tk), then run the command again."
         ) from error
-    from .ui import main as run_app
+    from .enterprise import main as run_app
 
     run_app()
