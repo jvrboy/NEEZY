@@ -54,6 +54,9 @@ class StudySettings:
     train_fraction: float = 0.7
     min_train_trades: int = 30
     min_test_trades: int = 20
+    # Held-out t-statistic of mean R (mean / standard error) an 'edge' must reach.
+    # Positive expectancy alone is what a coin flip also produces about half the time.
+    min_t_stat: float = 2.0
     min_candles: int = 2_000
     # Full bid/ask spread charged per trade, in pips (see pip_size). Zero would
     # report pre-cost edges; the default charges one pip, a deliberately rough
@@ -81,6 +84,8 @@ class StudySettings:
             raise ValueError("grid must contain at least one setting")
         if not math.isfinite(self.spread_pips) or self.spread_pips < 0:
             raise ValueError("spread_pips must be zero or a positive number")
+        if not math.isfinite(self.min_t_stat) or self.min_t_stat < 0:
+            raise ValueError("min_t_stat must be zero or a positive number")
         if not math.isfinite(self.fetch_timeout) or self.fetch_timeout <= 0:
             raise ValueError("fetch_timeout must be a positive number of seconds")
 
@@ -109,7 +114,15 @@ def _slice_stats(
     result = BacktestResult(
         trades=kept, equity_curve=curve, candles_tested=candles_tested
     )
-    return _clean(result.stats)
+    stats = result.stats
+    # sharpe_per_trade is mean / sample deviation, so mean / standard error is that
+    # times sqrt(n).
+    stats["t_stat"] = (
+        stats["sharpe_per_trade"] * math.sqrt(stats["trades"])
+        if stats["trades"] > 1
+        else 0.0
+    )
+    return _clean(stats)
 
 
 def evaluate_candles(
@@ -157,8 +170,14 @@ def evaluate_candles(
     if test_stats["trades"] < settings.min_test_trades:
         verdict = "insufficient_data"
         note = f"only {test_stats['trades']} held-out trades"
-    elif test_stats["expectancy_r"] > 0:
+    elif test_stats["expectancy_r"] > 0 and test_stats["t_stat"] >= settings.min_t_stat:
         verdict, note = "edge", ""
+    elif test_stats["expectancy_r"] > 0:
+        verdict = "no_edge"
+        note = (
+            f"held-out expectancy was positive but its t-stat "
+            f"{test_stats['t_stat']:.2f} is below {settings.min_t_stat:g}"
+        )
     else:
         verdict, note = "no_edge", "held-out expectancy was not positive"
     return {
@@ -178,8 +197,11 @@ def describe_method(settings: StudySettings) -> str:
         f"{settings.train_fraction:.0%} of history is searched over a grid of "
         f"{len(settings.grid)} settings; the setting with the best expectancy "
         f"and at least {settings.min_train_trades} trades is then run once on the "
-        f"remaining history. Verdict 'edge' means positive expectancy there with "
-        f"at least {settings.min_test_trades} trades."
+        f"remaining history. Verdict 'edge' means positive expectancy there, a "
+        f"t-stat of at least {settings.min_t_stat:g}, and at least "
+        f"{settings.min_test_trades} trades. Synthetic indices are charged the "
+        f"catalogue tick size, which is probably far below their real cost, so "
+        f"their verdicts are provisional."
     )
 
 

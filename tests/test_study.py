@@ -6,6 +6,7 @@ import json
 import random
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 from neezy_backend.knowledge import VERDICTS, load_knowledge, save_knowledge
@@ -127,6 +128,30 @@ class StudyTests(unittest.TestCase):
         # A spread far wider than the typical bar range cannot leave an edge.
         dear = evaluate_candles(candles, SMALL, spread=0.01)
         self.assertNotEqual(dear["verdict"], "edge")
+
+    def test_edge_needs_a_significant_t_stat(self) -> None:
+        candles = _walk(1_500, drift=0.0002)
+        lenient = evaluate_candles(candles, SMALL)
+        if lenient["verdict"] != "edge":
+            self.skipTest("this sample has no positive held-out expectancy")
+        # An unreachable t-stat bar turns the same result into a no_edge with a reason.
+        strict = evaluate_candles(candles, replace(SMALL, min_t_stat=1e9), spread=0.0)
+        self.assertEqual(strict["verdict"], "no_edge")
+        self.assertIn("t-stat", strict["note"])
+        self.assertAlmostEqual(
+            strict["test"]["expectancy_r"], lenient["test"]["expectancy_r"]
+        )
+
+    def test_t_stat_is_mean_over_standard_error(self) -> None:
+        candles = _walk(1_500, drift=0.0002)
+        result = evaluate_candles(candles, SMALL, spread=0.0)
+        test = result["test"]
+        if test and test["trades"] > 1:
+            self.assertAlmostEqual(
+                test["t_stat"],
+                test["sharpe_per_trade"] * test["trades"] ** 0.5,
+                places=2,
+            )
 
     def test_spread_pips_must_be_non_negative(self) -> None:
         with self.assertRaises(ValueError):
