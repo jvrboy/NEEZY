@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "neezy-market-workspace"
+version = "1.0.0"
+description = "A native Python market-monitoring desktop workspace"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Proprietary" }
+authors = [{ name = "NEEZY contributors" }]
+dependencies = ["websocket-client>=1.8,<2"]
+
+[project.optional-dependencies]
+dev = ["ruff>=0.11"]
+
+[project.scripts]
+neezy = "neezy_app.launcher:main"
+
+[tool.setuptools.packages.find]
+include = ["neezy_app*", "neezy_backend*"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "BLE", "RUF"]
+ignore = ["UP017"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
