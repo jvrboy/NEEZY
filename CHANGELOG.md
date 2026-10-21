@@ -3,6 +3,27 @@
 ## [Unreleased] - Neural model types
 
 ### Added
+- Desktop ORDERS page (`neezy_app/ui_panels/orders.py`). It places a live MT5
+  market order after a confirmation dialog that defaults to No. It refuses
+  unless the saved MT5 bridge toggle is on and the terminal is live. Preview is
+  local and sends nothing.
+- `neezy_backend/mt5_orders.py` holds the live-order gate, shared by the CLI and
+  the desktop. The CLI's `mt5 order --confirm` path now uses the same terminal
+  check. Its refusal messages are unchanged.
+- `tests/test_mt5_orders.py` covers the ticket parser, the terminal gate, the
+  send refusals, and the confirmation text. It uses a fake `mt5` module, so no
+  test reaches a real terminal.
+
+### Changed
+- DECISIONS.md Decision 6 is amended to allow desktop placement behind the
+  confirmation dialog and the bridge toggle.
+
+### Notes
+- The ORDERS page was not run in a real window. The sandbox has no display.
+  Its tests cover the gate and the send path, and the Tk wiring is checked by
+  import only.
+
+### Added (neural model types)
 - `train_model(..., model_type=...)` in `neezy_backend/brain.py` now accepts two
   new layouts next to the default `neezy_mlp_v1`:
   - `neezy_mlp_ensemble_v1` (`members`, 2 to 25, default 5): bagged MLPs, each

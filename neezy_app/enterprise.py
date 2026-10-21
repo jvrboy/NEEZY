@@ -49,6 +49,7 @@ GLYPHS = {
     "SIGNALS": "◉",
     "INSIGHTS": "◇",
     "TOOLS": "⚙",
+    "ORDERS": "⇄",
     "ALERTS": "◔",
     "HISTORY": "↺",
     "SETTINGS": "☷",

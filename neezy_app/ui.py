@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """NEEZY native trading workspace; live prices are supplied by Deriv's public API.
 
-The application displays educational technical-analysis summaries only. It does
-not place trades, and its signals are not investment advice.
+The application displays educational technical-analysis summaries. Its signals
+are not investment advice. The ORDERS page can send a market order to a local
+MetaTrader 5 terminal, but only after the saved MT5 bridge is on, the terminal
+is confirmed live, and the user confirms the order in a dialog.
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ from neezy_app.ui_panels.integrations import IntegrationsMixin
 from neezy_app.ui_panels.local_models import LocalModelsMixin
 from neezy_app.ui_panels.market import MarketMixin
 from neezy_app.ui_panels.mcp import McpMixin
+from neezy_app.ui_panels.orders import OrdersMixin
 from neezy_app.ui_panels.remote import RemoteMixin
 from neezy_app.ui_panels.settings import SettingsMixin
 from neezy_app.ui_panels.signals import SignalsMixin
@@ -91,6 +94,7 @@ class App(
     TelegramMixin,
     RemoteMixin,
     IntegrationsMixin,
+    OrdersMixin,
     tk.Tk,
 ):
     PANEL = "#101d30"
@@ -541,6 +545,7 @@ class App(
         self._chart_page()
         self._chat_page()
         self._tools_page()
+        self._orders_page()
         self._alerts_page()
         self._history_page()
         self._settings_page()

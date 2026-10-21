@@ -1,6 +1,6 @@
 # NEEZY
 
-NEEZY is a native Python/Tkinter market-monitoring workspace. It reads public market candles from Deriv's WebSocket API and computes educational technical-analysis summaries. Its analysis never places trades. The optional MetaTrader 5 bridge can send orders to a MetaTrader 5 terminal you run on your own PC, but only from the CLI with `--confirm` (or the menu's typed `SEND`). Agent and MCP tools can preview orders and never send them. NEEZY does not provide financial advice. See [MetaTrader 5 bridge](#metatrader-5-bridge-live-orders-gated).
+NEEZY is a native Python/Tkinter market-monitoring workspace. It reads public market candles from Deriv's WebSocket API and computes educational technical-analysis summaries. Its analysis never places trades. The optional MetaTrader 5 bridge can send orders to a MetaTrader 5 terminal you run on your own PC, from the CLI with `--confirm`, the menu's typed `SEND`, or the desktop ORDERS page after a confirmation dialog. Agent and MCP tools can preview orders and never send them. NEEZY does not provide financial advice. See [MetaTrader 5 bridge](#metatrader-5-bridge-live-orders-gated).
 
 ## Confluence engine, data providers and card workspace (v1.6.0)
 
@@ -143,6 +143,8 @@ neezy-cli mt5 order frxEURUSD --type BUY --volume 0.1 --confirm     # sends a li
 ```
 
 Without `--confirm` an order is refused. With `--confirm` but no connected terminal, it is refused too; nothing is reported as placed unless MT5 returns success. The quote, account, and candle reads refuse simulated or disconnected data instead of printing made-up values.
+
+**Desktop ORDERS page.** The ORDERS tab places market orders (buy or sell, volume, optional stop and target prices). Preview is local and sends nothing. **Place live order…** checks that the MT5 bridge is enabled in SETTINGS and that the terminal is connected and live, then shows a confirmation dialog that defaults to No and lists the account. Nothing is sent until you choose Yes. The CLI does not check the saved bridge toggle, so `neezy-cli mt5 order --confirm` can send with the toggle off; the desktop cannot. Limit orders are not on the ORDERS page.
 
 **Agent and MCP tools.** `mt5_status`, `mt5_account`, `mt5_quote`, `mt5_positions`, `mt5_candles`, and `mt5_order_preview` are read-only or preview-only. No agent tool sends an order. Tools marked write or destructive require `confirm=True` in code.
 

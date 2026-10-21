@@ -1481,6 +1481,7 @@ def cmd_mt5(args, fetch, out) -> int:
     """Interact with local MetaTrader 5 terminal bridge."""
     del fetch
     from .mt5_bridge import get_global_mt5_bridge, is_mt5_available
+    from .mt5_orders import check_live_terminal
 
     if args.action == "preflight":
         from .mt5_preflight import checks_as_dicts, has_failures, run_preflight
@@ -1556,10 +1557,9 @@ def cmd_mt5(args, fetch, out) -> int:
                 "refusing to send a live order without --confirm "
                 "(use --dry-run to preview)"
             )
-        conn = bridge.connect()
-        if not conn.get("success") or conn.get("mock"):
-            reason = conn.get("error") or "terminal is simulated, not connected"
-            raise RuntimeError(f"live order refused: MT5 not connected ({reason})")
+        gate = check_live_terminal(bridge)
+        if not gate["ok"]:
+            raise RuntimeError(f"live order refused: {gate['reason']}")
         res = bridge.place_order(args.symbol, **order_kwargs)
         if not res.get("success"):
             raise RuntimeError(f"order failed: {res.get('error')}")

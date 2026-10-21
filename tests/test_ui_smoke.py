@@ -258,6 +258,22 @@ class AppSmokeTests(unittest.TestCase):
         self.assertIsNotNone(self.app.db)
         self.assertIsInstance(self.app.db, LocalDatabase)
 
+    def test_orders_page_previews_locally_and_refuses_with_bridge_off(self) -> None:
+        self.assertIn("ORDERS", self.app.pages)
+        self.app.order_vars["volume"].set("0.01")
+        self.app.order_vars["side"].set("BUY")
+        self.app._order_preview()
+        self.assertIn("Preview only", self.app.order_status.options["text"])
+        self.app.order_vars["volume"].set("abc")
+        self.app._order_preview()
+        self.assertIn("Check the ticket", self.app.order_status.options["text"])
+        # The saved MT5 bridge toggle is off by default: placing must refuse
+        # before any terminal is contacted.
+        self.app.order_vars["volume"].set("0.01")
+        self.app._order_place()
+        self.assertIn("bridge is off", self.app.order_status.options["text"])
+        self.assertFalse(self.app._order_busy)
+
     def test_settings_persist_every_new_field(self) -> None:
         self.app.strategy_var.set("DIVERGENCE · RSI/MACD divergence")
         self.app.st_period_var.set(14)
