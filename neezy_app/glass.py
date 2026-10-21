@@ -174,7 +174,7 @@ class GlassPanel(tk.Canvas):
         self._rounded(1, 1, w - 2, h - 2)
         polygon_items = self.find_withtag("polygon")
         for item in polygon_items:
-            self.itemconfigure(item, fill=self._fill, outline=self._border, width=1)
+            self.itemconfigure(item, fill=self._fill, outline=self._border, width=1, tags=("body",))
         self.create_line(
             self._radius, 3, w - self._radius, 3,
             fill=_with_alpha(self._highlight, 0.55), width=1, capstyle="round",
@@ -194,7 +194,7 @@ class GlassPanel(tk.Canvas):
             x, 4, x + h // 2, h - 4,
             fill=_with_alpha("#ffffff", 0.06), width=8, capstyle="round", tags=("sheen",),
         )
-        self.tag_lower("sheen")
+        self.tag_raise("sheen")
         self._sheen_job = self.after(60, self._animate_sheen)
 
     def destroy(self) -> None:  # noqa: D102 - inherited docstring
