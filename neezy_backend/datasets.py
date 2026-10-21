@@ -13,6 +13,7 @@ come from backtests over historical candles with a charged spread.
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from functools import cache
 from pathlib import Path
 from typing import Any
@@ -30,12 +31,16 @@ def dataset_path(name: str) -> Path:
     Rejects anything that is not a plain ``*.json`` file name so the loader
     can never be pointed outside ``DATA_DIR``.
     """
-    if not name or not name.endswith(".json"):
+    if not isinstance(name, str) or not name or not name.endswith(".json"):
         raise ValueError("dataset name must end with .json")
     if "/" in name or "\\" in name or name in {".", ".."}:
         raise ValueError("dataset name must be a plain file name")
+    if "\0" in name:
+        raise ValueError("dataset name cannot contain null bytes")
     target = DATA_DIR / name
-    if not target.exists():
+    if target.is_symlink() or target.resolve().parent != DATA_DIR.resolve():
+        raise ValueError("dataset must not escape the package data directory")
+    if not target.is_file():
         raise FileNotFoundError(f"no such dataset: {name}")
     return target
 
@@ -51,9 +56,13 @@ def _read(path: Path) -> dict[str, Any]:
 
 
 @cache
+def _cached_dataset(path: Path) -> dict[str, Any]:
+    return _read(path)
+
+
 def load_dataset(name: str) -> dict[str, Any]:
-    """Load and cache one dataset; a missing or malformed file raises."""
-    return _read(dataset_path(name))
+    """Load a cached dataset copy; callers cannot corrupt future reads."""
+    return deepcopy(_cached_dataset(dataset_path(name)))
 
 
 def list_datasets() -> list[str]:
@@ -105,4 +114,34 @@ def dataset_summary() -> dict[str, Any]:
 
 def clear_cache() -> None:
     """Drop cached datasets so the next load re-reads the files."""
-    load_dataset.cache_clear()
+    _cached_dataset.cache_clear()
+
+
+def shipped_brain_model(symbol: str, timeframe: str) -> dict[str, Any] | None:
+    """Load a verified same-market/timeframe model; caller must opt in to use it."""
+    from .brain import validate_model
+
+    try:
+        document = load_dataset("ml_research.json")
+    except FileNotFoundError:
+        return None
+    if document.get("timeframe") != timeframe:
+        return None
+    record = document.get("symbols", {}).get(symbol, {})
+    model = record.get("model")
+    if record.get("status") != "trained" or not isinstance(model, dict):
+        return None
+    if model.get("symbol") != symbol or model.get("timeframe") != timeframe:
+        raise ValueError("shipped model identity does not match request")
+    return json.loads(json.dumps(validate_model(model)))
+
+
+def research_report() -> dict[str, Any]:
+    """Read bundled live-data research findings without returning model matrices."""
+    try:
+        document = json.loads(json.dumps(load_dataset("ml_research.json")))
+    except FileNotFoundError:
+        return {"schema": 1, "symbols": {}, "forex_pairs": {}}
+    for record in document.get("symbols", {}).values():
+        record.pop("model", None)
+    return document

@@ -42,7 +42,7 @@ from neezy_backend.brain import train_model as train_brain_model
 from neezy_backend.config import AppSettings
 from neezy_backend.context import chat_messages, format_context, market_snapshot
 from neezy_backend.database import LocalDatabase
-from neezy_backend.datasets import model_weights
+from neezy_backend.datasets import model_weights, research_report, shipped_brain_model
 from neezy_backend.events import EventBus
 from neezy_backend.indicators import analyze, ema
 from neezy_backend.insights import knowledge_brief
@@ -65,6 +65,7 @@ from neezy_backend.mcp import MCPServer, MCPTokenStore
 from neezy_backend.mcp_tools import register_app_tools, register_public_app_tools
 from neezy_backend.patterns import price_action_summary
 from neezy_backend.remote import AppCommandBridge
+from neezy_backend.research import DEFAULT_RESEARCH_SYMBOLS, pair_research, training_run
 from neezy_backend.risk import atr_levels, position_size
 from neezy_backend.storage import SettingsStore, SignalHistoryStore, get_data_dir
 from neezy_backend.strategies import (
@@ -82,6 +83,47 @@ from neezy_backend.telegram import (
 )
 from neezy_backend.tools import ToolRegistry
 from neezy_backend.tunnel import CloudflareQuickTunnel, TunnelError
+
+RESEARCH_CONTROLS = [
+    ("ml_history_candles", "Fetched history candles", 400, 50000, 100, "ML RESEARCH"),
+    ("ml_epochs", "Training epochs", 1, 500, 1, "ML RESEARCH"),
+    ("ml_horizon", "Prediction horizon (bars)", 1, 100, 1, "ML RESEARCH"),
+    ("ml_deadband_atr", "ATR neutral deadband", 0.0, 5.0, 0.05, "ML RESEARCH"),
+    ("ml_min_samples", "Minimum labelled examples", 60, 10000, 20, "ML RESEARCH"),
+    ("ml_seed", "Reproducibility seed", 0, 2147483647, 1, "ML RESEARCH"),
+    (
+        "ml_probability",
+        "Advisory probability threshold",
+        0.51,
+        0.99,
+        0.01,
+        "ML RESEARCH",
+    ),
+    (
+        "ml_fetch_timeout",
+        "Public API timeout (seconds)",
+        2.0,
+        120.0,
+        1.0,
+        "ML RESEARCH",
+    ),
+    ("insights_max_rows", "Insight table row limit", 5, 200, 5, "ML RESEARCH"),
+    ("pair_lookback", "Lagged z-score window", 20, 1000, 10, "PAIR RESEARCH"),
+    ("pair_min_overlap", "Minimum aligned candles", 100, 20000, 50, "PAIR RESEARCH"),
+    ("pair_entry_z", "Entry z threshold", 0.5, 6.0, 0.1, "PAIR RESEARCH"),
+    ("pair_exit_z", "Exit z threshold", 0.0, 3.0, 0.1, "PAIR RESEARCH"),
+    ("pair_stop_z", "Stop z threshold", 1.0, 10.0, 0.1, "PAIR RESEARCH"),
+    ("pair_cost_bps", "Turnover cost (bps)", 0.0, 100.0, 0.1, "PAIR RESEARCH"),
+    ("pair_max_holding", "Maximum holding bars", 1, 2000, 1, "PAIR RESEARCH"),
+    (
+        "pair_min_correlation",
+        "Minimum train |correlation|",
+        0.0,
+        1.0,
+        0.05,
+        "PAIR RESEARCH",
+    ),
+]
 
 logger = logging.getLogger(__name__)
 NAV = [
@@ -192,6 +234,17 @@ class App(tk.Tk):
         self.overlay_var = tk.BooleanVar(value=self.settings.show_strategy_overlay)
         self.use_knowledge_var = tk.BooleanVar(value=self.settings.use_knowledge)
         self.use_memory_var = tk.BooleanVar(value=self.settings.use_memory)
+        self.research_vars = {
+            name: (
+                tk.IntVar
+                if isinstance(getattr(self.settings, name), int)
+                else tk.DoubleVar
+            )(value=getattr(self.settings, name))
+            for name, *_rest in RESEARCH_CONTROLS
+        }
+        self._research_running = False
+        self.research_market_var = tk.StringVar(value="frxEURUSD")
+        self.pair_reference_var = tk.StringVar(value="frxGBPUSD")
         self.use_brain_var = tk.BooleanVar(value=self.settings.use_brain_model)
         self.mcp_enabled_var = tk.BooleanVar(value=self.settings.mcp_enabled)
         self.mcp_port_var = tk.IntVar(value=self.settings.mcp_port)
@@ -592,9 +645,107 @@ class App(tk.Tk):
             10,
             self.MUTED,
         ).pack(side="left", padx=12)
-        self.insights_output = self._output(p, height=16)
+        self.insights_output = self._output(p, height=8)
         self._action_button(p, "REFRESH INSIGHTS", self._refresh_insights)
+        self._combo_row(
+            p,
+            "ML research market (DSI: history-only access verified)",
+            self.research_market_var,
+            list(DEFAULT_RESEARCH_SYMBOLS),
+        )
+        self._action_button(
+            p, "TRAIN RESEARCH MARKET ON FRESH PUBLIC DATA", self._train_live_research
+        )
+        self._combo_row(
+            p,
+            "FX comparison leg",
+            self.pair_reference_var,
+            [symbol for symbol in SYMBOLS if symbol.startswith("frx")],
+        )
+        self._action_button(p, "RESEARCH SELECTED FX PAIR", self._research_fx_pair)
+        self.research_status_label = self._label(
+            p, "Ready · research only", 10, self.MUTED
+        )
+        self.research_status_label.pack(anchor="w", padx=16, pady=6)
         self._refresh_insights()
+
+    def _get_brain_model(self, symbol, timeframe):
+        model = (
+            self.db.get_value(f"brain:model:{symbol}:{timeframe}") if self.db else None
+        )
+        return (
+            model if isinstance(model, dict) else shipped_brain_model(symbol, timeframe)
+        )
+
+    def _train_live_research(self):
+        if self._research_running:
+            return
+        self._research_running = True
+        symbol = self.research_market_var.get()
+        timeframe, settings = self.tf.get(), self.settings
+        self.research_status_label.config(text=f"Fetching and training {symbol}…")
+
+        def work():
+            try:
+                path = get_data_dir() / "research" / f"{symbol}-{timeframe}.json"
+                result = training_run(
+                    [symbol],
+                    timeframe=timeframe,
+                    settings=settings,
+                    checkpoint=str(path),
+                )
+                record = result["symbols"][symbol]
+                if record["status"] != "trained":
+                    raise ValueError(record["error"])
+                if self.db:
+                    self.db.set_value(
+                        f"brain:model:{symbol}:{timeframe}", record["model"]
+                    )
+                metrics = record["report"]["test"]
+                score = metrics.get("balanced_accuracy")
+                message = (
+                    f"{symbol}: {record['candles']} fresh candles, "
+                    f"test balanced accuracy {score}, "
+                    f"qualified={record['report']['deployment_ready']}. Research only."
+                )
+            except (OSError, RuntimeError, ValueError, sqlite3.Error) as error:
+                message = f"Research unavailable: {error}"
+            self.after(0, lambda text=message: self._finish_live_research(text))
+
+        threading.Thread(target=work, name="neezy-public-ml", daemon=True).start()
+
+    def _finish_live_research(self, message):
+        self._research_running = False
+        self.research_status_label.config(text=message)
+
+    def _research_fx_pair(self):
+        left, right = self.selected, self.pair_reference_var.get()
+        if not left.startswith("frx") or left == right:
+            self.research_status_label.config(
+                text="Select two distinct Forex markets first."
+            )
+            return
+        if self.db is None:
+            self.research_status_label.config(text="Local database is unavailable.")
+            return
+        try:
+            rows = [
+                self.db.load_candles(
+                    symbol, self.tf.get(), limit=self.settings.ml_history_candles
+                )
+                for symbol in (left, right)
+            ]
+            result = pair_research(*rows, settings=self.settings)
+            result.pop("path")
+            self._write(
+                self.insights_output,
+                f"{left} vs {right} (saved closed candles)\n"
+                + "\n".join(f"{key}: {value}" for key, value in result.items()),
+            )
+        except (sqlite3.Error, ValueError) as error:
+            self.research_status_label.config(
+                text=f"Pair research unavailable: {error}"
+            )
 
     def _refresh_insights(self):
         """Render a read-only digest of the shipped knowledge datasets."""
@@ -636,7 +787,12 @@ class App(tk.Tk):
                     )
                 )
         if leans:
-            lines += [text for _, text in sorted(leans, reverse=True)]
+            lines += [
+                text
+                for _, text in sorted(leans, reverse=True)[
+                    : self.settings.insights_max_rows
+                ]
+            ]
         else:
             lines.append("  No strong weights learned yet.")
         lines += [
@@ -644,6 +800,22 @@ class App(tk.Tk):
             "Backtests use historical candles with a charged spread; "
             "out-of-sample for that window only. Not financial advice.",
         ]
+        report = research_report()
+        lines += [
+            "",
+            "FRESH PUBLIC-DATA ML (chronological test, directional accuracy only)",
+        ]
+        for symbol, record in list(report.get("symbols", {}).items())[
+            : self.settings.insights_max_rows
+        ]:
+            metrics = record.get("report", {}).get("test", {})
+            lines.append(
+                f"  {symbol}: balanced accuracy={metrics.get('balanced_accuracy')}, "
+                f"qualified={record.get('report', {}).get('deployment_ready', False)}"
+            )
+        lines.append("FX pair simulations include assumed costs, not broker fills.")
+        for pair, result in report.get("forex_pairs", {}).items():
+            lines.append(f"  {pair}: net log return={result.get('net_log_return')}")
         self._write(self.insights_output, "\n".join(lines))
 
     def _symbols_page(self):
@@ -1243,6 +1415,8 @@ class App(tk.Tk):
         self.settings_notebook = notebook
         self._workspace_settings_tab(notebook)
         self._engine_settings_tab(notebook)
+        self._research_settings_tab(notebook, "ML RESEARCH")
+        self._research_settings_tab(notebook, "PAIR RESEARCH")
         self._local_settings_tab(notebook)
         self._ai_settings_tab(notebook)
         self._local_model_settings_tab(notebook)
@@ -1252,6 +1426,28 @@ class App(tk.Tk):
             page, "Settings are saved locally", 10, self.GREEN
         )
         self.settings_status.pack(anchor="w", padx=4, pady=(8, 0))
+
+    def _research_settings_tab(self, notebook, title):
+        _tab, left, right = self._settings_tab(notebook, title)
+        controls = [row for row in RESEARCH_CONTROLS if row[-1] == title]
+        middle = (len(controls) + 1) // 2
+        for index, (name, label, low, high, step, _group) in enumerate(controls):
+            self._spin_row(
+                left if index < middle else right,
+                label,
+                self.research_vars[name],
+                low,
+                high,
+                step,
+            )
+        self._label(
+            right,
+            "Research only. Pair thresholds require exit < entry < stop; "
+            "overlap must be at least 3 lookback windows.",
+            9,
+            self.MUTED,
+            wraplength=300,
+        ).pack(anchor="w", padx=16, pady=12)
 
     def _settings_tab(self, notebook, title):
         tab = tk.Frame(notebook, bg=self.BG)
@@ -2534,10 +2730,12 @@ class App(tk.Tk):
             symbol, timeframe = arguments["symbol"], arguments["timeframe"]
             candles = self._remote_market_candles(symbol, timeframe)
             brain = None
-            if self.settings.use_brain_model and self.db is not None:
-                model = self.db.get_value(f"brain:model:{symbol}:{timeframe}")
+            if self.settings.use_brain_model:
+                model = self._get_brain_model(symbol, timeframe)
                 if isinstance(model, dict):
-                    brain = predict_brain(candles, model)
+                    brain = predict_brain(
+                        candles, model, minimum_probability=self.settings.ml_probability
+                    )
             return market_snapshot(
                 candles,
                 symbol=symbol,
@@ -2907,7 +3105,9 @@ class App(tk.Tk):
             return
         symbol, timeframe = self.selected, self.tf.get()
         try:
-            candles = self.db.load_candles(symbol, timeframe, limit=20_000)
+            candles = self.db.load_candles(
+                symbol, timeframe, limit=self.settings.ml_history_candles
+            )
         except sqlite3.Error as error:
             self.brain_status_label.config(
                 text=f"Could not read saved candles: {error}", fg=self.RED
@@ -2937,9 +3137,11 @@ class App(tk.Tk):
                     candles,
                     symbol=symbol,
                     timeframe=timeframe,
-                    horizon=5,
-                    min_samples=100,
-                    epochs=60,
+                    horizon=self.settings.ml_horizon,
+                    deadband_atr=self.settings.ml_deadband_atr,
+                    min_samples=self.settings.ml_min_samples,
+                    epochs=self.settings.ml_epochs,
+                    seed=self.settings.ml_seed,
                 )
                 self.db.set_value(f"brain:model:{symbol}:{timeframe}", trained["model"])
                 report = trained["report"]
@@ -3242,6 +3444,14 @@ class App(tk.Tk):
                 ai_max_tokens=int(self.ai_tokens_var.get()),
                 ai_timeout=float(self.ai_timeout_var.get()),
                 ai_system_prompt=self.ai_system_var.get().strip(),
+                **{
+                    name: (
+                        int(var.get())
+                        if isinstance(getattr(self.settings, name), int)
+                        else float(var.get())
+                    )
+                    for name, var in self.research_vars.items()
+                },
             )
             self.settings_store.save(candidate)
         except (ValueError, tk.TclError, OSError) as error:
@@ -3502,11 +3712,13 @@ class App(tk.Tk):
         if not result:
             return
         result["brain"] = None
-        if self.settings.use_brain_model and self.db is not None:
-            model = self.db.get_value(f"brain:model:{symbol}:{self.tf.get()}")
+        if self.settings.use_brain_model:
+            model = self._get_brain_model(symbol, self.tf.get())
             if isinstance(model, dict):
                 try:
-                    result["brain"] = predict_brain(candles, model)
+                    result["brain"] = predict_brain(
+                        candles, model, minimum_probability=self.settings.ml_probability
+                    )
                 except (TypeError, ValueError, KeyError) as error:
                     logger.warning(
                         "Could not apply local brain model for %s: %s", symbol, error

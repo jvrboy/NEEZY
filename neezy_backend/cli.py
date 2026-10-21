@@ -31,9 +31,10 @@ from .backtest import BacktestConfig, run_backtest
 from .brain import predict as predict_brain
 from .brain import train_model as train_brain_model
 from .catalog import instrument, instruments
+from .config import AppSettings
 from .context import chat_messages, format_context, market_snapshot
 from .database import LocalDatabase
-from .datasets import dataset_summary
+from .datasets import dataset_summary, research_report
 from .divergence import detect_divergences, rank_correlation_divergences
 from .indicators import analyze
 from .insights import insight_line, knowledge_brief
@@ -54,6 +55,7 @@ from .markets import (
     ws_urls,
 )
 from .patterns import price_action_summary
+from .research import DEFAULT_RESEARCH_SYMBOLS, training_run
 from .risk import atr_levels, position_size
 from .storage import SignalHistoryStore
 from .strategies import (
@@ -131,6 +133,32 @@ def _table(out: TextIO, headers: Sequence[str], rows: Sequence[Sequence[Any]]) -
 
 def _without_series(result: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in result.items() if key != "closes"}
+
+
+def cmd_research(args, fetch, out) -> int:
+    if args.action == "status":
+        report = research_report()
+    else:
+        cfg = AppSettings(
+            ml_history_candles=args.candles,
+            ml_epochs=args.epochs,
+            ml_horizon=args.horizon,
+            ml_seed=args.seed,
+        )
+        report = training_run(
+            args.symbols or DEFAULT_RESEARCH_SYMBOLS,
+            timeframe=args.timeframe,
+            settings=cfg,
+            checkpoint=args.out,
+        )
+    print(json.dumps(report, indent=2, allow_nan=False), file=out)
+    return (
+        1
+        if any(
+            rec.get("status") == "error" for rec in report.get("symbols", {}).values()
+        )
+        else 0
+    )
 
 
 def cmd_datasets(args, fetch, out) -> int:
@@ -1660,6 +1688,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     a = ai_actions.add_parser("reset", help="clear every key cooldown")
     a.add_argument("--json", action="store_true")
+
+    p = sub.add_parser("research", help="fresh public-data ML and FX-pair experiments")
+    p.set_defaults(handler=cmd_research)
+    actions = p.add_subparsers(dest="action", required=True)
+    actions.add_parser("status", help="show bundled live-data evaluation reports")
+    train = actions.add_parser(
+        "train", help="fetch fresh candles and checkpoint staged ML fits"
+    )
+    train.add_argument("symbols", nargs="*", type=str)
+    train.add_argument("--timeframe", choices=TIMEFRAMES, default="5m")
+    train.add_argument("--candles", type=int, default=3000)
+    train.add_argument("--epochs", type=int, default=60)
+    train.add_argument("--horizon", type=int, default=5)
+    train.add_argument("--seed", type=int, default=17)
+    train.add_argument("--out", required=True, help="local checkpoint JSON path")
 
     p = sub.add_parser("local-model", help="manage offline GGUF/Transformers models")
     p.set_defaults(handler=cmd_local_model)

@@ -8,9 +8,11 @@ from typing import Any
 from .alerts import AlertRule
 from .brain import predict, train_model
 from .database import LocalDatabase
+from .datasets import dataset_summary, research_report, shipped_brain_model
 from .markets import SYMBOLS, TIMEFRAMES
 from .outcomes import evaluate_outcomes, summarize
 from .remote import AppCommandBridge
+from .research import pair_research
 from .tools import ToolPermission, ToolRegistry
 
 REMOTE_SETTINGS_SCHEMA = {
@@ -223,11 +225,34 @@ def register_app_tools(
             "caveat": "Historical close-to-close outcomes only; not a forecast.",
         }
 
+    def get_research_report() -> dict[str, Any]:
+        return research_report()
+
+    def get_dataset_inventory() -> dict[str, Any]:
+        return dataset_summary()
+
+    def research_forex_pair(
+        left: str, right: str, timeframe: str = "5m"
+    ) -> dict[str, Any]:
+        if timeframe not in TIMEFRAMES:
+            raise ValueError("unsupported timeframe")
+        a, b = _check_market(left), _check_market(right)
+        if a == b or not all(symbol.startswith("frx") for symbol in (a, b)):
+            raise ValueError("two distinct Forex markets are required")
+        result = pair_research(
+            db().load_candles(a, timeframe, limit=5000),
+            db().load_candles(b, timeframe, limit=5000),
+        )
+        result.pop("path")
+        return result
+
     def get_brain_status(symbol: str, timeframe: str = "5m") -> dict[str, Any]:
         market = _check_market(symbol)
         if timeframe not in TIMEFRAMES:
             raise ValueError(f"timeframe must be one of: {', '.join(TIMEFRAMES)}")
         model = db().get_value(_model_key(market, timeframe))
+        if not isinstance(model, dict):
+            model = shipped_brain_model(market, timeframe)
         if not isinstance(model, dict):
             return {"symbol": market, "timeframe": timeframe, "trained": False}
         return {
@@ -245,6 +270,8 @@ def register_app_tools(
         if timeframe not in TIMEFRAMES:
             raise ValueError(f"timeframe must be one of: {', '.join(TIMEFRAMES)}")
         model = db().get_value(_model_key(market, timeframe))
+        if not isinstance(model, dict):
+            model = shipped_brain_model(market, timeframe)
         if not isinstance(model, dict):
             raise ValueError(
                 "no local neural model has been trained for this market/timeframe"
@@ -378,6 +405,21 @@ def register_app_tools(
         "a chronological holdout.",
         train_signal_brain,
         ToolPermission.WRITE,
+    )
+    registry.register(
+        "get_research_report",
+        "Read fresh-data ML and FX-pair evaluation results.",
+        get_research_report,
+    )
+    registry.register(
+        "get_dataset_inventory",
+        "List packaged JSON knowledge datasets.",
+        get_dataset_inventory,
+    )
+    registry.register(
+        "research_forex_pair",
+        "Simulate a saved FX pair with lagged signals and costs.",
+        research_forex_pair,
     )
     return registry
 

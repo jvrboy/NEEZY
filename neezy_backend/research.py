@@ -61,6 +61,8 @@ def _closes(rows: Sequence[Sequence[float]]) -> dict[int, float]:
         if len(row) != 5 or not all(math.isfinite(float(value)) for value in row):
             raise ValueError("candles must have five finite values")
         epoch, open_, high, low, close = row
+        if isinstance(epoch, bool) or epoch < 0 or int(epoch) != epoch:
+            raise ValueError("candle epochs must be non-negative integers")
         if epoch <= previous or min(open_, high, low, close) <= 0:
             raise ValueError("candles must be positive and strictly ordered")
         if high < max(open_, close) or low > min(open_, close) or high < low:

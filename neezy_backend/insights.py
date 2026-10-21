@@ -52,8 +52,8 @@ def insight_line(symbol: str) -> str | None:
     lean = "positive" if weight > 0.15 else "negative" if weight < -0.15 else "neutral"
     return (
         f"Learned context for {symbol}: {lean} edge weight {weight:+.2f} "
-        f"(verdict {verdict}, confidence {confidence:.0%}) from out-of-sample "
-        "backtests on past candles; not a forecast."
+        f"(verdict {verdict}, sample-coverage score {confidence:.0%}) "
+        "from out-of-sample backtests on past candles; not a forecast."
     )
 
 

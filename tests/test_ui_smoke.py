@@ -178,6 +178,10 @@ class AppSmokeTests(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.env = mock.patch.dict(os.environ, {"NEEZY_HOME": self.directory.name})
         self.env.start()
+        # UI regression tests must never open real market-data connections.
+        stream_start = mock.patch.object(ui.DerivStreamClient, "start")
+        stream_start.start()
+        self.addCleanup(stream_start.stop)
         self.app = ui.App()
         self.app.tf.get = lambda: "5m"
 
@@ -194,6 +198,42 @@ class AppSmokeTests(unittest.TestCase):
         self.env.stop()
         self.directory.cleanup()
 
+    def test_research_controls_persist_and_shipped_model_fallback_is_safe(self):
+        self.assertEqual(len(self.app.research_vars), 17)
+        self.app.research_vars["ml_epochs"].set(12)
+        self.app.research_vars["pair_cost_bps"].set(3.5)
+        self.app._settings_changed()
+        restored = SettingsStore().load()
+        self.assertEqual(restored.ml_epochs, 12)
+        self.assertEqual(restored.pair_cost_bps, 3.5)
+        for name, var in self.app.research_vars.items():
+            self.assertEqual(getattr(restored, name), var.get())
+        self.assertEqual(self.app._get_brain_model("R_10", "5m")["symbol"], "R_10")
+        self.assertIsNone(self.app._get_brain_model("R_10", "1m"))
+
+    def test_invalid_pair_thresholds_do_not_overwrite_saved_settings(self):
+        self.app._settings_changed()
+        old = SettingsStore().load()
+        self.app.research_vars["pair_exit_z"].set(3.0)
+        self.app._settings_changed()
+        self.assertEqual(SettingsStore().load(), old)
+        self.assertIn("exit < entry < stop", self.app.settings_status.options["text"])
+
+    def test_same_pair_and_non_forex_pair_are_rejected(self):
+        self.app.selected = "R_10"
+        self.app._research_fx_pair()
+        self.assertIn("distinct Forex", self.app.research_status_label.options["text"])
+        self.app.selected = "frxGBPUSD"
+        self.app.pair_reference_var.set("frxGBPUSD")
+        self.app._research_fx_pair()
+        self.assertIn("distinct Forex", self.app.research_status_label.options["text"])
+
+    def test_research_is_opt_in_and_not_started_at_app_construction(self):
+        self.assertFalse(self.app._research_running)
+        self.assertFalse(self.app.settings.use_brain_model)
+        self.assertEqual(self.app.research_market_var.get(), "frxEURUSD")
+        self.assertIn("INSIGHTS", self.app.pages)
+
     def test_app_builds_with_every_settings_tab(self) -> None:
         added = [
             call[2]["text"]
@@ -203,6 +243,8 @@ class AppSmokeTests(unittest.TestCase):
         for name in (
             "WORKSPACE",
             "ENGINE",
+            "ML RESEARCH",
+            "PAIR RESEARCH",
             "LOCAL DATA",
             "AI PROVIDERS",
             "LOCAL MODELS",
