@@ -1,0 +1,229 @@
+{
+  "schema": 1,
+  "name": "risk_management.json",
+  "description": "Position sizing, loss control, drawdown protocols and survival-first risk rules. Rules are educational defaults, not personalized advice.",
+  "generated_at": "2026-10-21",
+  "provenance": {
+    "origin": "User-provided DATA.zip knowledge base",
+    "zip_file": "02_risk_management",
+    "zip_sha256": "f9da62cd37e5dbdce72d73949dd8c993039ce867f25e414c72ab37e5f9a82931"
+  },
+  "sources": [
+    "User-provided DATA.zip: 02_risk_management.json"
+  ],
+  "principle": "Survival first. Risk management determines whether any edge can compound; entries matter less than sizing and loss control.",
+  "topics": [
+    {
+      "id": "risk_per_trade",
+      "tags": [
+        "sizing"
+      ],
+      "rules": [
+        "Learning phase: 0.25% to 0.5% of equity per trade.",
+        "Proven phase: 0.5% to 1%. Hard cap 2% (Deriv educational guidance mentions 1-2%).",
+        "High-volatility indices (V100, V150, V250, Boom/Crash, Jump): use the lower end.",
+        "Size comes from stop distance: units = (equity * risk%) / stop_distance. Never choose size first."
+      ]
+    },
+    {
+      "id": "loss_limits",
+      "tags": [
+        "limits",
+        "discipline"
+      ],
+      "rules": [
+        {
+          "limit": "Daily loss cap",
+          "value": "2% to 3% (up to 5% for looser plans); stop trading for the day when hit."
+        },
+        {
+          "limit": "Weekly loss cap",
+          "value": "6% to 10%; reduce size by half next week if hit."
+        },
+        {
+          "limit": "Consecutive losses",
+          "value": "After 2 to 3 losses in a row, pause or end the session."
+        },
+        {
+          "limit": "Monthly drawdown trigger",
+          "value": "At 10% drawdown from peak, go back to demo or half size and review the journal."
+        },
+        {
+          "limit": "Max trades per day",
+          "value": "Set a number (e.g. 3 to 5) in advance."
+        }
+      ]
+    },
+    {
+      "id": "stop_loss_methods",
+      "tags": [
+        "stops"
+      ],
+      "methods": [
+        {
+          "name": "Structure stop",
+          "how": "Beyond the swing high/low that invalidates the idea, plus a buffer.",
+          "good_for": "Trend pullbacks, breakouts"
+        },
+        {
+          "name": "ATR stop",
+          "how": "Entry -/+ k*ATR(14). Typical k: 1.0 (low vol), 1.2 (mid), 1.5 (high), 1.8-2.0 (very high).",
+          "good_for": "Volatility-normalised risk"
+        },
+        {
+          "name": "Time stop",
+          "how": "Exit if the trade has not worked after N bars or after the expected regime duration.",
+          "good_for": "Drift Switch, mean reversion"
+        },
+        {
+          "name": "Volatility stop (Chandelier)",
+          "how": "Highest high since entry minus 3*ATR (long).",
+          "good_for": "Trailing trends"
+        },
+        {
+          "name": "Spread-based stop (pairs)",
+          "how": "Exit if z-score of spread exceeds e.g. 3 or 3.5 in the wrong direction.",
+          "good_for": "Correlation/pairs trades"
+        }
+      ],
+      "rules": [
+        "Always set the stop at entry.",
+        "Only ever move a stop in the direction that reduces risk.",
+        "Never widen a stop after entry."
+      ]
+    },
+    {
+      "id": "take_profit_methods",
+      "tags": [
+        "targets"
+      ],
+      "methods": [
+        "Fixed RR targets (1.5R, 2R, 3R).",
+        "Next structure level or measured move.",
+        "Partial profit: close 50% at 1R, move stop to breakeven, trail remainder.",
+        "Trail behind EMA20 or swing points or Chandelier stop.",
+        "Time-based exit before expected regime end (Drift Switch)."
+      ],
+      "caution": "Breakeven stops can reduce win rate; test whether partials and breakeven help or hurt expectancy."
+    },
+    {
+      "id": "expectancy_and_edge",
+      "tags": [
+        "math"
+      ],
+      "text": "A strategy needs positive expectancy AFTER costs. Expectancy_R = win_rate*avgWinR - (1-win_rate)*avgLossR. Example: 40% win rate, avg win 2R, avg loss 1R -> 0.4*2 - 0.6*1 = +0.2R per trade. Same win rate with 1.2R average win -> 0.48 - 0.6 = -0.12R (losing).",
+      "breakeven_table": [
+        {
+          "rr": 0.5,
+          "breakeven_win_rate": "66.7%"
+        },
+        {
+          "rr": 1.0,
+          "breakeven_win_rate": "50%"
+        },
+        {
+          "rr": 1.5,
+          "breakeven_win_rate": "40%"
+        },
+        {
+          "rr": 2.0,
+          "breakeven_win_rate": "33.3%"
+        },
+        {
+          "rr": 3.0,
+          "breakeven_win_rate": "25%"
+        }
+      ]
+    },
+    {
+      "id": "kelly_and_fractional_kelly",
+      "tags": [
+        "math",
+        "advanced"
+      ],
+      "formula": "Kelly fraction f* = W - (1-W)/R, where W = win probability, R = avg win / avg loss.",
+      "guidance": "Full Kelly is too aggressive and very sensitive to estimation error. Use at most 1/4 to 1/2 Kelly, and cap risk at 1-2% anyway. If estimated edge is uncertain or negative, f* <= 0 means do not trade."
+    },
+    {
+      "id": "risk_of_ruin",
+      "tags": [
+        "math"
+      ],
+      "text": "Risk of ruin rises sharply with larger risk per trade and lower expectancy. With 1% risk and positive expectancy, ruin probability is tiny; with 10% risk it is high even with a decent edge.",
+      "simulation_hint": "Monte Carlo: resample trade R-results thousands of times, track max drawdown and ruin frequency for different risk-per-trade values."
+    },
+    {
+      "id": "losing_streak_table",
+      "tags": [
+        "math",
+        "psychology"
+      ],
+      "text": "Probability of at least one losing streak of length L in 100 trades with a 50% win rate: L=5 about 81%; L=7 about 38%; L=10 about 9%. Streaks are normal; size so that a 10-loss streak is survivable (10 x 1% = about 9.6% drawdown).",
+      "note": "Values are approximate."
+    },
+    {
+      "id": "correlated_exposure",
+      "tags": [
+        "portfolio",
+        "correlation"
+      ],
+      "rules": [
+        "Highly correlated positions (correlation above about 0.7) count as ONE exposure for risk.",
+        "Total open risk cap: e.g. 3% to 5% of equity across all trades.",
+        "Several Deriv indices are independent random processes in theory, but several simultaneous high-volatility positions still multiply risk of simultaneous large losses; limit open positions.",
+        "Avoid being long and short highly correlated assets by accident (it cancels edge and doubles costs)."
+      ]
+    },
+    {
+      "id": "leverage_and_margin",
+      "tags": [
+        "leverage"
+      ],
+      "rules": [
+        "Leverage is not a risk setting; stop distance and risk% are.",
+        "Keep margin used well below available equity (e.g. under 20-30%).",
+        "On very high-volatility synthetics, small lot sizes are normal; minimum lot may force more risk than 1% on small accounts. If minimum lot risk exceeds your cap, do not trade that instrument or fund more.",
+        "Account for gaps/spikes: on Crash/Boom and Jump indices a stop can be skipped by a spike, so actual loss may exceed planned stop."
+      ]
+    },
+    {
+      "id": "costs",
+      "tags": [
+        "costs"
+      ],
+      "items": [
+        "Spread on every round trip.",
+        "Swap/financing for overnight holds (Deriv example: DSI 10 annual swap around 7.5% in its KID; check current).",
+        "Commission (some account types).",
+        "Slippage in fast markets.",
+        "Rule: target distance should be at least 5-10x the spread, otherwise costs dominate."
+      ]
+    },
+    {
+      "id": "never_do",
+      "tags": [
+        "rules"
+      ],
+      "list": [
+        "Martingale (doubling after loss).",
+        "Removing or widening stops.",
+        "Averaging down into a losing position without predefined risk.",
+        "Increasing size after losses to 'win it back'.",
+        "Trading without a plan or while emotional, tired or intoxicated.",
+        "Risking money needed for living expenses.",
+        "Using real money before demo and backtest validation."
+      ]
+    }
+  ],
+  "enrichment": {
+    "research_context": [
+      "The Kelly criterion maximizes long-run growth but full-Kelly sizing is highly volatile; practitioners commonly use fractional Kelly or fixed-fractional risk instead.",
+      "Fixed-fractional sizing risks a constant percentage of equity adjusted for stop distance; it is the standard retail baseline."
+    ],
+    "sources": [
+      "https://www.activtrades.com/en/news/what-is-position-sizing-in-trading",
+      "https://blog.traderspost.io/article/kelly-criterion-position-sizing-automated-trading",
+      "https://pyquantlab.medium.com/how-to-size-your-trades-fixed-percent-fractional-and-kelly-position-sizing-explained-3695b443ecfc"
+    ]
+  }
+}

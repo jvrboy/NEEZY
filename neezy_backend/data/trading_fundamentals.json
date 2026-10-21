@@ -1,0 +1,386 @@
+{
+  "schema": 1,
+  "name": "trading_fundamentals.json",
+  "description": "Core trading vocabulary and concepts: instruments, orders, charts, indicator definitions and market mechanics. Reference material for the offline assistant; educational only.",
+  "generated_at": "2026-10-21",
+  "provenance": {
+    "origin": "User-provided DATA.zip knowledge base",
+    "zip_file": "01_trading_fundamentals",
+    "zip_sha256": "16311542065c589e9135387fb18e6bbde596fe83ae9643f8ced9de81581f994a"
+  },
+  "sources": [
+    "User-provided DATA.zip: 01_trading_fundamentals.json"
+  ],
+  "topics": [
+    {
+      "id": "glossary",
+      "tags": [
+        "basics",
+        "glossary"
+      ],
+      "terms": {
+        "CFD": "Contract for Difference. You speculate on price change without owning the asset; leveraged; can go long or short.",
+        "Long / Buy": "Profit when price rises.",
+        "Short / Sell": "Profit when price falls.",
+        "Leverage": "Borrowed exposure; controls a larger position with less margin. Magnifies gains and losses equally.",
+        "Margin": "Funds locked as collateral for an open leveraged position.",
+        "Margin call / stop-out": "Forced closing of positions when equity falls below the required level.",
+        "Pip / Point / Tick": "Smallest quoted price increment (definition depends on instrument).",
+        "Lot / Volume": "Trade size unit; value per point depends on broker and instrument.",
+        "Spread": "Difference between ask and bid; a cost paid on every round trip.",
+        "Slippage": "Difference between expected and actual fill price.",
+        "Swap / Financing": "Fee or credit for holding a leveraged position overnight.",
+        "Stop-loss (SL)": "Order that closes a trade at a predefined loss.",
+        "Take-profit (TP)": "Order that closes a trade at a predefined profit.",
+        "Trailing stop": "Stop that follows price at a set distance to lock in profit.",
+        "R / R-multiple": "Profit or loss measured in units of initial risk. Risk 10 and make 25 = +2.5R.",
+        "Reward:Risk (RR)": "Distance to target divided by distance to stop.",
+        "Win rate": "Winning trades divided by total trades.",
+        "Expectancy": "Average profit per trade: win_rate*avg_win - loss_rate*avg_loss.",
+        "Profit factor": "Gross profit divided by gross loss.",
+        "Drawdown": "Peak-to-trough fall in account equity.",
+        "Volatility": "Size/variability of price moves; often measured by standard deviation or ATR.",
+        "ATR": "Average True Range; average candle range including gaps over N periods (default 14).",
+        "Trend": "Sustained directional movement (higher highs and higher lows, or lower highs and lower lows).",
+        "Range / Consolidation": "Price oscillating between support and resistance.",
+        "Support": "Price zone where buyers have historically stepped in.",
+        "Resistance": "Price zone where sellers have historically stepped in.",
+        "Breakout": "Price closing beyond support or resistance.",
+        "Retest": "Price returning to a broken level to test it from the other side.",
+        "Pullback / Retracement": "Temporary move against the trend.",
+        "Divergence (indicator)": "Price makes a new extreme but an oscillator such as RSI does not.",
+        "Mean reversion": "Tendency (or bet) that price returns to an average.",
+        "Momentum": "Rate of price change; persistence of direction.",
+        "Regime": "A distinct market state such as trending, ranging, high-volatility, low-volatility.",
+        "Drift": "Average directional tendency of price over time.",
+        "Spike": "Sudden large single-tick or few-tick move.",
+        "Backtest": "Applying rules to historical data to estimate performance.",
+        "Forward test": "Running rules on new data in real time (demo or tiny size) without changing them.",
+        "Overfitting / Curve fitting": "Tuning rules so tightly to past data that they fail on new data.",
+        "Slippage + spread + fees": "Total transaction cost that must be included in any test.",
+        "Correlation": "Statistic from -1 to +1 describing how two return series move together.",
+        "Hedge": "Offsetting position that reduces risk of another position.",
+        "Counterparty": "The other side of your trade; for synthetic CFDs on Deriv the broker."
+      }
+    },
+    {
+      "id": "order_types",
+      "tags": [
+        "orders",
+        "execution"
+      ],
+      "items": [
+        {
+          "name": "Market order",
+          "description": "Executes immediately at current price; subject to slippage."
+        },
+        {
+          "name": "Limit order",
+          "description": "Buy below or sell above the current price at a specified level or better; may not fill."
+        },
+        {
+          "name": "Stop order (entry)",
+          "description": "Buy above or sell below current price; used to enter breakouts."
+        },
+        {
+          "name": "Stop-loss",
+          "description": "Protective exit at a loss limit."
+        },
+        {
+          "name": "Take-profit",
+          "description": "Exit at target."
+        },
+        {
+          "name": "Trailing stop",
+          "description": "Stop that follows price by fixed distance."
+        },
+        {
+          "name": "OCO (one cancels other)",
+          "description": "Pair of orders where filling one cancels the other, e.g. SL and TP."
+        }
+      ]
+    },
+    {
+      "id": "market_structure",
+      "tags": [
+        "structure",
+        "price_action"
+      ],
+      "concepts": [
+        {
+          "name": "Uptrend",
+          "rule": "Sequence of higher highs (HH) and higher lows (HL). Broken when price makes a lower low that closes below the last HL."
+        },
+        {
+          "name": "Downtrend",
+          "rule": "Sequence of lower highs (LH) and lower lows (LL). Broken when price closes above the last LH."
+        },
+        {
+          "name": "Range",
+          "rule": "Repeated tests of a high and low without making new structure. Tradable by fading edges or breakout trading."
+        },
+        {
+          "name": "Swing high / swing low",
+          "rule": "Candle whose high (low) is higher (lower) than N candles on each side (N commonly 2 to 5)."
+        },
+        {
+          "name": "Change of character (CHoCH)",
+          "rule": "First break of the most recent opposing swing point, hinting at a trend change."
+        },
+        {
+          "name": "Break of structure (BOS)",
+          "rule": "Break of a swing point in the trend direction, confirming continuation."
+        },
+        {
+          "name": "Liquidity sweep",
+          "rule": "Wick that takes out an obvious high/low and closes back inside; sometimes marks reversals."
+        },
+        {
+          "name": "Higher timeframe bias",
+          "rule": "Trade in direction of the larger timeframe trend unless using explicit counter-trend rules."
+        }
+      ]
+    },
+    {
+      "id": "candlesticks",
+      "tags": [
+        "price_action",
+        "patterns"
+      ],
+      "patterns": [
+        {
+          "name": "Pin bar / hammer / shooting star",
+          "meaning": "Long wick shows rejection of a price area.",
+          "use": "Reversal or pullback-end signal at support/resistance or EMA."
+        },
+        {
+          "name": "Bullish/bearish engulfing",
+          "meaning": "Candle body fully covers previous body.",
+          "use": "Momentum shift."
+        },
+        {
+          "name": "Inside bar",
+          "meaning": "Candle within previous candle range.",
+          "use": "Compression; trade the break."
+        },
+        {
+          "name": "Doji",
+          "meaning": "Open near close; indecision.",
+          "use": "Context needed; weak alone."
+        },
+        {
+          "name": "Marubozu / strong close",
+          "meaning": "Large body, tiny wicks.",
+          "use": "Strong directional pressure."
+        },
+        {
+          "name": "Morning/evening star",
+          "meaning": "Three-candle reversal.",
+          "use": "Reversal at extremes."
+        }
+      ],
+      "warning": "Candlestick patterns have weak standalone predictive power; use with level, trend and risk rules. On RNG-driven synthetics they may carry no edge."
+    },
+    {
+      "id": "indicators",
+      "tags": [
+        "indicators",
+        "formulas"
+      ],
+      "items": [
+        {
+          "name": "SMA",
+          "formula": "Average of last N closes.",
+          "use": "Trend baseline; slow."
+        },
+        {
+          "name": "EMA",
+          "formula": "EMA_t = alpha*Close_t + (1-alpha)*EMA_{t-1}, alpha = 2/(N+1).",
+          "use": "Trend and dynamic support/resistance; common N: 8, 20, 21, 50, 200."
+        },
+        {
+          "name": "RSI(14)",
+          "formula": "RSI = 100 - 100/(1+RS), RS = avg gain / avg loss over N (Wilder smoothing).",
+          "use": "Momentum; >70 overbought, <30 oversold in ranges; in strong trends RSI can stay extreme (range shifts to 40-80 in uptrends, 20-60 in downtrends)."
+        },
+        {
+          "name": "Stochastic (14,3,3)",
+          "formula": "%K = 100*(Close-LowestLow_N)/(HighestHigh_N-LowestLow_N); %D = SMA of %K.",
+          "use": "Timing pullbacks; >80 / <20 zones."
+        },
+        {
+          "name": "MACD (12,26,9)",
+          "formula": "MACD = EMA12-EMA26; signal = EMA9 of MACD; histogram = MACD-signal.",
+          "use": "Trend/momentum change; lagging."
+        },
+        {
+          "name": "Bollinger Bands (20,2)",
+          "formula": "Middle = SMA20; bands = middle +/- 2*stdev(20).",
+          "use": "Volatility envelope; squeeze (narrow bands) then expansion; mean reversion in ranges, riding the band in trends."
+        },
+        {
+          "name": "ATR(14)",
+          "formula": "TR = max(High-Low, |High-PrevClose|, |Low-PrevClose|); ATR = Wilder average of TR.",
+          "use": "Stops and position sizing; stop = k*ATR."
+        },
+        {
+          "name": "ADX(14)",
+          "formula": "Smoothed directional movement index.",
+          "use": "Trend strength: <20 weak/range, >25 trending."
+        },
+        {
+          "name": "Donchian channel(N)",
+          "formula": "Highest high and lowest low of N periods.",
+          "use": "Breakout systems (Turtle style N=20/55)."
+        },
+        {
+          "name": "Keltner channel",
+          "formula": "EMA20 +/- k*ATR.",
+          "use": "Volatility channel; Bollinger-inside-Keltner = squeeze."
+        },
+        {
+          "name": "VWAP",
+          "formula": "Cumulative price*volume / cumulative volume.",
+          "use": "Intraday fair value on real markets; not meaningful on synthetics without real volume."
+        },
+        {
+          "name": "Fibonacci retracement",
+          "formula": "Levels 38.2%, 50%, 61.8% of a swing.",
+          "use": "Pullback zones; subjective, weak evidence."
+        },
+        {
+          "name": "Pivot points",
+          "formula": "P=(H+L+C)/3; R1=2P-L; S1=2P-H.",
+          "use": "Intraday reference levels."
+        },
+        {
+          "name": "Z-score",
+          "formula": "(x - mean)/stdev.",
+          "use": "Standardise spreads and returns for mean reversion."
+        }
+      ]
+    },
+    {
+      "id": "timeframes",
+      "tags": [
+        "timeframes"
+      ],
+      "guidance": [
+        "Higher timeframe (H4/D1) = bias and levels; mid (H1/M15) = setup; lower (M5/M1) = entry timing.",
+        "Use a 4:1 to 6:1 ratio between timeframes (e.g. H4 -> H1 -> M15).",
+        "Lower timeframes have more noise and cost more as a percentage of each trade because spread is a larger share of the stop distance.",
+        "Only trade one primary timeframe pair at first."
+      ]
+    },
+    {
+      "id": "market_conditions",
+      "tags": [
+        "regime",
+        "classification"
+      ],
+      "table": [
+        {
+          "state": "Trending",
+          "signs": "HH/HL or LH/LL, ADX>25, EMAs fanned and sloped",
+          "approach": "Trend pullback, breakout continuation"
+        },
+        {
+          "state": "Ranging",
+          "signs": "Flat EMAs, ADX<20, repeated reversals at same levels",
+          "approach": "Mean reversion at edges, small targets; stop trading if range breaks"
+        },
+        {
+          "state": "Expansion",
+          "signs": "Candles growing, ATR rising, breakout through level",
+          "approach": "Breakout-retest, momentum"
+        },
+        {
+          "state": "Contraction",
+          "signs": "Candles shrinking, narrow Bollinger Bands",
+          "approach": "Wait; prepare breakout orders"
+        },
+        {
+          "state": "Choppy / noisy",
+          "signs": "Price repeatedly crosses EMAs with long wicks both sides",
+          "approach": "No trade"
+        }
+      ]
+    },
+    {
+      "id": "key_formulas",
+      "tags": [
+        "math"
+      ],
+      "formulas": {
+        "r_multiple": "R = (exit - entry) / (entry - stop) for longs; reverse for shorts.",
+        "risk_amount": "risk_amount = equity * risk_percent",
+        "position_size": "units = risk_amount / (stop_distance_in_price * value_per_price_unit_per_unit)",
+        "expectancy_R": "E = win_rate * avg_win_R - (1 - win_rate) * avg_loss_R",
+        "breakeven_win_rate": "BE = 1 / (1 + RR)  (e.g. RR 2 -> 33.3%, RR 1 -> 50%, RR 0.5 -> 66.7%) before costs",
+        "profit_factor": "PF = gross_profit / gross_loss",
+        "return_percent": "(final - initial) / initial * 100",
+        "drawdown": "DD = (peak - trough) / peak",
+        "recovery_needed": "recovery% = DD / (1 - DD)  (20% loss needs 25% gain; 50% loss needs 100% gain)",
+        "log_return": "r_t = ln(P_t / P_{t-1})",
+        "sharpe": "Sharpe = mean(excess returns) / stdev(returns) * sqrt(periods_per_year)",
+        "sortino": "Sortino = mean(excess returns) / downside_deviation * sqrt(periods_per_year)",
+        "calmar": "Calmar = annualised return / max drawdown",
+        "annualised_vol_from_tick": "sigma_tick = stdev(log returns per tick); annual = sigma_tick * sqrt(ticks_per_year)"
+      },
+      "worked_examples": [
+        {
+          "title": "Position sizing",
+          "text": "Equity 1000, risk 1% = 10. Stop distance 20 price units, 1 unit per price unit per lot. Size = 10/20 = 0.5 units. If stop hits you lose 10; if target at 2R hits you gain 20."
+        },
+        {
+          "title": "Breakeven win rate",
+          "text": "With RR 1.5, BE win rate = 1/2.5 = 40%. Spread and fees push the real BE higher."
+        },
+        {
+          "title": "Drawdown math",
+          "text": "After a 30% drawdown you need +42.9% to recover. Hence keep risk small."
+        }
+      ]
+    },
+    {
+      "id": "product_types_deriv",
+      "tags": [
+        "deriv",
+        "products"
+      ],
+      "items": [
+        {
+          "name": "CFDs (Deriv MT5 / cTrader)",
+          "traits": "Long/short, leverage, no fixed expiry, spreads, swaps. Losses can exceed expectations if unmanaged."
+        },
+        {
+          "name": "Multipliers",
+          "traits": "Leveraged with limited stake loss; stop-out when loss reaches stake; deal cancellation option may exist at a cost."
+        },
+        {
+          "name": "Accumulators",
+          "traits": "Stake grows while price stays in a barrier range each tick; loses when barrier is hit."
+        },
+        {
+          "name": "Turbos / Vanillas / Rise-Fall",
+          "traits": "Options-style, fixed stake risk, expiry or knock-out; payout structure must be understood."
+        },
+        {
+          "name": "Deriv Bot",
+          "traits": "No-code automation of options-style trades."
+        }
+      ],
+      "note": "Check current product availability and terms on the Deriv site because they change by region."
+    }
+  ],
+  "enrichment": {
+    "research_context": [
+      "Indicator effectiveness is market- and condition-dependent; recent studies find RSI more useful at extremes and MACD for momentum identification rather than universally predictive.",
+      "Any indicator claim should be re-validated per market and timeframe with out-of-sample data before being trusted."
+    ],
+    "sources": [
+      "https://www.researchgate.net/publication/392317792_Analysis_of_the_Effectiveness_of_RSI_and_MACD_Indicators_in_Addressing_Stock_Price_Volatility",
+      "https://www.sciencedirect.com/science/article/pii/S2666827025000143"
+    ]
+  }
+}

@@ -1,0 +1,199 @@
+{
+  "schema": 1,
+  "name": "psychology_journaling.json",
+  "description": "Behavioural biases, journaling templates, routines and problem-gambling warning signs. Self-monitoring material, not therapy.",
+  "generated_at": "2026-10-21",
+  "provenance": {
+    "origin": "User-provided DATA.zip knowledge base",
+    "zip_file": "09_psychology_journaling_routine",
+    "zip_sha256": "f28fc97da23b21ea8778baac3e6e4366752de12d2bafe238a74439e2d58f7344"
+  },
+  "sources": [
+    "User-provided DATA.zip: 09_psychology_journaling_routine.json"
+  ],
+  "principle": "Most account damage comes from behaviour (oversizing, revenge trading, rule-breaking), not from bad indicators. Rules written in advance beat decisions made under emotion.",
+  "biases": [
+    {
+      "name": "Revenge trading",
+      "description": "Trading harder to recover a loss.",
+      "fix": "Hard stop after 2 consecutive losses or daily cap; walk away for the day."
+    },
+    {
+      "name": "FOMO",
+      "description": "Chasing moves already extended.",
+      "fix": "Only enter at predefined triggers; skip entries beyond 1.5-2 ATR from the signal."
+    },
+    {
+      "name": "Gambler's fallacy",
+      "description": "Believing a spike/regime switch is 'due' because it has not happened (wrong for memoryless random processes).",
+      "fix": "Use probability math, not feelings."
+    },
+    {
+      "name": "Loss aversion",
+      "description": "Moving or removing stops, cutting winners early.",
+      "fix": "Predefine exits; never widen stops."
+    },
+    {
+      "name": "Overconfidence after wins",
+      "description": "Raising size after a winning streak.",
+      "fix": "Fixed risk percentage; scale only by plan."
+    },
+    {
+      "name": "Confirmation bias",
+      "description": "Seeing only evidence supporting the trade.",
+      "fix": "Checklist plus a written invalidation level."
+    },
+    {
+      "name": "Recency bias",
+      "description": "Abandoning a tested system after 5 losses.",
+      "fix": "Judge on 50-100+ trades versus tested drawdown."
+    },
+    {
+      "name": "Sunk cost",
+      "description": "Holding losers because of the amount already lost.",
+      "fix": "Ask: would I open this trade now?"
+    },
+    {
+      "name": "Overtrading / boredom trading",
+      "description": "Trading because the market is open 24/7.",
+      "fix": "Fixed windows and a max trades per day."
+    },
+    {
+      "name": "Illusion of control",
+      "description": "Believing skill predicts random outcomes in single trades.",
+      "fix": "Focus on process and expectancy over many trades."
+    }
+  ],
+  "daily_routine": {
+    "before_session": [
+      "Check mental state (sleep, stress, alcohol). If poor, skip.",
+      "Review plan and loss limits.",
+      "Mark higher-timeframe bias and levels.",
+      "Set max trades and daily loss in advance."
+    ],
+    "during_session": [
+      "Take only checklist-valid setups.",
+      "Place stop and target at entry.",
+      "No changes except tightening stops.",
+      "Screenshot entry."
+    ],
+    "after_session": [
+      "Log every trade.",
+      "Grade execution (followed rules or not) separately from outcome.",
+      "Note one improvement."
+    ]
+  },
+  "journal_template": {
+    "fields": [
+      "trade_id",
+      "date_time",
+      "instrument",
+      "timeframe",
+      "strategy_id",
+      "direction",
+      "setup_grade (A/B/C)",
+      "entry",
+      "stop",
+      "target",
+      "risk_currency",
+      "risk_percent",
+      "exit_price",
+      "result_R",
+      "result_currency",
+      "fees_spread",
+      "followed_rules (yes/no)",
+      "emotion_before",
+      "emotion_after",
+      "mistake_tag",
+      "screenshot_before",
+      "screenshot_after",
+      "notes"
+    ],
+    "mistake_tags": [
+      "early_entry",
+      "late_entry",
+      "no_setup",
+      "moved_stop",
+      "oversized",
+      "revenge",
+      "fomo",
+      "exited_early",
+      "held_too_long",
+      "ignored_filter",
+      "news_or_event_ignored"
+    ]
+  },
+  "review_routine": [
+    {
+      "period": "Weekly",
+      "tasks": [
+        "Count rule violations.",
+        "Compute expectancy, win rate, PF by strategy and instrument.",
+        "Read the 3 worst and 3 best trades."
+      ]
+    },
+    {
+      "period": "Monthly",
+      "tasks": [
+        "Compare with backtest expectations.",
+        "Check drawdown versus plan.",
+        "Retire or re-test degraded strategies."
+      ]
+    },
+    {
+      "period": "Per 100 trades",
+      "tasks": [
+        "Statistical review with confidence intervals.",
+        "Decide on risk-size changes only with data."
+      ]
+    }
+  ],
+  "performance_slicing": [
+    "By instrument",
+    "By strategy",
+    "By hour of day",
+    "By day of week",
+    "By setup grade",
+    "By emotional state",
+    "By trade number in session (are late-session trades worse?)"
+  ],
+  "drawdown_protocol": [
+    {
+      "trigger": "5% drawdown from peak",
+      "action": "Review journal; confirm rules are followed."
+    },
+    {
+      "trigger": "10% drawdown",
+      "action": "Halve size; trade only A setups."
+    },
+    {
+      "trigger": "15-20% drawdown",
+      "action": "Stop live trading; return to demo; re-validate the system."
+    }
+  ],
+  "healthy_habits": [
+    "Trade fixed hours.",
+    "Never trade tired, angry or intoxicated.",
+    "Keep trading capital separate from living money.",
+    "Take regular days off.",
+    "Treat trading as probability, not prediction."
+  ],
+  "warning_signs_of_problem_gambling": [
+    "Trading to escape stress or chase losses.",
+    "Borrowing money to trade.",
+    "Lying about losses.",
+    "Inability to stop after limits.",
+    "Trading dominates thoughts and time."
+  ],
+  "ai_response_guidance": "If a user shows these signs, the AI should stop giving trade ideas, encourage a break, suggest talking to someone trusted or a local problem-gambling support service, and avoid framing trading as a way to fix financial distress.",
+  "enrichment": {
+    "research_context": [
+      "Journals are most useful when behaviour is tagged before it becomes a pattern (moved stop, chased, revenge) rather than only tracking results after the fact.",
+      "Loss aversion and result-focused thinking are linked to shifting risk preferences after immediate losses."
+    ],
+    "sources": [
+      "https://www.tradesviz.com/trading-psychology/",
+      "https://acy.com/en/market-news/education/trading-journal-behavior-metrics-j-o-20251210-110438/"
+    ]
+  }
+}

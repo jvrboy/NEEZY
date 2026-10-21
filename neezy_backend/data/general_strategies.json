@@ -1,0 +1,283 @@
+{
+  "schema": 1,
+  "name": "general_strategies.json",
+  "description": "Hypothesis library of 16 strategy archetypes with filters, trade management and regime selectors. Untested candidates, not proven edges.",
+  "generated_at": "2026-10-21",
+  "provenance": {
+    "origin": "User-provided DATA.zip knowledge base",
+    "zip_file": "07_general_strategies_library",
+    "zip_sha256": "c96b0e90f97790f121e84cb39d4689c819871cf88023b5d88d6cbff9aab84e43"
+  },
+  "sources": [
+    "User-provided DATA.zip: 07_general_strategies_library.json"
+  ],
+  "note": "Additional strategies beyond the source documents. All are hypotheses to be tested (see 08). Parameters are starting points, not optimised values.",
+  "strategy_selector": [
+    {
+      "market_state": "Trending",
+      "choose": [
+        "ma_trend_following",
+        "pullback_to_value",
+        "donchian_breakout",
+        "momentum_rsi_regime"
+      ]
+    },
+    {
+      "market_state": "Ranging",
+      "choose": [
+        "bollinger_reversion",
+        "rsi2_reversion",
+        "support_resistance_fade"
+      ]
+    },
+    {
+      "market_state": "Compression",
+      "choose": [
+        "squeeze_breakout",
+        "inside_bar_break",
+        "opening_range_style_breakout"
+      ]
+    },
+    {
+      "market_state": "Choppy/unclear",
+      "choose": [
+        "no_trade"
+      ]
+    },
+    {
+      "market_state": "Two related instruments",
+      "choose": [
+        "pairs_trade",
+        "smt_divergence"
+      ]
+    }
+  ],
+  "strategies": [
+    {
+      "id": "ma_trend_following",
+      "name": "EMA crossover trend following",
+      "style": "trend",
+      "evidence_level": "widely_taught",
+      "rules": [
+        "Long when EMA20 crosses above EMA50 and price above EMA200; short mirror.",
+        "Stop 2*ATR; trail with Chandelier (highest high - 3*ATR).",
+        "Exit on opposite cross."
+      ],
+      "expected_profile": "Win rate 30-45%, winners 2-4R, many whipsaws in ranges.",
+      "filter": "ADX > 20 reduces whipsaws."
+    },
+    {
+      "id": "pullback_to_value",
+      "name": "Pullback to value (EMA/VWAP/structure)",
+      "style": "trend",
+      "evidence_level": "widely_taught",
+      "rules": [
+        "Define trend with higher timeframe EMA slope.",
+        "Wait for price to retrace to EMA20-50 zone or prior breakout level.",
+        "Enter on trigger candle; stop beyond zone; target previous swing or 2R."
+      ]
+    },
+    {
+      "id": "donchian_breakout",
+      "name": "Donchian/Turtle breakout",
+      "style": "breakout",
+      "evidence_level": "widely_taught",
+      "rules": [
+        "Enter long above 20-bar high (55-bar for slower), short below 20-bar low.",
+        "Exit at 10-bar opposite extreme or 2 ATR trailing stop.",
+        "Risk 0.5-1% per trade.",
+        "Skip a signal if the previous signal would have been a winner (original Turtle filter) and test whether it helps."
+      ]
+    },
+    {
+      "id": "squeeze_breakout",
+      "name": "Volatility squeeze breakout",
+      "style": "breakout",
+      "evidence_level": "widely_taught",
+      "rules": [
+        "Squeeze when Bollinger Bands inside Keltner Channel or bandwidth in lowest 20% of last 100 bars.",
+        "Enter on close beyond bands in direction of momentum (MACD histogram or EMA slope).",
+        "Stop at 1.5 ATR or opposite band; trail with EMA20."
+      ]
+    },
+    {
+      "id": "inside_bar_break",
+      "name": "Inside bar / NR7 break",
+      "style": "breakout",
+      "evidence_level": "community_rule_of_thumb",
+      "rules": [
+        "Identify an inside bar or narrowest range of last 7 bars.",
+        "Buy stop above its high, sell stop below its low; cancel the other when one triggers.",
+        "Stop at opposite side; target 1.5-2R."
+      ]
+    },
+    {
+      "id": "bollinger_reversion",
+      "name": "Bollinger mean reversion",
+      "style": "mean_reversion",
+      "evidence_level": "widely_taught",
+      "rules": [
+        "Only when ADX < 20 and EMAs flat.",
+        "Long when close below lower band then next candle closes back inside; short mirror.",
+        "Target middle band; stop beyond the extreme + 0.5 ATR."
+      ],
+      "risk": "Fails violently when a trend starts. Hard stop mandatory."
+    },
+    {
+      "id": "rsi2_reversion",
+      "name": "RSI(2) short-term reversion",
+      "style": "mean_reversion",
+      "evidence_level": "widely_taught",
+      "rules": [
+        "Trend filter: price above EMA200 for longs.",
+        "Long when RSI(2) < 10; exit when RSI(2) > 70 or price closes above EMA5.",
+        "Use time stop of 5-10 bars."
+      ],
+      "note": "Studied mainly on equity indices; test before using elsewhere."
+    },
+    {
+      "id": "support_resistance_fade",
+      "name": "Support/resistance fade",
+      "style": "mean_reversion",
+      "evidence_level": "widely_taught",
+      "rules": [
+        "Mark levels touched 3+ times.",
+        "Enter on rejection candle at level.",
+        "Stop just beyond level; target mid-range.",
+        "Stop fading after a close beyond the level."
+      ]
+    },
+    {
+      "id": "momentum_rsi_regime",
+      "name": "RSI regime momentum",
+      "style": "momentum",
+      "evidence_level": "community_rule_of_thumb",
+      "rules": [
+        "In uptrend RSI tends to hold 40-80; buy dips when RSI touches 40-50 and turns up.",
+        "In downtrend RSI holds 20-60; sell rallies at 50-60 turning down.",
+        "Exit on RSI losing regime range or structure break."
+      ]
+    },
+    {
+      "id": "macd_divergence_reversal",
+      "name": "RSI/MACD divergence reversal",
+      "style": "reversal",
+      "evidence_level": "community_rule_of_thumb",
+      "rules": [
+        "Regular bearish divergence: price higher high, RSI lower high at a key resistance.",
+        "Require a trigger: break of last swing low or bearish engulfing.",
+        "Stop above the high; target prior support.",
+        "Never trade divergence alone in a strong trend."
+      ]
+    },
+    {
+      "id": "smc_liquidity_sweep",
+      "name": "Liquidity sweep and structure shift",
+      "style": "price_action",
+      "evidence_level": "community_rule_of_thumb",
+      "rules": [
+        "Mark obvious equal highs/lows or prior day high/low.",
+        "Wait for wick to sweep the level and close back inside.",
+        "Confirm with break of minor structure in reverse direction (CHoCH).",
+        "Enter on retest of the break zone; stop beyond the sweep wick; target opposite liquidity."
+      ],
+      "warning": "Concepts are subjective; encode objective definitions (swing length, wick ratio) before backtesting."
+    },
+    {
+      "id": "opening_range_style_breakout",
+      "name": "Session/range-window breakout",
+      "style": "breakout",
+      "evidence_level": "widely_taught",
+      "rules": [
+        "Define a fixed window high/low (e.g. first 30 minutes of a session or last N bars).",
+        "Trade break with stop at the other side or 1 ATR; target 1.5-2R.",
+        "On 24/7 synthetics use a rolling N-bar window."
+      ]
+    },
+    {
+      "id": "grid_and_dca_warning",
+      "name": "Grid and averaging (cautionary)",
+      "style": "avoid",
+      "evidence_level": "widely_taught",
+      "text": "Grids and averaging down show frequent small wins and rare catastrophic losses. If used at all, they need a fixed total risk cap and a hard stop. Prefer not to use."
+    },
+    {
+      "id": "martingale_warning",
+      "name": "Martingale (never)",
+      "style": "avoid",
+      "evidence_level": "mathematical",
+      "text": "Doubling stake after losses has an enormous drawdown tail and hits account/stake limits. Expected value is not improved; only the loss distribution is distorted."
+    },
+    {
+      "id": "pairs_trade",
+      "name": "Pairs trade",
+      "style": "relative_value",
+      "evidence_level": "widely_taught",
+      "ref": "See 06_correlation_strategies.json"
+    },
+    {
+      "id": "scalping_mechanics",
+      "name": "Scalping (cautionary)",
+      "style": "short_term",
+      "evidence_level": "widely_taught",
+      "text": "Targets are only a few ticks, so spread dominates. Needs very low cost, fast execution and high win rate. For retail on wide-spread instruments expectancy is usually negative after costs. Test with realistic spreads."
+    }
+  ],
+  "trade_management_library": [
+    {
+      "name": "Fixed RR",
+      "text": "Exit at preset multiple (1.5R-3R)."
+    },
+    {
+      "name": "Scale out",
+      "text": "Take 50% at 1R, stop to breakeven, trail rest."
+    },
+    {
+      "name": "Chandelier trail",
+      "text": "Stop = highest high since entry - 3*ATR (longs)."
+    },
+    {
+      "name": "EMA trail",
+      "text": "Exit on close beyond EMA20."
+    },
+    {
+      "name": "Time stop",
+      "text": "Exit after N bars with no progress."
+    },
+    {
+      "name": "Volatility target",
+      "text": "Scale size inversely with ATR so each trade risks the same dollar amount."
+    }
+  ],
+  "filters_library": [
+    {
+      "name": "ADX filter",
+      "text": "Trend systems need ADX > 20-25; reversion systems need ADX < 20."
+    },
+    {
+      "name": "Higher timeframe EMA slope",
+      "text": "Trade only in direction of H1/H4 EMA50 slope."
+    },
+    {
+      "name": "ATR percentile",
+      "text": "Avoid trading when ATR is in bottom 10% (no movement) or top 5% (chaos) unless strategy is built for it."
+    },
+    {
+      "name": "Spread filter",
+      "text": "Skip if spread is more than 10% of planned stop distance."
+    },
+    {
+      "name": "Time-of-day filter",
+      "text": "Only trade windows where journaled stats are positive."
+    },
+    {
+      "name": "Loss-streak circuit breaker",
+      "text": "Stop after 2-3 consecutive losses."
+    }
+  ],
+  "combining_strategies": [
+    "Use a regime classifier to switch between trend and reversion rules instead of running both always.",
+    "Diversify across uncorrelated strategies and markets; correlation between strategy equity curves should be low.",
+    "Cap total open risk across all strategies."
+  ]
+}

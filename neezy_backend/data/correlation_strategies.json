@@ -1,0 +1,254 @@
+{
+  "schema": 1,
+  "name": "correlation_strategies.json",
+  "description": "Positive/negative correlation and divergence strategies with entry checklists and risk notes, plus sourced research context on why correlation is not cointegration.",
+  "generated_at": "2026-10-21",
+  "provenance": {
+    "origin": "User-provided DATA.zip knowledge base",
+    "zip_file": "06_correlation_strategies",
+    "zip_sha256": "7082d4adbbc980066f7d2ac3f56d998a8ad3c77149eaa27dedb1940c4ec5fc98"
+  },
+  "sources": [
+    "User-provided DATA.zip: 06_correlation_strategies.json"
+  ],
+  "summary": "Correlation measures how consistently two assets' returns move together (-1 to +1). Positive-correlation strategies are for confirmation, concentrated exposure control and pairs trading; negative-correlation strategies are for hedging and diversification. Divergence strategies trade temporary breaks of the usual relationship.",
+  "concepts": {
+    "scale": [
+      {
+        "range": "+0.7 to +0.99",
+        "label": "Strong positive",
+        "example": "Two large tech stocks, EUR/USD vs GBP/USD (historically about +0.8)"
+      },
+      {
+        "range": "0 to +0.7",
+        "label": "Weak/moderate positive",
+        "example": "A stock and a broad index"
+      },
+      {
+        "range": "about 0",
+        "label": "No linear relationship",
+        "example": "Unrelated assets"
+      },
+      {
+        "range": "-0.7 to 0",
+        "label": "Weak/moderate negative",
+        "example": "Defensive vs cyclical stocks"
+      },
+      {
+        "range": "-0.99 to -0.7",
+        "label": "Strong negative",
+        "example": "Oil vs airline shares, USD index vs gold (often)"
+      }
+    ],
+    "formulas": {
+      "pearson": "rho = Cov(Rx, Ry) / (sigma_x * sigma_y), computed on RETURNS not raw prices",
+      "rolling_z": "Z = (rho_now - mean(rho)) / stdev(rho)",
+      "spread": "S_t = P_A,t - beta * P_B,t, with beta from regression (hedge ratio); or use log prices: ln(P_A) - beta*ln(P_B)",
+      "spread_zscore": "z_t = (S_t - mean(S, N)) / stdev(S, N)",
+      "beta": "beta = Cov(Ra, Rb) / Var(Rb)  or OLS slope of A on B",
+      "half_life": "Fit dS_t = a + b*S_{t-1} + e; half_life = -ln(2)/b; use it to choose lookback and expected holding time"
+    },
+    "key_facts": [
+      "Use returns or normalised prices; raw price correlation is spurious for trending series.",
+      "Use rolling windows (20, 30, 90 bars) and test several; correlation changes by regime.",
+      "Correlation is not causation and is not stable; crises raise correlations among risk assets.",
+      "A correlation of -0.7 does not mean opposite moves every day."
+    ]
+  },
+  "positive_correlation": {
+    "uses": [
+      "Trend confirmation",
+      "Sector/momentum rotation",
+      "Correlation-aware position sizing",
+      "Pairs trading"
+    ],
+    "strategies": [
+      {
+        "id": "pos_trend_confirmation",
+        "name": "Trend confirmation",
+        "evidence_level": "widely_taught",
+        "text": "If related assets are positively correlated, a breakout in a leader supports a view in the follower. Example: semiconductor index breakout supports long in a major chip stock.",
+        "risk": "A false signal in the leader transfers to the follower."
+      },
+      {
+        "id": "pos_sector_rotation",
+        "name": "Momentum and sector rotation",
+        "evidence_level": "widely_taught",
+        "text": "Overweight the strongest positively correlated group (e.g. cyclicals in expansion) rather than spreading evenly."
+      },
+      {
+        "id": "pos_exposure_sizing",
+        "name": "Correlation-based position sizing",
+        "evidence_level": "mathematical",
+        "text": "Three positions with correlation above about 0.7 are roughly one bet. Divide the risk budget among them. Portfolio variance = sum_i sum_j w_i w_j sigma_i sigma_j rho_ij."
+      },
+      {
+        "id": "pos_pairs_trade",
+        "name": "Pairs trade (positive-correlation convergence)",
+        "evidence_level": "widely_taught",
+        "setup": [
+          "Pick two assets with strong, economically logical correlation (AUD/USD and NZD/USD; EUR/USD and GBP/USD; two same-sector stocks; two similar ETFs).",
+          "Rolling correlation above about +0.7 (test threshold).",
+          "Spread stationary (Augmented Dickey-Fuller p < 0.05) or cointegrated (Engle-Granger or Johansen)."
+        ],
+        "entry": "Spread z-score beyond +/-1.5 to 2.0: short the outperformer and buy the underperformer, sized by hedge ratio beta.",
+        "exit": "Spread returns to mean (z near 0) or partial reversion (z near 0.5). Time stop at about 2-3x half-life.",
+        "stop": "z-score beyond 3 to 3.5 in the wrong direction, or correlation falls below a floor, or time stop.",
+        "example": "AUD/USD rallies while NZD/USD barely moves; spread z = +2.3. Short AUD/USD, long NZD/USD.",
+        "risks": [
+          "Correlation regime change (spread keeps widening)",
+          "Two legs can both lose",
+          "Liquidity and slippage",
+          "Event risk",
+          "Costs on two legs (double spread)"
+        ]
+      }
+    ]
+  },
+  "negative_correlation": {
+    "uses": [
+      "Diversification",
+      "Direct hedging",
+      "Currency/commodity hedges",
+      "Defensive allocation"
+    ],
+    "strategies": [
+      {
+        "id": "neg_diversification",
+        "name": "Diversification with negatively/low-correlated assets",
+        "evidence_level": "mathematical",
+        "text": "Combining imperfectly correlated assets lowers portfolio volatility. For two assets, minimum variance happens at weights that reduce the covariance term; negative rho gives the strongest reduction.",
+        "caution": "Correlations rise in crises; stocks and bonds have not always been negatively correlated (e.g. inflationary periods)."
+      },
+      {
+        "id": "neg_direct_hedge",
+        "name": "Direct hedge",
+        "evidence_level": "widely_taught",
+        "text": "Hold an offsetting position (inverse instrument, option, negatively correlated asset) against existing exposure. Hedge ratio h = rho * (sigma_position / sigma_hedge) as a minimum-variance approximation.",
+        "trade_off": "Reduces downside but lowers expected return and adds cost."
+      },
+      {
+        "id": "neg_commodity_currency",
+        "name": "Currency and commodity hedges",
+        "evidence_level": "widely_taught",
+        "text": "Example: higher oil raises airline costs; an airline-exposed holder may hedge with a long oil position."
+      },
+      {
+        "id": "neg_defensive_rotation",
+        "name": "Defensive allocation",
+        "evidence_level": "widely_taught",
+        "text": "Shift part of allocation from highly correlated risky assets to cash, short-duration bonds, gold or defensive sectors when uncertainty rises. Safe-haven behaviour is not guaranteed."
+      }
+    ]
+  },
+  "divergence": {
+    "definition": "Divergence is not just 'prices differ'. It is when the expected directional relationship breaks down.",
+    "table": [
+      {
+        "relationship": "Positive correlation",
+        "normal": "Both rise or both fall",
+        "divergence_signal": "One rises while the other falls, or one moves much more than the other"
+      },
+      {
+        "relationship": "Negative correlation",
+        "normal": "One rises while the other falls",
+        "divergence_signal": "Both rise, both fall, or the inverse link weakens sharply"
+      },
+      {
+        "relationship": "No correlation",
+        "normal": "None",
+        "divergence_signal": "Not tradable as correlation divergence"
+      }
+    ],
+    "positive_divergence_trade": {
+      "logic": "Convergence: buy laggard, short leader when spread is abnormal (about 2 standard deviations).",
+      "outcomes": [
+        "Mean reversion (laggard catches up or leader reverses)",
+        "Regime change (relationship fails; spread keeps widening)"
+      ]
+    },
+    "negative_divergence_trade": {
+      "setups": [
+        "Convergence: assets normally inverse move together; short the relatively stronger and buy the weaker expecting the inverse link to resume.",
+        "Breakout: if correlation breaks sharply (some methods use rolling correlation falling past about -0.5 or flipping sign), treat as regime shift and follow the strongest confirmed move."
+      ],
+      "example": "Two assets normally at -0.80 both rally. Mean-reversion view: fade the stronger. Breakout view: trade the stronger trend and ask what new driver changed the link."
+    },
+    "measurement": [
+      "Rolling correlation over 30 or 90 bars; compute Z-score of current correlation versus its history; beyond +/-2 is unusual.",
+      "Normalised spread: use returns, z-scores or ratio; for different price levels never compare raw prices.",
+      "Entry beyond 1.5-2.0 standard deviations; exit at mean or 0.5 sd.",
+      "Stationarity test (ADF) and cointegration test before assuming mean reversion; a trending spread suggests a broken relationship."
+    ],
+    "smt_divergence": {
+      "name": "SMT divergence (smart money tool)",
+      "evidence_level": "community_rule_of_thumb",
+      "text": "Compare highly correlated instruments (e.g. two equity indices or EUR/USD vs GBP/USD). If one makes a new high and the other fails, treat as a warning of weakness, to be used with structure and levels, not alone."
+    }
+  },
+  "strategy_table": [
+    {
+      "strategy": "Positive-correlation pairs trade",
+      "assumption": "Correlated assets converge",
+      "action": "Buy laggard, short leader"
+    },
+    {
+      "strategy": "Negative-correlation reversion",
+      "assumption": "Inverse assets resume opposite movement",
+      "action": "Trade back toward inverse relationship"
+    },
+    {
+      "strategy": "Correlation breakout",
+      "assumption": "Old relationship breaking",
+      "action": "Follow the stronger confirmed move"
+    },
+    {
+      "strategy": "Correlation-regime strategy",
+      "assumption": "Correlation itself is the variable",
+      "action": "Position for rising or falling cross-asset correlation (e.g. dispersion/correlation trades via options)"
+    },
+    {
+      "strategy": "Hedge/diversification",
+      "assumption": "Correlation risk must be controlled",
+      "action": "Avoid stacking correlated positions"
+    }
+  ],
+  "entry_checklist": [
+    "Stable correlation over a relevant lookback.",
+    "Divergence statistically large (spread beyond about 2 sd).",
+    "Plausible reason for divergence (liquidity, news, positioning, earnings, macro, flow).",
+    "Spread mean-reverting, not trending (ADF/cointegration/half-life).",
+    "Defined invalidation level (z-stop, time stop, correlation floor).",
+    "Position sizing accounts for both legs losing."
+  ],
+  "risk_management": [
+    "Correlation breakdown risk, spread expansion risk, timing risk, liquidity risk, event risk, hidden correlation risk.",
+    "Use volatility-based stops on the spread, not fixed currency stops.",
+    "Treat positions with correlation above about 0.7 as one exposure.",
+    "Avoid divergence trades right before major scheduled news unless it is the thesis.",
+    "Use divergence as confluence, not as a standalone signal.",
+    "Backtest across trending, choppy, high-volatility and crisis regimes."
+  ],
+  "python_snippets": {
+    "rolling_correlation": "import pandas as pd\nret = prices.pct_change().dropna()\nrho = ret['A'].rolling(30).corr(ret['B'])",
+    "hedge_ratio_and_spread": "import statsmodels.api as sm\nX = sm.add_constant(prices['B'])\nbeta = sm.OLS(prices['A'], X).fit().params['B']\nspread = prices['A'] - beta*prices['B']\nz = (spread - spread.rolling(60).mean())/spread.rolling(60).std()",
+    "adf_test": "from statsmodels.tsa.stattools import adfuller\np = adfuller(spread.dropna())[1]  # p < 0.05 suggests stationary",
+    "cointegration": "from statsmodels.tsa.stattools import coint\nscore, p, _ = coint(prices['A'], prices['B'])  # p < 0.05 suggests cointegration"
+  },
+  "deriv_note": "Deriv synthetic indices are generated independently, so cross-index correlation is expected to be near zero by design; correlation/pairs strategies are meaningful on real markets (forex, stocks, indices, commodities) rather than between independent synthetics. Verify by measuring rho before assuming any link.",
+  "enrichment": {
+    "research_context": [
+      "Correlation is not cointegration: only a stationary linear combination supports spread mean reversion, and cointegration relationships can break down, with out-of-sample deterioration documented in a PEP-KO case study.",
+      "Walk-forward evidence across seven US-listed pairs found a cointegration gate useful but not sufficient for profitability.",
+      "How pairs are pre-selected materially changes final profitability in cointegration-based studies."
+    ],
+    "application_to_this_app": [
+      "NEEZY's pair_research estimates the hedge ratio on the training slice only and uses lagged z-scores; its six captured Forex experiments were net negative after assumed costs."
+    ],
+    "sources": [
+      "https://arxiv.org/abs/2609.35359",
+      "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7204658",
+      "https://link.springer.com/article/10.1007/s10260-023-00702-4"
+    ]
+  }
+}

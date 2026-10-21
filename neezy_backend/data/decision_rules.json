@@ -1,0 +1,313 @@
+{
+  "schema": {
+    "rule": {
+      "id": "unique id",
+      "strategy": "strategy_id",
+      "applies_to": "instruments",
+      "timeframes": "list",
+      "indicators": "name -> params",
+      "conditions": "list of expressions, all must be true (AND)",
+      "action": "BUY, SELL, EXIT_LONG, EXIT_SHORT, NO_TRADE",
+      "stop": "expression",
+      "target": "expression",
+      "risk_pct": "number",
+      "min_rr": "number"
+    },
+    "expression_notation": "Variables: close, open, high, low, ema(N), sma(N), rsi(N), atr(N), adx(N), bb_lower/bb_upper/bb_mid(N,k), stoch_k/stoch_d, highest(N), lowest(N), swing_low, swing_high, zscore. Suffix [1] = previous candle, [0] = last closed candle."
+  },
+  "name": "decision_rules.json",
+  "description": "Structured rules your Python code can evaluate on candle data. Indicator names refer to standard definitions in 01_trading_fundamentals.json. All rules are TEST CANDIDATES, not proven edges. Signals are computed on the closed candle; execute on the next candle open.",
+  "generated_at": "2026-10-21",
+  "provenance": {
+    "origin": "User-provided DATA.zip knowledge base",
+    "zip_file": "10_decision_rules_machine_readable",
+    "zip_sha256": "100f2bbab44291018fb70347f6d165783e7729a0bd712bbd3465ba27d8b8366f"
+  },
+  "sources": [
+    "User-provided DATA.zip: 10_decision_rules_machine_readable.json"
+  ],
+  "rules": [
+    {
+      "id": "R_TREND_PULLBACK_LONG",
+      "strategy": "vol_trend_pullback",
+      "applies_to": [
+        "Volatility 50",
+        "Volatility 75",
+        "Volatility 100"
+      ],
+      "timeframes": [
+        "M15",
+        "H1"
+      ],
+      "indicators": {
+        "ema_fast": 20,
+        "ema_mid": 50,
+        "ema_slow": 200,
+        "atr": 14
+      },
+      "conditions": [
+        "close[0] > ema(50)[0]",
+        "close[0] > ema(200)[0]",
+        "ema(20)[0] > ema(50)[0]",
+        "low[1] <= ema(20)[1] * 1.0 or low[1] <= ema(50)[1]",
+        "close[0] > open[0]",
+        "close[0] > ema(20)[0]",
+        "adx(14)[0] >= 20"
+      ],
+      "action": "BUY",
+      "stop": "min(swing_low(10), close[0] - 1.2*atr(14)) - 0.2*atr(14)",
+      "target": "entry + 2.0*(entry - stop)",
+      "risk_pct": 0.5,
+      "min_rr": 1.5,
+      "exit_extra": [
+        "trail stop at ema(20) after +1R",
+        "EXIT_LONG if close < ema(50)"
+      ]
+    },
+    {
+      "id": "R_TREND_PULLBACK_SHORT",
+      "strategy": "vol_trend_pullback",
+      "applies_to": [
+        "Volatility 50",
+        "Volatility 75",
+        "Volatility 100"
+      ],
+      "timeframes": [
+        "M15",
+        "H1"
+      ],
+      "indicators": {
+        "ema_fast": 20,
+        "ema_mid": 50,
+        "ema_slow": 200,
+        "atr": 14
+      },
+      "conditions": [
+        "close[0] < ema(50)[0]",
+        "close[0] < ema(200)[0]",
+        "ema(20)[0] < ema(50)[0]",
+        "high[1] >= ema(20)[1] or high[1] >= ema(50)[1]",
+        "close[0] < open[0]",
+        "close[0] < ema(20)[0]",
+        "adx(14)[0] >= 20"
+      ],
+      "action": "SELL",
+      "stop": "max(swing_high(10), close[0] + 1.2*atr(14)) + 0.2*atr(14)",
+      "target": "entry - 2.0*(stop - entry)",
+      "risk_pct": 0.5,
+      "min_rr": 1.5
+    },
+    {
+      "id": "R_BREAKOUT_RETEST_LONG",
+      "strategy": "vol_breakout_retest",
+      "timeframes": [
+        "M15",
+        "H1"
+      ],
+      "indicators": {
+        "atr": 14
+      },
+      "conditions": [
+        "level = resistance with >= 2 touches in last 100 bars",
+        "close[k] > level for a breakout candle k within last 10 bars with range[k] > 1.2*atr(14)",
+        "abs(low[0] - level) <= 0.3*atr(14)",
+        "close[0] > level",
+        "close[0] > open[0]",
+        "close[0] - level <= 2*atr(14)"
+      ],
+      "action": "BUY",
+      "stop": "min(low[0], low[1]) - 0.2*atr(14)",
+      "target": "next_resistance or entry + 2*(entry - stop)",
+      "risk_pct": 0.5,
+      "min_rr": 1.5
+    },
+    {
+      "id": "R_RANGE_MEANREV_LONG",
+      "strategy": "vol_range_mean_reversion",
+      "timeframes": [
+        "M15",
+        "H1"
+      ],
+      "indicators": {
+        "bb": [
+          20,
+          2
+        ],
+        "rsi": 14,
+        "atr": 14,
+        "adx": 14
+      },
+      "conditions": [
+        "adx(14)[0] < 20",
+        "low[0] <= bb_lower(20,2)[0]",
+        "rsi(14)[0] < 30",
+        "close[0] > open[0]",
+        "abs(ema(20)[0] - ema(50)[0]) < 0.5*atr(14)[0]"
+      ],
+      "action": "BUY",
+      "stop": "min(range_low, low[0]) - 0.5*atr(14)",
+      "target": "bb_mid(20,2)[0]",
+      "risk_pct": 0.5,
+      "min_rr": 1.0,
+      "kill_switch": "NO_TRADE if adx(14) >= 25 or two consecutive closes beyond the band"
+    },
+    {
+      "id": "R_DSI_REGIME_LONG",
+      "strategy": "dsi_regime_following",
+      "applies_to": [
+        "Drift Switch 10",
+        "Drift Switch 20",
+        "Drift Switch 30"
+      ],
+      "timeframes": [
+        "M1",
+        "M5",
+        "M15"
+      ],
+      "indicators": {
+        "ema_fast": 20,
+        "ema_slow": 50,
+        "atr": 14
+      },
+      "conditions": [
+        "close[0] > ema(20)[0]",
+        "close[0] > ema(50)[0]",
+        "ema(20)[0] > ema(50)[0]",
+        "swing_low_last > swing_low_prev",
+        "pullback_to_ema20 or bullish_breakout_close",
+        "bars_since_regime_start <= 0.6 * avg_regime_length_in_bars"
+      ],
+      "action": "BUY",
+      "stop": "min(swing_low(10), close[0] - 1.75*atr(14))",
+      "target": "entry + 1.5*(entry - stop) or time_exit at 0.7 * avg_regime_length_in_bars",
+      "risk_pct": 0.5,
+      "min_rr": 1.2,
+      "no_trade_if": [
+        "price crossed ema(20) 3+ times in last 10 bars",
+        "two consecutive stop-outs in same direction"
+      ],
+      "avg_regime_length_in_bars": {
+        "DSI10": "10 minutes / timeframe minutes",
+        "DSI20": "20 minutes / timeframe minutes",
+        "DSI30": "30 minutes / timeframe minutes"
+      }
+    },
+    {
+      "id": "R_DSI_REGIME_SHORT",
+      "strategy": "dsi_regime_following",
+      "conditions": [
+        "mirror of R_DSI_REGIME_LONG"
+      ],
+      "action": "SELL"
+    },
+    {
+      "id": "R_SQUEEZE_BREAKOUT_LONG",
+      "strategy": "vol_squeeze_breakout",
+      "indicators": {
+        "bb": [
+          20,
+          2
+        ],
+        "keltner": [
+          20,
+          1.5
+        ],
+        "atr": 14
+      },
+      "conditions": [
+        "bb_upper(20,2)[1] < keltner_upper(20,1.5)[1] and bb_lower(20,2)[1] > keltner_lower(20,1.5)[1]",
+        "close[0] > bb_upper(20,2)[0]",
+        "range[0] >= 1.2*atr(14)[0]",
+        "range[0] <= 2.0*atr(14)[0]"
+      ],
+      "action": "BUY",
+      "stop": "bb_mid(20,2)[0] or entry - 1.5*atr(14)",
+      "target": "trail ema(20) or 2R",
+      "risk_pct": 0.5,
+      "min_rr": 1.5
+    },
+    {
+      "id": "R_PAIRS_ENTRY",
+      "strategy": "pos_pairs_trade",
+      "indicators": {
+        "rolling_corr": 60,
+        "zscore_window": 60
+      },
+      "conditions": [
+        "rolling_corr(ret_A, ret_B, 60) > 0.7",
+        "adf_pvalue(spread, 250) < 0.05 or coint_pvalue < 0.05",
+        "zscore(spread, 60) > 2.0 -> SELL A / BUY B",
+        "zscore(spread, 60) < -2.0 -> BUY A / SELL B"
+      ],
+      "action": "PAIR_TRADE",
+      "exit": [
+        "abs(zscore) <= 0.5",
+        "time_stop = 3 * half_life_bars"
+      ],
+      "stop": "abs(zscore) >= 3.5 or rolling_corr < 0.4",
+      "risk_pct": 0.5
+    }
+  ],
+  "global_filters_and_circuit_breakers": [
+    {
+      "id": "G_DAILY_LOSS",
+      "condition": "daily_pnl_percent <= -3",
+      "action": "NO_TRADE until next day"
+    },
+    {
+      "id": "G_WEEKLY_LOSS",
+      "condition": "weekly_pnl_percent <= -8",
+      "action": "halve risk_pct next week"
+    },
+    {
+      "id": "G_LOSS_STREAK",
+      "condition": "consecutive_losses >= 3",
+      "action": "NO_TRADE for the session"
+    },
+    {
+      "id": "G_MAX_OPEN_RISK",
+      "condition": "sum(open_risk_pct) > 3",
+      "action": "block new trades"
+    },
+    {
+      "id": "G_SPREAD",
+      "condition": "spread > 0.1 * stop_distance",
+      "action": "skip"
+    },
+    {
+      "id": "G_MIN_RR",
+      "condition": "rr < rule.min_rr",
+      "action": "skip"
+    },
+    {
+      "id": "G_DRAWDOWN",
+      "condition": "drawdown_from_peak >= 10",
+      "action": "demo or half size and review"
+    }
+  ],
+  "position_sizing_function": {
+    "pseudocode": "def size(equity, risk_pct, entry, stop, value_per_price_unit_per_lot, min_lot, lot_step):\n    risk_amt = equity * risk_pct/100\n    dist = abs(entry - stop)\n    lots = risk_amt / (dist * value_per_price_unit_per_lot)\n    lots = floor(lots/lot_step)*lot_step\n    if lots < min_lot: return 0  # risk too high for account, skip trade\n    return lots"
+  },
+  "regime_classifier": {
+    "pseudocode": "def regime(adx, ema20, ema50, atr, atr_pct_rank):\n    if adx >= 25 and abs(ema20-ema50) > 0.5*atr: return 'TREND'\n    if adx < 20 and abs(ema20-ema50) < 0.5*atr: return 'RANGE'\n    if atr_pct_rank > 0.8: return 'EXPANSION'\n    if atr_pct_rank < 0.2: return 'CONTRACTION'\n    return 'UNCLEAR'",
+    "mapping": {
+      "TREND": [
+        "R_TREND_PULLBACK_*",
+        "R_DSI_REGIME_*"
+      ],
+      "RANGE": [
+        "R_RANGE_MEANREV_*"
+      ],
+      "CONTRACTION": [
+        "R_SQUEEZE_BREAKOUT_*"
+      ],
+      "EXPANSION": [
+        "R_BREAKOUT_RETEST_*"
+      ],
+      "UNCLEAR": [
+        "NO_TRADE"
+      ]
+    }
+  },
+  "usage_warning": "Do not enable live execution from these rules until they pass the pipeline in 08_backtesting_and_validation.json."
+}

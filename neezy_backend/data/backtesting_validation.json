@@ -1,0 +1,335 @@
+{
+  "schema": 1,
+  "name": "backtesting_validation.json",
+  "description": "The full validation pipeline: exact rules, costs, out-of-sample discipline, overfitting traps and go-live checklists, with sourced walk-forward and data-snooping research context.",
+  "generated_at": "2026-10-21",
+  "provenance": {
+    "origin": "User-provided DATA.zip knowledge base",
+    "zip_file": "08_backtesting_and_validation",
+    "zip_sha256": "a75257c6469d28f93d2090d7d8751ef0f16705a15ba6bae603abea04b55e347c"
+  },
+  "sources": [
+    "User-provided DATA.zip: 08_backtesting_and_validation.json"
+  ],
+  "principle": "A strategy is only believable after it survives realistic costs, out-of-sample data, randomness checks and a forward test. Most apparent edges disappear under these tests.",
+  "pipeline": [
+    {
+      "step": 1,
+      "name": "Write exact rules",
+      "detail": "Entry, stop, target, sizing, filters, timeframe, instrument, session. No discretion. If a rule cannot be coded, it cannot be tested."
+    },
+    {
+      "step": 2,
+      "name": "State a hypothesis",
+      "detail": "Why should this work? Tie to a structural feature (regime persistence, spike frequency, risk premium). No reason = likely noise."
+    },
+    {
+      "step": 3,
+      "name": "Get clean data",
+      "detail": "Tick or candle history with correct timestamps; check gaps, duplicates, timezone. Use enough data: ideally 300+ trades and multiple regimes."
+    },
+    {
+      "step": 4,
+      "name": "Split data",
+      "detail": "In-sample (design, e.g. 60%), validation (20%), untouched out-of-sample (20%). Touch the out-of-sample set once."
+    },
+    {
+      "step": 5,
+      "name": "Backtest with costs",
+      "detail": "Include spread, slippage (add 0.5-1x spread extra), swap, commission. Use next-bar-open fills for signals computed on close."
+    },
+    {
+      "step": 6,
+      "name": "Baseline comparison",
+      "detail": "Compare to random entries with same exits and to buy-and-hold. If random entries perform similarly, the entry has no edge."
+    },
+    {
+      "step": 7,
+      "name": "Robustness tests",
+      "detail": "Parameter sensitivity, noise, cost stress, different instruments/time periods."
+    },
+    {
+      "step": 8,
+      "name": "Walk-forward analysis",
+      "detail": "Optimise on a window, test on the next window, roll forward; stitch out-of-sample results."
+    },
+    {
+      "step": 9,
+      "name": "Monte Carlo",
+      "detail": "Shuffle/resample trades to estimate drawdown and ruin distribution."
+    },
+    {
+      "step": 10,
+      "name": "Forward test on demo",
+      "detail": "50-100+ trades with frozen rules; compare stats with backtest."
+    },
+    {
+      "step": 11,
+      "name": "Small live",
+      "detail": "0.25% risk or less for 100 trades; scale only if live stats match tested expectations."
+    },
+    {
+      "step": 12,
+      "name": "Monitor and retire",
+      "detail": "Track rolling expectancy; stop or re-validate if performance degrades beyond tested drawdown."
+    }
+  ],
+  "metrics": [
+    {
+      "name": "Net profit / total return",
+      "formula": "(final equity - initial) / initial"
+    },
+    {
+      "name": "Number of trades",
+      "note": "Aim for 100 minimum, 300+ preferred; fewer trades give wide uncertainty."
+    },
+    {
+      "name": "Win rate",
+      "formula": "wins / trades"
+    },
+    {
+      "name": "Average win, average loss, payoff ratio",
+      "formula": "avg_win / avg_loss"
+    },
+    {
+      "name": "Expectancy per trade (R)",
+      "formula": "win_rate*avgWinR - (1-win_rate)*avgLossR"
+    },
+    {
+      "name": "Profit factor",
+      "formula": "gross profit / gross loss",
+      "reading": "Under 1 losing; 1.0-1.3 marginal after costs; 1.3-2.0 decent; very high values on few trades are suspicious."
+    },
+    {
+      "name": "Max drawdown",
+      "formula": "max over time of (peak - equity)/peak",
+      "reading": "Expect live drawdown to exceed backtest max by roughly 1.5-2x."
+    },
+    {
+      "name": "Average and max losing streak",
+      "note": "Plan sizing for the Monte Carlo 95th percentile streak."
+    },
+    {
+      "name": "Sharpe ratio",
+      "formula": "mean(r)/stdev(r)*sqrt(N)",
+      "reading": "Above 1 good, above 2 excellent but verify; compute on equity-curve returns."
+    },
+    {
+      "name": "Sortino ratio",
+      "formula": "mean(r)/downside_dev*sqrt(N)"
+    },
+    {
+      "name": "Calmar ratio",
+      "formula": "annual return / max drawdown"
+    },
+    {
+      "name": "Recovery factor",
+      "formula": "net profit / max drawdown"
+    },
+    {
+      "name": "Ulcer index",
+      "formula": "sqrt(mean(drawdown^2))"
+    },
+    {
+      "name": "Exposure/time in market",
+      "note": "Helps judge capital efficiency."
+    },
+    {
+      "name": "SQN (System Quality Number)",
+      "formula": "sqrt(N) * mean(R)/stdev(R)",
+      "reading": "Under 1.6 poor; 1.6-2.5 average; 2.5-3 good; above 3 excellent (Van Tharp heuristic)."
+    },
+    {
+      "name": "t-statistic of mean R",
+      "formula": "mean(R) / (stdev(R)/sqrt(N))",
+      "reading": "Above about 2 suggests the mean is unlikely zero by chance, but multiple-testing inflates this."
+    },
+    {
+      "name": "Confidence interval of win rate",
+      "formula": "p +/- 1.96*sqrt(p(1-p)/N)",
+      "example": "55% win rate over 100 trades has CI roughly 45%-65%, so 'edge' is unproven."
+    }
+  ],
+  "methods": [
+    {
+      "id": "in_out_of_sample",
+      "name": "In-sample / out-of-sample split",
+      "how": "Design on first segment; test on later, unseen segment. Keep time order; never shuffle time series for validation.",
+      "pass_criteria": "Out-of-sample expectancy positive and at least about 50% of in-sample; drawdown within 1.5x."
+    },
+    {
+      "id": "walk_forward",
+      "name": "Walk-forward optimisation",
+      "how": "Example: optimise on 6 months, trade the next 1 month, roll forward monthly. Collect out-of-sample months.",
+      "metric": "Walk-forward efficiency = out-of-sample annualised return / in-sample annualised return; above about 0.5 is encouraging."
+    },
+    {
+      "id": "cross_validation_purged",
+      "name": "Purged / combinatorial cross-validation",
+      "how": "For ML-based signals: split into folds with embargo gaps so overlapping labels do not leak; evaluate across many train/test combinations."
+    },
+    {
+      "id": "monte_carlo_trade_shuffle",
+      "name": "Monte Carlo trade resampling",
+      "how": "Randomly resample or reorder the list of trade R results 5,000-10,000 times; record final return, max drawdown, longest losing streak.",
+      "use": "Pick risk-per-trade so the 95th percentile drawdown stays below tolerance (e.g. 20%)."
+    },
+    {
+      "id": "monte_carlo_skip",
+      "name": "Random trade skipping",
+      "how": "Randomly remove 10-20% of trades to see if profit depends on a few lucky trades."
+    },
+    {
+      "id": "parameter_sensitivity",
+      "name": "Parameter sensitivity / plateau test",
+      "how": "Vary each parameter +/-20-30%. A real edge shows a broad profitable plateau; a single spike of profit is overfitting."
+    },
+    {
+      "id": "cost_stress",
+      "name": "Cost stress test",
+      "how": "Double spread and slippage. If profits vanish, edge is too thin for live trading."
+    },
+    {
+      "id": "random_entry_baseline",
+      "name": "Random entry baseline",
+      "how": "Use same stop/target/sizing but enter at random times matching your trade frequency; repeat 1,000 times. Your result should sit in the top 5% of the random distribution (permutation test)."
+    },
+    {
+      "id": "permutation_test_returns",
+      "name": "Return permutation / bootstrap",
+      "how": "Shuffle the signal relative to returns (or bootstrap returns) to build a null distribution for Sharpe or expectancy; compute p-value."
+    },
+    {
+      "id": "multiple_testing_adjustment",
+      "name": "Multiple-testing correction",
+      "how": "If you tried K strategies/parameter sets, the best result is biased upward. Use Bonferroni, White's Reality Check, or Deflated Sharpe Ratio (Bailey and Lopez de Prado) to adjust.",
+      "rule": "Keep a log of every variant tested."
+    },
+    {
+      "id": "regime_split",
+      "name": "Regime split testing",
+      "how": "Evaluate results separately in trending, ranging, high-vol and low-vol periods; know where the strategy loses."
+    },
+    {
+      "id": "cross_instrument",
+      "name": "Cross-instrument / cross-index test",
+      "how": "Test the same rules on related indices (e.g. V50, V75, V100). Robust ideas transfer with minor changes; for independent synthetic generators, results should differ only by volatility scaling."
+    },
+    {
+      "id": "forward_demo",
+      "name": "Forward/demo test",
+      "how": "Run frozen rules in real time. Compare slippage, fills, expectancy to backtest. Minimum 50-100 trades."
+    },
+    {
+      "id": "paper_to_live_scaling",
+      "name": "Staged scaling",
+      "how": "Demo -> 0.25% risk -> 0.5% -> 1% only after each stage matches expectations over 100 trades."
+    }
+  ],
+  "overfitting_traps": [
+    {
+      "trap": "Curve fitting",
+      "fix": "Few parameters, plateau tests, out-of-sample."
+    },
+    {
+      "trap": "Look-ahead bias",
+      "fix": "Use only data available at decision time; use previous bar values for signals; execute on next bar open."
+    },
+    {
+      "trap": "Survivorship bias",
+      "fix": "Include delisted/failed instruments for stocks."
+    },
+    {
+      "trap": "Data snooping / p-hacking",
+      "fix": "Log every test; correct for multiple testing."
+    },
+    {
+      "trap": "Ignoring costs",
+      "fix": "Model spread, slippage, swaps."
+    },
+    {
+      "trap": "Repainting indicators",
+      "fix": "Verify indicators do not change past values."
+    },
+    {
+      "trap": "Too few trades",
+      "fix": "Require 100+; show confidence intervals."
+    },
+    {
+      "trap": "Cherry-picked period",
+      "fix": "Test across multiple periods and regimes."
+    },
+    {
+      "trap": "Optimising on equity curve smoothness",
+      "fix": "Optimise for robust metrics like median expectancy under Monte Carlo."
+    },
+    {
+      "trap": "Intrabar ambiguity",
+      "fix": "When both stop and target are inside one candle, assume the worst (stop first) or use tick data."
+    },
+    {
+      "trap": "Assuming fills at signal price",
+      "fix": "Add slippage and spread; use ask for buys, bid for sells."
+    }
+  ],
+  "synthetic_index_specific": [
+    "Because synthetic series are generated by a known stochastic process, you can generate your own simulated data with the same parameters and test whether a strategy has any edge; if it makes money on pure simulation it must be exploiting a designed feature, and if it fails there it cannot work on the real index.",
+    "Run the random-entry baseline on synthetic data first; for pure random walks nothing but costs matter and expectancy will be negative.",
+    "Check autocorrelation, Hurst, variance ratio before building indicator systems.",
+    "For regime-switching or spike products, validate the structural feature (drift per regime, spike probability) with large tick samples.",
+    "Use the exact broker spread/swap schedule; Deriv may change settings, so re-check periodically."
+  ],
+  "go_live_checklist": [
+    "Written rules and hypothesis.",
+    "At least 100 backtest trades (300+ preferred) with costs.",
+    "Positive out-of-sample and walk-forward results.",
+    "Beats random-entry baseline (top 5%).",
+    "Stable under parameter and cost stress.",
+    "Monte Carlo 95th percentile drawdown within personal limit.",
+    "50-100 forward demo trades consistent with backtest.",
+    "Risk plan: per-trade, daily, weekly, drawdown limits.",
+    "Journal template ready.",
+    "Start at 0.25% risk."
+  ],
+  "python_snippets": {
+    "metrics": "import numpy as np\nR = np.array(trade_R)\nwins = R[R>0]; losses = R[R<=0]\nexpectancy = R.mean()\npf = wins.sum()/abs(losses.sum()) if len(losses) else np.inf\nsqn = np.sqrt(len(R))*R.mean()/R.std(ddof=1)\nwin_rate = (R>0).mean()",
+    "equity_drawdown": "equity = (1+ R*risk_pct).cumprod()\npeak = np.maximum.accumulate(equity)\nmax_dd = ((peak-equity)/peak).max()",
+    "monte_carlo": "rng = np.random.default_rng(0)\nsims=[]\nfor _ in range(10000):\n    s = rng.choice(R, size=len(R), replace=True)\n    eq = (1+s*risk_pct).cumprod()\n    dd = ((np.maximum.accumulate(eq)-eq)/np.maximum.accumulate(eq)).max()\n    sims.append((eq[-1], dd))\n# inspect 5th percentile final equity and 95th percentile drawdown",
+    "random_entry_baseline": "# For k in range(1000): choose random entry bars with same count, apply same stop/target logic,\n# record total R; compare your total R to this distribution (p = share of random runs >= yours)",
+    "win_rate_ci": "p = wins_count/n; se = (p*(1-p)/n)**0.5; ci = (p-1.96*se, p+1.96*se)"
+  },
+  "libraries_and_tools": [
+    "pandas",
+    "numpy",
+    "statsmodels",
+    "scipy",
+    "vectorbt",
+    "backtesting.py",
+    "backtrader",
+    "zipline-reloaded",
+    "TA-Lib / pandas-ta",
+    "scikit-learn (with time-series split)",
+    "MetaTrader 5 Strategy Tester (for Deriv MT5)",
+    "Deriv API (WebSocket) for tick history"
+  ],
+  "ai_model_rules": [
+    "When asked 'does this strategy work?', answer that it must be tested and list the steps; do not claim it works.",
+    "When asked for win-rate claims, give ranges and uncertainty, not single guarantees.",
+    "If a user reports a great backtest, ask about costs, number of trades, out-of-sample, parameter count and multiple-testing."
+  ],
+  "enrichment": {
+    "research_context": [
+      "Rigorous walk-forward frameworks are designed to mitigate overfitting and look-ahead bias; a single chronological holdout is a weaker but simpler alternative.",
+      "Repeated testing until something looks profitable is data snooping; probability-of-backtest-overfitting (PBO) style corrections exist for searches with known ground truth.",
+      "Overlapping labels (e.g. a 5-bar horizon on every bar) reduce the effective independent sample size below the nominal count."
+    ],
+    "application_to_this_app": [
+      "ml_research.json uses overlapping 5-bar labels and reports this limit in its caveats; its screening gate is directional, not a profitability or significance test."
+    ],
+    "sources": [
+      "https://arxiv.org/html/2512.12924v1",
+      "https://arxiv.org/abs/2608.23808",
+      "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7361818"
+    ]
+  }
+}
