@@ -55,6 +55,7 @@ from .markets import (
     ws_urls,
 )
 from .patterns import price_action_summary
+from .regime import market_regime
 from .research import DEFAULT_RESEARCH_SYMBOLS, training_run
 from .risk import atr_levels, position_size
 from .storage import SignalHistoryStore
@@ -638,6 +639,30 @@ def cmd_correlation(args, fetch, out) -> int:
         ["PAIR A", "PAIR B", "CORRELATION"],
         [(display_name(a), display_name(b), f"{v:+.2f}") for a, b, v in pairs],
     )
+    return 0
+
+
+def cmd_regime(args, fetch, out) -> int:
+    candles = fetch(args.symbol, granularity(args.timeframe), args.count)
+    result = {"symbol": args.symbol, "timeframe": args.timeframe}
+    result.update(market_regime(candles))
+    if args.json:
+        _emit(out, result)
+        return 0
+    out.write(f"{display_name(args.symbol)} · {args.timeframe}\n")
+    out.write(f"Regime       {result['regime']}\n")
+    out.write(f"Volatility   {result['volatility']}\n")
+    out.write(f"{result['summary']}\n")
+    if result.get("adx") is not None:
+        out.write(
+            f"ADX          {result['adx']:.1f}  +DI {result['plus_di']:.1f}"
+            f"  -DI {result['minus_di']:.1f}\n"
+        )
+        out.write(
+            f"Bandwidth    {result['bandwidth']:.5f}"
+            f"  ({result['bandwidth_percentile']:.0f}th percentile)\n"
+        )
+    out.write("\nEducational summary only — not financial advice.\n")
     return 0
 
 
@@ -1713,6 +1738,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--window", type=int, default=100)
     p.add_argument("--top", type=int, default=8)
     p.set_defaults(handler=cmd_correlation)
+
+    p = common(
+        sub.add_parser("regime", help="trend, range, or squeeze regime and volatility"),
+        count=300,
+    )
+    p.add_argument("symbol", type=_symbol)
+    p.set_defaults(handler=cmd_regime)
 
     p = common(
         sub.add_parser("history", help="local signal-transition history"),

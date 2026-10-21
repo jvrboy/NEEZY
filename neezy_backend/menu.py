@@ -33,6 +33,7 @@ MENU: tuple[MenuItem, ...] = (
     ("p", "MT5 read-only", "MT5 preflight checklist", "bold"),
     ("6", "MT5 orders", "Order: DRY RUN (never sent)", "ok"),
     ("7", "MT5 orders", "Order: LIVE (type SEND to confirm)", "warn"),
+    ("r", "Market", "Market regime for one symbol", "bold"),
     ("8", "MCP", "MCP server catalog", "bold"),
     ("9", "MCP", "MCP client config for one server", "bold"),
     ("0", "Exit", "Quit", "muted"),
@@ -132,6 +133,8 @@ def _argv_for(
             return None
         argv.append("--confirm")
         return argv
+    if choice == "r":
+        return ["regime", _ask("Symbol (e.g. frxEURUSD): ", input_fn)]
     if choice == "8":
         return ["mcp", "list"]
     if choice == "9":

@@ -67,6 +67,36 @@ def strongest_pairs(
     return pairs[:limit]
 
 
+def correlation_snapshot(
+    closes_by_symbol: Mapping[str, Sequence[float]],
+    *,
+    window: int = 100,
+    limit: int = 5,
+) -> dict[str, Any]:
+    """Matrix plus the strongest pairs, rounded for display.
+
+    Each symbol needs ``window + 1`` closes so that ``window`` log returns exist.
+    """
+    matrix = correlation_matrix(closes_by_symbol, window=window)
+    rounded = {
+        first: {
+            second: None if value is None else round(value, 3)
+            for second, value in row.items()
+        }
+        for first, row in matrix.items()
+    }
+    pairs = strongest_pairs(matrix, limit=limit)
+    return {
+        "window": window,
+        "symbols": list(closes_by_symbol),
+        "strongest": [
+            {"first": first, "second": second, "correlation": round(value, 3)}
+            for first, second, value in pairs
+        ],
+        "matrix": rounded,
+    }
+
+
 def opportunity_score(result: Mapping[str, Any]) -> float:
     """0-100 composite of signal score, ADX trend strength, and RSI room.
 

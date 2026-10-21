@@ -1,5 +1,27 @@
 # CHANGELOG
 
+## [Unreleased] - Market regime and correlation snapshot
+
+### Added
+- `neezy_backend/regime.py`: `market_regime(candles)` labels a market
+  `trend_up`, `trend_down`, `range`, `squeeze`, or `unknown` (fewer than 60
+  closed candles), with an ATR-ratio volatility label. Uses closed candles only.
+  Thresholds are fixed (ADX 25, bottom-20% bandwidth) and named in the module.
+- `correlation_snapshot` in `neezy_backend/analytics.py`: matrix and strongest
+  pairs over a window of log returns, rounded for display.
+- `neezy-cli regime SYMBOL [-t TF] [-n N] [--json]` and menu key `r`.
+- Read-only agent tools `market_regime` and `correlation_snapshot` (the latter
+  takes up to 8 comma-separated markets; defaults to the five Forex majors).
+- Private MCP tools `get_market_regime` and `get_correlation_snapshot` on stored
+  candles. They are not on the public tunnel allow-list.
+
+### Notes
+- `analyze` already prints a `regime` label (Trending, Ranging, Squeeze). The
+  new classifier adds direction and a bandwidth percentile, so the two can
+  disagree near thresholds. Both are descriptive, not signals.
+- ADX reads 25 or higher fairly often on random-walk data. Treat a trend label
+  as a description of recent directional movement, not a forecast.
+
 ## [Unreleased] - CLI menu styling
 
 ### Changed

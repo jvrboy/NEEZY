@@ -13,7 +13,12 @@ from .markets import SYMBOLS, TIMEFRAMES
 from .outcomes import evaluate_outcomes, summarize
 from .remote import AppCommandBridge
 from .research import pair_research
-from .tools import ToolPermission, ToolRegistry
+from .tools import (
+    CORRELATION_DEFAULTS,
+    CORRELATION_MAX_SYMBOLS,
+    ToolPermission,
+    ToolRegistry,
+)
 
 REMOTE_SETTINGS_SCHEMA = {
     "name": "update_app_settings",
@@ -326,6 +331,45 @@ def register_app_tools(
         candles = db().load_candles(market, timeframe, limit=2000)
         return compute_decision_metrics(market, timeframe, candles)
 
+    def get_market_regime(symbol: str, timeframe: str = "5m") -> dict[str, Any]:
+        from neezy_backend.regime import market_regime
+
+        market = _check_market(symbol)
+        if timeframe not in TIMEFRAMES:
+            raise ValueError(f"timeframe must be one of: {', '.join(TIMEFRAMES)}")
+        candles = db().load_candles(market, timeframe, limit=2000)
+        return {"symbol": market, "timeframe": timeframe, **market_regime(candles)}
+
+    def get_correlation_snapshot(
+        symbols: str = "", timeframe: str = "5m", window: int = 100
+    ) -> dict[str, Any]:
+        from neezy_backend.analytics import correlation_snapshot
+
+        if timeframe not in TIMEFRAMES:
+            raise ValueError(f"timeframe must be one of: {', '.join(TIMEFRAMES)}")
+        names = [item.strip() for item in symbols.split(",") if item.strip()]
+        names = [_check_market(name) for name in (names or CORRELATION_DEFAULTS)]
+        names = list(dict.fromkeys(names))
+        if len(names) < 2 or len(names) > CORRELATION_MAX_SYMBOLS:
+            raise ValueError(f"choose 2 to {CORRELATION_MAX_SYMBOLS} distinct markets")
+        span = _bounded(window, 10, 500)
+        series: dict[str, dict[int, float]] = {}
+        for name in names:
+            rows = db().load_candles(name, timeframe, limit=2000)
+            series[name] = {int(row[0]): float(row[4]) for row in rows}
+        shared = sorted(set.intersection(*(set(s) for s in series.values())))
+        # The newest shared bar may still be forming; drop it.
+        closed = shared[:-1][-(span + 1) :]
+        if len(closed) < 11:
+            raise ValueError(
+                "need at least 11 shared closed candles; sync more history first"
+            )
+        closes = {name: [series[name][ts] for ts in closed] for name in names}
+        result = correlation_snapshot(closes, window=len(closed) - 1)
+        result["timeframe"] = timeframe
+        result["observations"] = len(closed) - 1
+        return result
+
     def get_brain_status(symbol: str, timeframe: str = "5m") -> dict[str, Any]:
         market = _check_market(symbol)
         if timeframe not in TIMEFRAMES:
@@ -536,6 +580,16 @@ def register_app_tools(
         "Send a direct message notification to a webhook.",
         send_dm_message,
         ToolPermission.WRITE,
+    )
+    registry.register(
+        "get_market_regime",
+        "Trend, range, or squeeze regime and volatility from stored candles.",
+        get_market_regime,
+    )
+    registry.register(
+        "get_correlation_snapshot",
+        "Strongest return correlations among stored markets (2 to 8 symbols).",
+        get_correlation_snapshot,
     )
     registry.register(
         "get_decision_metrics",

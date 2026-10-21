@@ -214,6 +214,16 @@ def _mt5_label(bridge: Any) -> str:
     return " [SIMULATED - bridge in mock mode]" if bridge.mock else ""
 
 
+CORRELATION_DEFAULTS: tuple[str, ...] = (
+    "frxEURUSD",
+    "frxGBPUSD",
+    "frxUSDJPY",
+    "frxAUDUSD",
+    "frxUSDCHF",
+)
+CORRELATION_MAX_SYMBOLS = 8
+
+
 def register_default_tools(registry: ToolRegistry = DEFAULT_REGISTRY) -> None:
     """Populate default registry with core NEEZY capabilities."""
     from neezy_backend.database import LocalDatabase
@@ -263,6 +273,65 @@ def register_default_tools(registry: ToolRegistry = DEFAULT_REGISTRY) -> None:
             f"- {signal.summary}"
             for signal in signals
         )
+        return "\n".join(lines)
+
+    def tool_market_regime(symbol: str = "frxEURUSD", timeframe: str = "15m") -> str:
+        from neezy_backend.regime import market_regime
+
+        if symbol not in SYMBOLS:
+            raise ValueError(
+                f"Unknown market {symbol!r}; choose from {', '.join(SYMBOLS)}"
+            )
+        candles = fetch_candles(symbol, granularity(timeframe), 300)
+        result = market_regime(candles)
+        return (
+            f"Market: {symbol} ({timeframe})\n"
+            f"Regime: {result['regime']} | volatility: {result['volatility']}\n"
+            f"{result['summary']}"
+        )
+
+    def tool_correlation_snapshot(
+        symbols: str = "",
+        timeframe: str = "15m",
+        window: int = 100,
+    ) -> str:
+        from neezy_backend.analytics import correlation_snapshot
+
+        names = [item.strip() for item in symbols.split(",") if item.strip()]
+        names = names or list(CORRELATION_DEFAULTS)
+        if len(names) > CORRELATION_MAX_SYMBOLS:
+            raise ValueError(f"at most {CORRELATION_MAX_SYMBOLS} markets per snapshot")
+        for name in names:
+            if name not in SYMBOLS:
+                raise ValueError(
+                    f"Unknown market {name!r}; choose from {', '.join(SYMBOLS)}"
+                )
+        if len(set(names)) < 2:
+            raise ValueError("name at least two distinct markets")
+        span = _bounded(window, 10, 500)
+        seconds = granularity(timeframe)
+        closes: dict[str, list[float]] = {}
+        unavailable: list[str] = []
+        for name in names:
+            try:
+                rows = fetch_candles(name, seconds, span + 2)
+            except (OSError, RuntimeError, ValueError):
+                unavailable.append(name)
+                continue
+            # The newest candle may still be forming; use closed bars only.
+            closes[name] = [row[4] for row in rows[:-1]]
+        if len(closes) < 2:
+            raise ValueError("fewer than two markets returned candles")
+        result = correlation_snapshot(closes, window=span, limit=5)
+        lines = [f"Correlation ({timeframe}, {span} bars of log returns)"]
+        lines.extend(
+            f"- {pair['first']} / {pair['second']}: {pair['correlation']:+.3f}"
+            for pair in result["strongest"]
+        )
+        if not result["strongest"]:
+            lines.append("No pair had enough returns to correlate.")
+        if unavailable:
+            lines.append(f"Unavailable: {', '.join(unavailable)}")
         return "\n".join(lines)
 
     def tool_plan_risk(
@@ -442,6 +511,18 @@ def register_default_tools(registry: ToolRegistry = DEFAULT_REGISTRY) -> None:
         "scan_strategies",
         "Run every single-market strategy on fresh candles and return the consensus.",
         tool_scan_strategies,
+        permission=ToolPermission.READ_ONLY,
+    )
+    registry.register(
+        "market_regime",
+        "Classify a market as trend up/down, range, or squeeze (read-only).",
+        tool_market_regime,
+        permission=ToolPermission.READ_ONLY,
+    )
+    registry.register(
+        "correlation_snapshot",
+        "Return the strongest return correlations among up to 8 markets (read-only).",
+        tool_correlation_snapshot,
         permission=ToolPermission.READ_ONLY,
     )
     registry.register(
