@@ -246,6 +246,35 @@ def register_app_tools(
         result.pop("path")
         return result
 
+    def mt5_status() -> dict[str, Any]:
+        from neezy_backend.mt5_bridge import get_global_mt5_bridge
+
+        return get_global_mt5_bridge().get_status()
+
+    def mt5_account_info() -> dict[str, Any]:
+        from neezy_backend.mt5_bridge import get_global_mt5_bridge
+
+        return get_global_mt5_bridge().get_account_info()
+
+    def mt5_get_quote(symbol: str) -> dict[str, Any]:
+        from neezy_backend.mt5_bridge import get_global_mt5_bridge
+
+        return get_global_mt5_bridge().get_quote(_check_market(symbol))
+
+    def send_dm_message(webhook_url: str, title: str, message: str) -> dict[str, Any]:
+        from neezy_backend.dm import send_dm_notification
+
+        return send_dm_notification(webhook_url, title, message)
+
+    def get_decision_metrics(symbol: str, timeframe: str = "5m") -> dict[str, Any]:
+        from neezy_backend.dm import compute_decision_metrics
+
+        market = _check_market(symbol)
+        if timeframe not in TIMEFRAMES:
+            raise ValueError(f"timeframe must be one of: {', '.join(TIMEFRAMES)}")
+        candles = db().load_candles(market, timeframe, limit=2000)
+        return compute_decision_metrics(market, timeframe, candles)
+
     def get_brain_status(symbol: str, timeframe: str = "5m") -> dict[str, Any]:
         market = _check_market(symbol)
         if timeframe not in TIMEFRAMES:
@@ -420,6 +449,32 @@ def register_app_tools(
         "research_forex_pair",
         "Simulate a saved FX pair with lagged signals and costs.",
         research_forex_pair,
+    )
+    registry.register(
+        "mt5_status",
+        "Check MetaTrader 5 bridge connection and terminal status.",
+        mt5_status,
+    )
+    registry.register(
+        "mt5_account_info",
+        "Read MetaTrader 5 account info.",
+        mt5_account_info,
+    )
+    registry.register(
+        "mt5_get_quote",
+        "Get live tick quote from MetaTrader 5 bridge.",
+        mt5_get_quote,
+    )
+    registry.register(
+        "send_dm_message",
+        "Send a direct message notification to a webhook.",
+        send_dm_message,
+        ToolPermission.WRITE,
+    )
+    registry.register(
+        "get_decision_metrics",
+        "Compute comprehensive trade decision metrics and strategy matrix.",
+        get_decision_metrics,
     )
     return registry
 

@@ -1390,6 +1390,109 @@ def cmd_local_model(args, fetch, out) -> int:
     raise ValueError(f"unknown local-model action {args.action!r}")
 
 
+def cmd_mt5(args, fetch, out) -> int:
+    """Interact with local MetaTrader 5 terminal bridge."""
+    del fetch
+    from .mt5_bridge import get_global_mt5_bridge, is_mt5_available
+
+    bridge = get_global_mt5_bridge()
+    if args.action == "status":
+        status = bridge.get_status()
+        if args.json:
+            _emit(out, status)
+        else:
+            out.write(f"MT5 Available: {is_mt5_available()}\nMT5 Status: {status}\n")
+        return 0
+    if args.action == "account":
+        bridge.connect()
+        acc = bridge.get_account_info()
+        if args.json:
+            _emit(out, acc)
+        else:
+            out.write(f"MT5 Account Info: {acc}\n")
+        return 0
+    if args.action == "quote":
+        bridge.connect()
+        quote = bridge.get_quote(args.symbol)
+        if args.json:
+            _emit(out, quote)
+        else:
+            out.write(f"MT5 Quote ({args.symbol}): {quote}\n")
+        return 0
+    if args.action == "candles":
+        bridge.connect()
+        candles = bridge.fetch_candles(
+            args.symbol, timeframe=args.timeframe, count=args.count
+        )
+        if args.json:
+            _emit(
+                out, {"symbol": args.symbol, "count": len(candles), "candles": candles}
+            )
+        else:
+            out.write(f"MT5 Candles ({args.symbol}): fetched {len(candles)} candles\n")
+        return 0
+    if args.action == "order":
+        bridge.connect()
+        res = bridge.place_order(
+            args.symbol,
+            order_type=args.type,
+            volume=args.volume,
+            price=args.price,
+            sl=args.sl,
+            tp=args.tp,
+            comment=args.comment,
+        )
+        if args.json:
+            _emit(out, res)
+        else:
+            out.write(f"MT5 Order Result: {res}\n")
+        return 0
+    raise ValueError(f"unknown mt5 action {args.action!r}")
+
+
+def cmd_dm(args, fetch, out) -> int:
+    """Send direct message webhook notifications."""
+    del fetch
+    from .dm import send_dm_notification
+
+    if args.action == "send":
+        res = send_dm_notification(args.url, args.title, args.message, level=args.level)
+        if args.json:
+            _emit(out, res)
+        else:
+            out.write(f"DM Send Result: {res}\n")
+        return 0
+    raise ValueError(f"unknown dm action {args.action!r}")
+
+
+def cmd_decision_metrics(args, fetch, out) -> int:
+    """Compute trade decision metrics and strategy matrix for a symbol."""
+    symbol = _symbol(args.symbol)
+    candles = fetch(symbol, granularity(args.timeframe), args.count)
+    from .dm import compute_decision_metrics
+
+    metrics = compute_decision_metrics(
+        symbol,
+        args.timeframe,
+        candles,
+        balance=args.balance,
+        risk_percent=args.risk,
+    )
+    if args.json:
+        _emit(out, metrics)
+    else:
+        out.write(
+            f"Decision Metrics for {symbol} ({args.timeframe}):\n"
+            f"  Verdict: {metrics['decision']} ({metrics['confidence']}% confidence)\n"
+            f"  Consensus: {metrics['consensus_direction']} "
+            f"(Votes: {metrics['strategy_votes']})\n"
+            f"  RSI: {metrics['rsi']} | ADX: {metrics['adx']} | "
+            f"ATR: {metrics['atr']}\n"
+            f"  Reasons: {', '.join(metrics['reasons'])}\n"
+        )
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="neezy-cli",
@@ -1734,6 +1837,52 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--cpu-memory-mb", type=int, default=512)
     a.add_argument("--temperature", type=float, default=0.3)
     a.add_argument("--json", action="store_true")
+
+    p = sub.add_parser("mt5", help="MetaTrader 5 local terminal bridge tools")
+    p.set_defaults(handler=cmd_mt5)
+    mt5_actions = p.add_subparsers(dest="action", required=True)
+    a = mt5_actions.add_parser("status", help="check MT5 bridge status")
+    a.add_argument("--json", action="store_true")
+    a = mt5_actions.add_parser("account", help="query MT5 account info")
+    a.add_argument("--json", action="store_true")
+    a = mt5_actions.add_parser("quote", help="get MT5 tick quote")
+    a.add_argument("symbol", help="market symbol e.g. frxEURUSD")
+    a.add_argument("--json", action="store_true")
+    a = mt5_actions.add_parser("candles", help="fetch MT5 historical candles")
+    a.add_argument("symbol", help="market symbol e.g. frxEURUSD")
+    a.add_argument("-t", "--timeframe", choices=TIMEFRAMES, default="5m")
+    a.add_argument("-n", "--count", type=int, default=100)
+    a.add_argument("--json", action="store_true")
+    a = mt5_actions.add_parser("order", help="place order via MT5 bridge")
+    a.add_argument("symbol", help="market symbol e.g. frxEURUSD")
+    a.add_argument("--type", choices=["BUY", "SELL"], required=True)
+    a.add_argument("--volume", type=float, required=True)
+    a.add_argument("--price", type=float, default=0.0)
+    a.add_argument("--sl", type=float, default=0.0)
+    a.add_argument("--tp", type=float, default=0.0)
+    a.add_argument("--comment", default="NEEZY Trade")
+    a.add_argument("--json", action="store_true")
+
+    p = sub.add_parser("dm", help="direct message webhook notifications")
+    p.set_defaults(handler=cmd_dm)
+    dm_actions = p.add_subparsers(dest="action", required=True)
+    a = dm_actions.add_parser("send", help="send webhook direct message")
+    a.add_argument("url", help="webhook URL")
+    a.add_argument("title", help="notification title")
+    a.add_argument("message", help="notification body")
+    a.add_argument("--level", choices=["info", "warning", "error"], default="info")
+    a.add_argument("--json", action="store_true")
+
+    p = common(
+        sub.add_parser(
+            "decision-metrics", help="trade decision matrix and risk evaluation"
+        ),
+        count=300,
+    )
+    p.set_defaults(handler=cmd_decision_metrics)
+    p.add_argument("symbol", help="market symbol e.g. frxEURUSD")
+    p.add_argument("--balance", type=float, default=10000.0)
+    p.add_argument("--risk", type=float, default=1.0)
 
     return parser
 

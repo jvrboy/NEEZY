@@ -1,0 +1,520 @@
+"""MetaTrader 5 terminal bridge for local PC market integration and trade routing."""
+
+from __future__ import annotations
+
+import json
+import logging
+import time
+from typing import Any
+
+try:
+    import MetaTrader5 as mt5
+except ImportError:
+    mt5 = None
+
+logger = logging.getLogger(__name__)
+
+# MT5 Timeframe Mapping
+MT5_TIMEFRAMES: dict[str, Any] = {}
+if mt5 is not None:
+    MT5_TIMEFRAMES = {
+        "1m": mt5.TIMEFRAME_M1,
+        "2m": mt5.TIMEFRAME_M2,
+        "3m": mt5.TIMEFRAME_M3,
+        "5m": mt5.TIMEFRAME_M5,
+        "10m": mt5.TIMEFRAME_M10,
+        "15m": mt5.TIMEFRAME_M15,
+        "30m": mt5.TIMEFRAME_M30,
+        "1h": mt5.TIMEFRAME_H1,
+        "4h": mt5.TIMEFRAME_H4,
+        "1d": mt5.TIMEFRAME_D1,
+    }
+
+
+def is_mt5_available() -> bool:
+    """Return True if the MetaTrader5 Python package is installed."""
+    return mt5 is not None
+
+
+class MT5Bridge:
+    """Bridge for communicating with a local MetaTrader 5 terminal."""
+
+    def __init__(
+        self,
+        login: int = 0,
+        password: str = "",
+        server: str = "",
+        path: str = "",
+        magic: int = 123456,
+        symbol_map: str = "",
+        mock: bool = False,
+    ) -> None:
+        self.login = login
+        self.password = password
+        self.server = server
+        self.path = path
+        self.magic = magic
+        self.symbol_map_str = symbol_map
+        self.mock = mock or (mt5 is None)
+        self.connected = False
+        self._mappings = self._parse_symbol_map(symbol_map)
+
+    def _parse_symbol_map(self, map_str: str) -> dict[str, str]:
+        """Parse comma-separated 'DERIV=MT5' pairs or JSON string."""
+        mapping: dict[str, str] = {}
+        if not map_str.strip():
+            return mapping
+        try:
+            if map_str.strip().startswith("{"):
+                loaded = json.loads(map_str)
+                if isinstance(loaded, dict):
+                    return {str(k).strip(): str(v).strip() for k, v in loaded.items()}
+        except Exception:  # noqa: BLE001
+            pass
+
+        for part in map_str.split(","):
+            if "=" in part:
+                k, v = part.split("=", 1)
+                if k.strip() and v.strip():
+                    mapping[k.strip()] = v.strip()
+        return mapping
+
+    def map_symbol(self, symbol: str) -> str:
+        """Translate a canonical symbol to the local MT5 symbol name."""
+        cleaned = symbol.strip()
+        if cleaned in self._mappings:
+            return self._mappings[cleaned]
+        # Remove Deriv prefix if needed e.g. frxEURUSD -> EURUSD
+        if cleaned.startswith("frx"):
+            raw = cleaned[3:]
+            if raw in self._mappings:
+                return self._mappings[raw]
+            return raw
+        return cleaned
+
+    def initialize(self) -> dict[str, Any]:
+        return self.connect()
+
+    def connect(self) -> dict[str, Any]:
+        """Connect to local MetaTrader 5 terminal."""
+        if self.mock:
+            self.connected = True
+            return {
+                "success": True,
+                "connected": True,
+                "mock": True,
+                "message": "Connected to MT5 Bridge (Mock / Simulated mode)",
+                "account": self.login or 1000001,
+            }
+
+        kwargs: dict[str, Any] = {}
+        if self.path.strip():
+            kwargs["path"] = self.path.strip()
+        if self.login > 0:
+            kwargs["login"] = self.login
+        if self.password.strip():
+            kwargs["password"] = self.password.strip()
+        if self.server.strip():
+            kwargs["server"] = self.server.strip()
+
+        try:
+            init_ok = mt5.initialize(**kwargs) if kwargs else mt5.initialize()
+            if not init_ok:
+                err = mt5.last_error()
+                self.connected = False
+                return {
+                    "success": False,
+                    "connected": False,
+                    "mock": False,
+                    "error": f"MT5 initialize failed: {err}",
+                }
+            self.connected = True
+            acc_info = mt5.account_info()
+            acc_dict = acc_info._asdict() if acc_info else {}
+            return {
+                "success": True,
+                "connected": True,
+                "mock": False,
+                "message": "Connected to MetaTrader 5 terminal",
+                "account": acc_dict.get("login", self.login),
+                "server": acc_dict.get("server", self.server),
+                "balance": acc_dict.get("balance", 0.0),
+                "equity": acc_dict.get("equity", 0.0),
+            }
+        except Exception as ex:  # noqa: BLE001
+            self.connected = False
+            return {
+                "success": False,
+                "connected": False,
+                "mock": False,
+                "error": f"Connection error: {ex}",
+            }
+
+    def disconnect(self) -> None:
+        """Shutdown connection to MT5 terminal."""
+        if not self.mock and mt5 is not None:
+            try:
+                mt5.shutdown()
+            except Exception:  # noqa: BLE001
+                pass
+        self.connected = False
+
+    def get_status(self) -> dict[str, Any]:
+        """Return status of MT5 connection and terminal info."""
+        if self.mock:
+            return {
+                "available": is_mt5_available(),
+                "connected": self.connected,
+                "mock": True,
+                "login": self.login or 1000001,
+                "server": self.server or "Simulated-Server",
+            }
+        if not self.connected:
+            return {
+                "available": True,
+                "connected": False,
+                "mock": False,
+                "login": self.login,
+                "server": self.server,
+            }
+        try:
+            terminal = mt5.terminal_info()
+            term_dict = terminal._asdict() if terminal else {}
+            return {
+                "available": True,
+                "connected": True,
+                "mock": False,
+                "login": self.login,
+                "server": self.server,
+                "terminal_name": term_dict.get("name", "MetaTrader 5"),
+                "company": term_dict.get("company", ""),
+                "connected_to_trade_server": term_dict.get("connected", True),
+            }
+        except Exception as ex:  # noqa: BLE001
+            return {
+                "available": True,
+                "connected": False,
+                "mock": False,
+                "error": str(ex),
+            }
+
+    def get_account_info(self) -> dict[str, Any]:
+        """Query active MT5 account information."""
+        if self.mock or not self.connected:
+            return {
+                "login": self.login or 1000001,
+                "trade_mode": "DEMO",
+                "leveraged": 100,
+                "balance": 10000.00,
+                "equity": 10000.00,
+                "margin": 0.00,
+                "free_margin": 10000.00,
+                "currency": "USD",
+                "server": self.server or "Simulated-Server",
+                "mock": self.mock,
+            }
+
+        acc = mt5.account_info()
+        if acc is None:
+            return {"error": "Failed to retrieve account info", "mock": False}
+        info = acc._asdict()
+        return {
+            "login": info.get("login"),
+            "trade_mode": info.get("trade_mode"),
+            "leverage": info.get("leverage"),
+            "balance": info.get("balance"),
+            "equity": info.get("equity"),
+            "margin": info.get("margin"),
+            "free_margin": info.get("margin_free"),
+            "currency": info.get("currency"),
+            "server": info.get("server"),
+            "mock": False,
+        }
+
+    def get_quote(self, symbol: str) -> dict[str, Any]:
+        """Fetch real-time tick quote for a given symbol."""
+        mt5_sym = self.map_symbol(symbol)
+        if self.mock or not self.connected:
+            now = time.time()
+            return {
+                "symbol": symbol,
+                "mt5_symbol": mt5_sym,
+                "bid": 1.0850,
+                "ask": 1.0852,
+                "last": 1.0851,
+                "volume": 100,
+                "time": int(now),
+                "mock": True,
+            }
+
+        tick = mt5.symbol_info_tick(mt5_sym)
+        if tick is None:
+            return {
+                "symbol": symbol,
+                "mt5_symbol": mt5_sym,
+                "error": f"Symbol {mt5_sym} not found or no quote available",
+            }
+        tdict = tick._asdict()
+        return {
+            "symbol": symbol,
+            "mt5_symbol": mt5_sym,
+            "bid": tdict.get("bid"),
+            "ask": tdict.get("ask"),
+            "last": tdict.get("last"),
+            "volume": tdict.get("volume"),
+            "time": tdict.get("time"),
+            "mock": False,
+        }
+
+    def fetch_candles(
+        self, symbol: str, timeframe: str = "5m", count: int = 100
+    ) -> list[dict[str, Any]]:
+        """Fetch historical candle rates from MT5 terminal."""
+        mt5_sym = self.map_symbol(symbol)
+        if self.mock or not self.connected:
+            now = int(time.time())
+            step = 300 if timeframe == "5m" else 60
+            candles = []
+            base = 1.0800
+            for i in range(count):
+                ts = now - (count - i) * step
+                candles.append(
+                    {
+                        "time": ts,
+                        "open": round(base + (i * 0.0001), 5),
+                        "high": round(base + (i * 0.0001) + 0.0005, 5),
+                        "low": round(base + (i * 0.0001) - 0.0005, 5),
+                        "close": round(base + (i * 0.0001) + 0.0002, 5),
+                        "tick_volume": 100 + i,
+                    }
+                )
+            return candles
+
+        tf_const = MT5_TIMEFRAMES.get(timeframe, mt5.TIMEFRAME_M5)
+        rates = mt5.copy_rates_from_pos(mt5_sym, tf_const, 0, count)
+        if rates is None or len(rates) == 0:
+            return []
+
+        result = []
+        for r in rates:
+            result.append(
+                {
+                    "time": int(r["time"]),
+                    "open": float(r["open"]),
+                    "high": float(r["high"]),
+                    "low": float(r["low"]),
+                    "close": float(r["close"]),
+                    "tick_volume": int(r["tick_volume"]),
+                }
+            )
+        return result
+
+    def get_positions(self) -> list[dict[str, Any]]:
+        """Query open trading positions."""
+        if self.mock or not self.connected:
+            return [
+                {
+                    "ticket": 987654321,
+                    "symbol": "EURUSD",
+                    "type": "BUY",
+                    "volume": 0.1,
+                    "price_open": 1.0820,
+                    "sl": 1.0790,
+                    "tp": 1.0880,
+                    "profit": 30.00,
+                    "magic": self.magic,
+                    "comment": "NEEZY mock position",
+                }
+            ]
+
+        positions = mt5.positions_get()
+        if positions is None:
+            return []
+
+        res = []
+        for p in positions:
+            pdict = p._asdict()
+            res.append(
+                {
+                    "ticket": pdict.get("ticket"),
+                    "symbol": pdict.get("symbol"),
+                    "type": "BUY" if pdict.get("type") == 0 else "SELL",
+                    "volume": pdict.get("volume"),
+                    "price_open": pdict.get("price_open"),
+                    "sl": pdict.get("sl"),
+                    "tp": pdict.get("tp"),
+                    "profit": pdict.get("profit"),
+                    "magic": pdict.get("magic"),
+                    "comment": pdict.get("comment"),
+                }
+            )
+        return res
+
+    def place_order(
+        self,
+        symbol: str,
+        order_type: str,
+        volume: float,
+        price: float = 0.0,
+        sl: float = 0.0,
+        tp: float = 0.0,
+        comment: str = "NEEZY Trade",
+    ) -> dict[str, Any]:
+        """Place or send an order to MT5 terminal."""
+        mt5_sym = self.map_symbol(symbol)
+        order_type_clean = order_type.strip().upper()
+
+        if self.mock or not self.connected:
+            ticket = int(time.time() * 1000) % 1000000000
+            fill_price = (
+                price
+                if price > 0
+                else (1.0850 if order_type_clean == "BUY" else 1.0848)
+            )
+            return {
+                "success": True,
+                "ticket": ticket,
+                "symbol": symbol,
+                "mt5_symbol": mt5_sym,
+                "order_type": order_type_clean,
+                "volume": volume,
+                "price": fill_price,
+                "sl": sl,
+                "tp": tp,
+                "magic": self.magic,
+                "comment": comment,
+                "mock": True,
+                "message": "Order placed successfully (Mock)",
+            }
+
+        mt5_type = (
+            mt5.ORDER_TYPE_BUY if order_type_clean == "BUY" else mt5.ORDER_TYPE_SELL
+        )
+        if price <= 0:
+            tick = mt5.symbol_info_tick(mt5_sym)
+            if tick is None:
+                return {
+                    "success": False,
+                    "error": f"Failed to get price tick for {mt5_sym}",
+                }
+            price = tick.ask if order_type_clean == "BUY" else tick.bid
+
+        request = {
+            "action": mt5.TRADE_ACTION_DEAL,
+            "symbol": mt5_sym,
+            "volume": float(volume),
+            "type": mt5_type,
+            "price": float(price),
+            "sl": float(sl),
+            "tp": float(tp),
+            "magic": int(self.magic),
+            "comment": comment,
+            "type_time": mt5.ORDER_TIME_GTC,
+            "type_filling": mt5.ORDER_FILLING_IOC,
+        }
+
+        result = mt5.order_send(request)
+        if result is None:
+            return {"success": False, "error": "Order send returned None"}
+        rdict = result._asdict()
+        if rdict.get("retcode") != mt5.TRADE_RETCODE_DONE:
+            return {
+                "success": False,
+                "error": (
+                    f"Order failed with retcode {rdict.get('retcode')}: "
+                    f"{rdict.get('comment')}"
+                ),
+            }
+        return {
+            "success": True,
+            "ticket": rdict.get("order"),
+            "symbol": symbol,
+            "mt5_symbol": mt5_sym,
+            "order_type": order_type_clean,
+            "volume": volume,
+            "price": rdict.get("price"),
+            "sl": sl,
+            "tp": tp,
+            "magic": self.magic,
+            "comment": comment,
+            "mock": False,
+            "message": "Order placed successfully",
+        }
+
+    def close_position(self, ticket: int) -> dict[str, Any]:
+        """Close an open position by ticket number."""
+        if self.mock or not self.connected:
+            return {
+                "success": True,
+                "ticket": ticket,
+                "message": f"Position #{ticket} closed successfully (Mock)",
+                "mock": True,
+            }
+
+        positions = mt5.positions_get(ticket=ticket)
+        if not positions:
+            return {"success": False, "error": f"Position #{ticket} not found"}
+        p = positions[0]._asdict()
+
+        mt5_type = mt5.ORDER_TYPE_SELL if p.get("type") == 0 else mt5.ORDER_TYPE_BUY
+        symbol = p.get("symbol")
+        tick = mt5.symbol_info_tick(symbol)
+        price = tick.bid if p.get("type") == 0 else tick.ask
+
+        request = {
+            "action": mt5.TRADE_ACTION_DEAL,
+            "position": ticket,
+            "symbol": symbol,
+            "volume": p.get("volume"),
+            "type": mt5_type,
+            "price": price,
+            "magic": self.magic,
+            "comment": "NEEZY Close",
+            "type_time": mt5.ORDER_TIME_GTC,
+            "type_filling": mt5.ORDER_FILLING_IOC,
+        }
+
+        result = mt5.order_send(request)
+        if result is None:
+            return {"success": False, "error": "Order send returned None"}
+        rdict = result._asdict()
+        if rdict.get("retcode") != mt5.TRADE_RETCODE_DONE:
+            return {
+                "success": False,
+                "error": (
+                    f"Close failed with retcode {rdict.get('retcode')}: "
+                    f"{rdict.get('comment')}"
+                ),
+            }
+        return {
+            "success": True,
+            "ticket": ticket,
+            "message": f"Position #{ticket} closed successfully",
+            "mock": False,
+        }
+
+
+# Global active MT5 bridge instance
+_GLOBAL_BRIDGE: MT5Bridge | None = None
+
+
+def get_global_mt5_bridge(
+    login: int = 0,
+    password: str = "",
+    server: str = "",
+    path: str = "",
+    magic: int = 123456,
+    symbol_map: str = "",
+) -> MT5Bridge:
+    """Get or instantiate the global MT5Bridge object."""
+    global _GLOBAL_BRIDGE
+    if _GLOBAL_BRIDGE is None:
+        _GLOBAL_BRIDGE = MT5Bridge(
+            login=login,
+            password=password,
+            server=server,
+            path=path,
+            magic=magic,
+            symbol_map=symbol_map,
+        )
+    return _GLOBAL_BRIDGE

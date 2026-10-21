@@ -291,6 +291,50 @@ def register_default_tools(registry: ToolRegistry = DEFAULT_REGISTRY) -> None:
             for row in rows
         )
 
+    def tool_mt5_status() -> str:
+        from neezy_backend.mt5_bridge import get_global_mt5_bridge
+
+        bridge = get_global_mt5_bridge()
+        status = bridge.get_status()
+        return f"MT5 Bridge Status: {status}"
+
+    def tool_mt5_account() -> str:
+        from neezy_backend.mt5_bridge import get_global_mt5_bridge
+
+        bridge = get_global_mt5_bridge()
+        acc = bridge.get_account_info()
+        return f"MT5 Account Info: {acc}"
+
+    def tool_mt5_quote(symbol: str = "frxEURUSD") -> str:
+        from neezy_backend.mt5_bridge import get_global_mt5_bridge
+
+        bridge = get_global_mt5_bridge()
+        quote = bridge.get_quote(symbol)
+        return f"MT5 Quote ({symbol}): {quote}"
+
+    def tool_send_dm(webhook_url: str, title: str, message: str) -> str:
+        from neezy_backend.dm import send_dm_notification
+
+        res = send_dm_notification(webhook_url, title, message)
+        return f"DM Result: {res}"
+
+    def tool_get_decision_metrics(
+        symbol: str = "frxEURUSD", timeframe: str = "15m"
+    ) -> str:
+        from neezy_backend.dm import compute_decision_metrics
+
+        if symbol not in SYMBOLS:
+            raise ValueError(
+                f"Unknown market {symbol!r}; choose from {', '.join(SYMBOLS)}"
+            )
+        candles = fetch_candles(symbol, granularity(timeframe), 200)
+        metrics = compute_decision_metrics(symbol, timeframe, candles)
+        return (
+            f"Decision: {metrics['decision']} ({metrics['confidence']}%) | "
+            f"Votes: {metrics['strategy_votes']} | ADX: {metrics['adx']} | "
+            f"RSI: {metrics['rsi']} | ATR: {metrics['atr']}"
+        )
+
     registry.register(
         "read_market",
         "Fetch indicator snapshot, Supertrend, divergence, and strategy consensus.",
@@ -337,6 +381,36 @@ def register_default_tools(registry: ToolRegistry = DEFAULT_REGISTRY) -> None:
         "recent_signals",
         "List the most recently saved signals, optionally for one market.",
         tool_recent_signals,
+        permission=ToolPermission.READ_ONLY,
+    )
+    registry.register(
+        "mt5_status",
+        "Check MetaTrader 5 bridge connection and terminal status.",
+        tool_mt5_status,
+        permission=ToolPermission.READ_ONLY,
+    )
+    registry.register(
+        "mt5_account",
+        "Query MetaTrader 5 account balance, equity, and margin.",
+        tool_mt5_account,
+        permission=ToolPermission.READ_ONLY,
+    )
+    registry.register(
+        "mt5_quote",
+        "Get live tick quote for a symbol from MetaTrader 5.",
+        tool_mt5_quote,
+        permission=ToolPermission.READ_ONLY,
+    )
+    registry.register(
+        "send_dm",
+        "Send a direct message webhook notification.",
+        tool_send_dm,
+        permission=ToolPermission.WRITE,
+    )
+    registry.register(
+        "decision_metrics",
+        "Compute comprehensive trade decision metrics and strategy matrix.",
+        tool_get_decision_metrics,
         permission=ToolPermission.READ_ONLY,
     )
 

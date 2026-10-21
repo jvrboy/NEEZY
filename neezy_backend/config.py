@@ -147,6 +147,25 @@ class AppSettings:
     telegram_alerts_enabled: bool = True
     telegram_allow_commands: bool = False
 
+    # MetaTrader 5 Bridge
+    mt5_enabled: bool = False
+    mt5_server: str = ""
+    mt5_login: int = 0
+    mt5_password: str = ""
+    mt5_path: str = ""
+    mt5_magic: int = 123456
+    mt5_symbol_map: str = ""
+    mt5_auto_sync: bool = False
+
+    # Direct Messaging & Risk
+    dm_enabled: bool = False
+    dm_webhook_url: str = ""
+    dm_min_score: int = 3
+    dm_notify_signals: bool = True
+    dm_notify_alerts: bool = True
+    default_risk_percent: float = 1.0
+    max_drawdown_limit: float = 10.0
+
     def __post_init__(self) -> None:
         for field_name, low, high in (
             ("ml_history_candles", 400, 50000),
@@ -158,10 +177,15 @@ class AppSettings:
             ("pair_min_overlap", 100, 20000),
             ("pair_max_holding", 1, 2000),
             ("insights_max_rows", 5, 200),
+            ("mt5_login", 0, 2147483647),
+            ("mt5_magic", 1, 2147483647),
+            ("dm_min_score", 1, 4),
         ):
             _require_int(field_name, getattr(self, field_name), low, high)
         for field_name, low, high in (
             ("ml_deadband_atr", 0.0, 5.0),
+            ("default_risk_percent", 0.1, 100.0),
+            ("max_drawdown_limit", 0.1, 100.0),
             ("ml_probability", 0.51, 0.99),
             ("ml_fetch_timeout", 2.0, 120.0),
             ("pair_entry_z", 0.5, 6.0),
@@ -230,6 +254,11 @@ class AppSettings:
             "telegram_enabled",
             "telegram_alerts_enabled",
             "telegram_allow_commands",
+            "mt5_enabled",
+            "mt5_auto_sync",
+            "dm_enabled",
+            "dm_notify_signals",
+            "dm_notify_alerts",
         ):
             _require_bool(field_name, getattr(self, field_name))
         if self.strategy not in STRATEGIES:
@@ -284,6 +313,11 @@ class AppSettings:
             "ai_model",
             "ai_base_url",
             "ai_system_prompt",
+            "mt5_server",
+            "mt5_password",
+            "mt5_path",
+            "mt5_symbol_map",
+            "dm_webhook_url",
         ):
             if not isinstance(getattr(self, field_name), str):
                 raise TypeError(f"{field_name} must be a string")
