@@ -9,12 +9,13 @@ to `main` so progress survives if the run is interrupted.
 
 | Item | Value |
 |------|-------|
-| Phase | 3 (roadmap) — Phase 2 complete |
-| Current batch | Phase 2 push complete; next: author ROADMAP.md |
-| Updates completed | 0/500 (ROADMAP.md being authored) |
+| Phase | 4 (batched implementation) |
+| Current batch | Batch 1 (updates 1-25) — starting |
+| Updates completed | 0/500 (ROADMAP.md committed) |
 | Updates remaining | 500 |
 | Run started | 2026-10-22 (SAST) |
 | Baseline at run start | commit `9a17b52`, v1.6.0 |
+| CI on main | GREEN (Python CI + Release builds on 11f6368) |
 
 ## Verified state after Phase 2
 
