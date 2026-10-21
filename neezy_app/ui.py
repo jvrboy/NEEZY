@@ -43,9 +43,9 @@ from neezy_backend.config import AppSettings
 from neezy_backend.context import chat_messages, format_context, market_snapshot
 from neezy_backend.database import LocalDatabase
 from neezy_backend.datasets import model_weights
-from neezy_backend.insights import knowledge_brief
 from neezy_backend.events import EventBus
 from neezy_backend.indicators import analyze, ema
+from neezy_backend.insights import knowledge_brief
 from neezy_backend.knowledge import load_knowledge
 from neezy_backend.local_llm import (
     LocalModelError,
@@ -593,18 +593,16 @@ class App(tk.Tk):
             self.MUTED,
         ).pack(side="left", padx=12)
         self.insights_output = self._output(p, height=16)
-        self._action_button(
-            p, "REFRESH INSIGHTS", lambda: self._refresh_insights()
-        )
+        self._action_button(p, "REFRESH INSIGHTS", self._refresh_insights)
+        self._refresh_insights()
 
     def _refresh_insights(self):
         """Render a read-only digest of the shipped knowledge datasets."""
         try:
             brief = knowledge_brief()
-        except Exception as error:  # defensive: datasets are read-only files
-            self._write(
-                self.insights_output, f"Could not load datasets: {error}"
-            )
+            weights = model_weights()
+        except (OSError, ValueError, TypeError, KeyError) as error:
+            self._write(self.insights_output, f"Could not load datasets: {error}")
             return
         lines = [
             "SHIPPED KNOWLEDGE DATASETS",
@@ -627,15 +625,18 @@ class App(tk.Tk):
             "SYMBOL LEAN (edge weight from past-candle studies; not a forecast)",
         ]
         leans = []
-        for symbol, record in model_weights().get("symbols", {}).items():
+        for symbol, record in weights.get("symbols", {}).items():
             weight = record.get("edge_weight", 0.0)
             if weight > 0.15 or weight < -0.15:
                 leans.append(
-                    f"  {symbol:<12} {weight:+.2f}  "
-                    f"({record.get('verdict', 'unknown')})"
+                    (
+                        weight,
+                        f"  {symbol:<12} {weight:+.2f}  "
+                        f"({record.get('verdict', 'unknown')})",
+                    )
                 )
         if leans:
-            lines += sorted(leans, key=lambda item: item.split()[1], reverse=True)
+            lines += [text for _, text in sorted(leans, reverse=True)]
         else:
             lines.append("  No strong weights learned yet.")
         lines += [

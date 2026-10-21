@@ -48,9 +48,7 @@ class DatasetTests(unittest.TestCase):
     def test_cache_clear_reloads(self) -> None:
         datasets.load_dataset(datasets.MARKET_KNOWLEDGE)
         datasets.clear_cache()
-        self.assertIn(
-            "RSI", datasets.indicator_names()
-        )
+        self.assertIn("RSI", datasets.indicator_names())
 
     def test_knowledge_brief_lists_strategies(self) -> None:
         brief = knowledge_brief()

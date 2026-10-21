@@ -49,13 +49,7 @@ def insight_line(symbol: str) -> str | None:
     weight = record.get("edge_weight", 0.0)
     verdict = record.get("verdict", "unknown")
     confidence = record.get("confidence", 0.0)
-    lean = (
-        "positive"
-        if weight > 0.15
-        else "negative"
-        if weight < -0.15
-        else "neutral"
-    )
+    lean = "positive" if weight > 0.15 else "negative" if weight < -0.15 else "neutral"
     return (
         f"Learned context for {symbol}: {lean} edge weight {weight:+.2f} "
         f"(verdict {verdict}, confidence {confidence:.0%}) from out-of-sample "
@@ -89,11 +83,7 @@ def knowledge_brief() -> dict[str, Any]:
         "datasets": sorted(summary.get("datasets", {})),
         "weighted_symbols": summary.get("weighted_symbols", 0),
         "indicators": indicator_names(),
-        "patterns": [
-            entry.get("name") for entry in knowledge.get("patterns", [])
-        ],
-        "strategies": [
-            entry.get("name") for entry in playbook.get("strategies", [])
-        ],
+        "patterns": [entry.get("name") for entry in knowledge.get("patterns", [])],
+        "strategies": [entry.get("name") for entry in playbook.get("strategies", [])],
         "sources": [MARKET_KNOWLEDGE, STRATEGY_PLAYBOOK, MODEL_WEIGHTS],
     }

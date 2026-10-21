@@ -34,9 +34,9 @@ from .catalog import instrument, instruments
 from .context import chat_messages, format_context, market_snapshot
 from .database import LocalDatabase
 from .datasets import dataset_summary
-from .insights import insight_line, knowledge_brief
 from .divergence import detect_divergences, rank_correlation_divergences
 from .indicators import analyze
+from .insights import insight_line, knowledge_brief
 from .knowledge import (
     KNOWLEDGE_PATH,
     load_knowledge,

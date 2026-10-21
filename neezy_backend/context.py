@@ -274,7 +274,11 @@ def offline_answer(snapshot: dict[str, Any] | None, question: str = "") -> str:
         "Educational indicator summary, not financial advice.",
     ]
     symbol = snapshot.get("symbol") or ""
-    learned = insight_line(str(symbol)) if symbol else None
+    learned = (
+        insight_line(str(symbol))
+        if symbol and snapshot.get("learned") is not None
+        else None
+    )
     if learned:
         parts.append(learned)
     return " ".join(parts)

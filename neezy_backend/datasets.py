@@ -13,7 +13,7 @@ come from backtests over historical candles with a charged spread.
 from __future__ import annotations
 
 import json
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -50,7 +50,7 @@ def _read(path: Path) -> dict[str, Any]:
     return document
 
 
-@lru_cache(maxsize=None)
+@cache
 def load_dataset(name: str) -> dict[str, Any]:
     """Load and cache one dataset; a missing or malformed file raises."""
     return _read(dataset_path(name))
