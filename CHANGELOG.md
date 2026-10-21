@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## [1.5.1] - Imported Knowledge Base and Second Training Capture
+
+### Added
+- Ten new knowledge datasets built from the user-supplied DATA.zip knowledge
+  base (fundamentals, risk, Deriv synthetics incl. DSI, correlation, strategy
+  hypothesis library, validation method, psychology, decision rules, 55 Q&A
+  pairs, index) with per-file provenance hashes and sourced enrichment.
+- Second fresh-data training capture (33,000 new candles, 22 staged MLP refits,
+  6 re-run Forex pair experiments) with re-verified raw OHLC hashes.
+
+### Verification and caveats
+- All datasets parse, are deduplicated by id/question, and symbols referenced
+  by the Deriv synthetic dataset resolve in the bundled catalogue.
+- DSI20 again led screening at 66.85% held-out balanced accuracy; directional
+  screening is not a profitability or significance test. DSI remains
+  history-only access. All six FX pair simulations remained net negative after
+  assumed costs; no trades were executed.
+
+
 ## [1.5.0] - Fresh Public-Data Research and Settings
 
 ### Added

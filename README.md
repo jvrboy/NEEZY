@@ -370,6 +370,79 @@ CLI smoke checks passed, and the 1.5.0 wheel built. GitHub-hosted runs still rep
 failure and the bridge's job-log request returns 404; the remote failure cause is
 unverified, so this is not a claim of green GitHub CI.
 
+## Imported knowledge base and second training capture (2026-10-21)
+
+**Imported knowledge base.** A 12-file knowledge base supplied as `DATA.zip`
+(trading fundamentals, risk management, Deriv volatility / drift-switching /
+other synthetic indices, correlation strategies, a 16-strategy hypothesis
+library, backtesting and validation method, psychology and journaling,
+machine-readable decision rules, and 55 Q&A training pairs) now ships as ten
+versioned datasets in `neezy_backend/data/`, preserved under their original
+keys with per-file provenance (origin, SHA256 of each zip source) and
+sourced enrichment sections. Every new entry carries a `sources` field; no
+facts were written from memory.
+
+| New dataset | Contents | Entries |
+| --- | --- | ---: |
+| `trading_fundamentals.json` | Glossary, instruments, orders, mechanics (9 topics) | 9 topics |
+| `risk_management.json` | Sizing, loss control, drawdown protocol (12 topics) | 12 topics |
+| `deriv_synthetic_indices.json` | Volatility + drift-switching + other synthetics merged, with regime tables, strategies, mistakes, progression | 23 strategies, 3 regimes |
+| `correlation_strategies.json` | Positive/negative correlation, divergence, entry checklist, Python snippets | 5-row strategy table |
+| `general_strategies.json` | 16 hypothesis archetypes, filters, trade management, regime selector | 16 strategies |
+| `backtesting_validation.json` | 12-step pipeline, 17 metrics, 14 methods, 11 overfitting traps, go-live checklist | 12-step pipeline |
+| `psychology_journaling.json` | 10 behavioural biases, journal/review routines, warning signs | 10 biases |
+| `decision_rules.json` | 8 machine-readable candidate rules, circuit breakers, sizing function, regime classifier | 8 rules |
+| `qa_training_pairs.json` | Question/answer pairs for retrieval or fine-tuning | 55 pairs |
+| `knowledge_index.json` | Load order, safety rules, honesty notes, evidence levels from the zip index | 11-entry load order |
+
+Enrichment is sourced, not invented: pair-research context cites cointegration
+failure and walk-forward evidence ([PEP-KO case study](https://arxiv.org/abs/2609.35359),
+[seven-pair walk-forward gate](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7204658),
+[pair pre-selection effects](https://link.springer.com/article/10.1007/s10260-023-00702-4));
+validation context cites walk-forward and overfitting-correction literature
+([walk-forward framework](https://arxiv.org/html/2512.12924v1),
+[robustness grading / PBO](https://arxiv.org/abs/2608.23808),
+[trials-adjusted gating](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7361818));
+sizing context cites fixed-fractional and Kelly sources
+([position sizing](https://www.activtrades.com/en/news/what-is-position-sizing-in-trading),
+[Kelly practice](https://blog.traderspost.io/article/kelly-criterion-position-sizing-automated-trading));
+psychology context cites journaling-before-pattern and loss-aversion research
+([trading psychology](https://www.tradesviz.com/trading-psychology/),
+[journal behaviour metrics](https://acy.com/en/market-news/education/trading-journal-behavior-metrics-j-o-20251210-110438/));
+indicator context cites condition-dependent RSI/MACD effectiveness studies
+([RSI vs MACD effectiveness](https://www.researchgate.net/publication/392317792_Analysis_of_the_Effectiveness_of_RSI_and_MACD_Indicators_in_Addressing_Stock_Price_Volatility),
+[key indicators study](https://www.sciencedirect.com/science/article/pii/S2666827025000143));
+Deriv synthetic context cites Deriv's generator description plus this
+environment's endpoint verification
+([synthetic indices](https://deriv.com/markets/derived-indices/synthetic-indices)).
+
+**Second training capture.** The existing pipeline re-fetched **33,000 fresh
+5-minute candles** (11 markets x 3,000) and refit all 22 staged MLPs. Captured
+at `2026-10-21T06:17:31+00:00`:
+
+| Market | Test examples | Balanced accuracy | Screening |
+| --- | ---: | ---: | --- |
+| DSI10 | 427 | 60.78% | passed screening |
+| DSI20 | 439 | 66.85% | passed screening |
+| DSI30 | 429 | 64.95% | passed screening |
+| 1HZ100V | 420 | 51.66% | research-only |
+| R_10 | 407 | 49.35% | research-only |
+| R_50 | 423 | 50.10% | research-only |
+| R_100 | 421 | 49.06% | research-only |
+| frxAUDUSD | 421 | 52.35% | research-only |
+| frxEURUSD | 411 | 51.88% | research-only |
+| frxGBPUSD | 409 | 50.17% | research-only |
+| frxUSDJPY | 409 | 50.00% | research-only |
+
+All six Forex pair experiments were again net negative after assumed costs
+(net log returns -0.0072 to -0.0105); the losing findings are retained. The
+three Drift Switching models again passed the directional screening rule —
+still not a profitability or significance test. DSI access remains
+history-only: current candles were served by `ticks_history`, but the symbols
+were absent from `active_symbols` and rejected by `ticks` requests. Raw
+candle snapshots, hashes and provenance were re-verified against the new
+capture before shipping.
+
 ## Development checks
 
 ```bash
