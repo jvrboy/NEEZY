@@ -6,6 +6,7 @@ vendors the pure-Python packages that have no python-for-android recipe.
 Run from anywhere: python packaging/android/stage.py
 """
 
+import base64
 import re
 import shutil
 import subprocess
@@ -16,6 +17,9 @@ ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "build" / "android-stage"
 VENDORED = ["websocket-client==1.9.2", "certifi"]
 IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc")
+# Binary artwork is stored as base64 text in the repo and decoded here.
+ASSETS = ROOT / "packaging" / "android" / "assets"
+IMAGES = ["icon.png", "presplash.png"]
 
 
 def app_version() -> str:
@@ -37,6 +41,9 @@ def main() -> None:
         '"""Mobile build: package marker only."""\n', encoding="utf-8"
     )
     shutil.copy(ROOT / "packaging" / "android" / "main.py", OUT / "main.py")
+    for name in IMAGES:
+        encoded = (ASSETS / f"{name}.b64").read_text(encoding="ascii")
+        (OUT / name).write_bytes(base64.b64decode(encoded))
 
     spec = (ROOT / "packaging" / "android" / "buildozer.spec").read_text(
         encoding="utf-8"

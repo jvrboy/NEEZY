@@ -8,6 +8,8 @@ source.exclude_dirs = bin,build,__pycache__
 version = 1.6.0
 requirements = python3,kivy==2.3.1
 orientation = portrait
+icon.filename = %(source.dir)s/icon.png
+presplash.filename = %(source.dir)s/presplash.png
 fullscreen = 0
 android.permissions = INTERNET
 android.api = 33
