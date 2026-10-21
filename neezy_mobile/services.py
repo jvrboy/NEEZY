@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from neezy_backend.alerts import AlertRuleStore
 from neezy_backend.config import AppSettings
 from neezy_backend.markets import granularity, watchlist, ws_urls
 from neezy_backend.scanner import ConfluenceAnalyzer, ScanResult
@@ -26,6 +27,7 @@ class Services:
         data_dir.mkdir(parents=True, exist_ok=True)
         self._settings_store = SettingsStore(data_dir / "settings.json")
         self.history = ConfluenceHistoryStore(data_dir / "confluence-history.jsonl")
+        self.alerts = AlertRuleStore(data_dir / "alert-rules.json")
         self.settings: AppSettings = self._settings_store.load()
 
     def save_settings(self, settings: AppSettings) -> None:
