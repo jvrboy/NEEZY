@@ -1,0 +1,117 @@
+name: Release builds
+
+# Builds the Windows desktop EXE and the Android APK, then publishes both as a
+# GitHub Release. Runs on every push to main and on manual dispatch.
+# Lives beside ci.yml on purpose: ci.yml stays the test gate and is unchanged.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-builds
+  cancel-in-progress: false
+
+jobs:
+  windows-exe:
+    name: Windows EXE
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install NEEZY and PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install .
+          python -m pip install pyinstaller==6.22.3
+
+      - name: Build EXE
+        run: >-
+          pyinstaller --noconfirm --onefile --windowed --name NEEZY
+          --collect-submodules neezy_app
+          --collect-submodules neezy_backend
+          --collect-data neezy_backend
+          --hidden-import websocket
+          packaging/windows/neezy_entry.py
+
+      - name: Smoke-test the EXE starts
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist\NEEZY.exe -PassThru
+          Start-Sleep -Seconds 15
+          if ($p.HasExited) { throw "NEEZY.exe exited early with code $($p.ExitCode)" }
+          Stop-Process -Id $p.Id -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: dist/NEEZY.exe
+          if-no-files-found: error
+
+  android-apk:
+    name: Android APK
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Stage the Android source tree
+        run: python packaging/android/stage.py
+
+      - name: Build APK with Buildozer
+        uses: ArtemSBulgakov/buildozer-action@v1
+        with:
+          workdir: build/android-stage
+          buildozer_version: 1.6.0
+          command: buildozer android debug
+
+      - name: Locate APK
+        id: apk
+        run: |
+          apk="$(find build/android-stage/bin -name '*.apk' | head -n 1)"
+          test -n "$apk" || { echo "no APK produced"; exit 1; }
+          echo "path=$apk" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: ${{ steps.apk.outputs.path }}
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: [windows-exe, android-apk]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          short_sha="${GITHUB_SHA::7}"
+          tag="build-${{ github.run_number }}-${short_sha}"
+          exe="dist/windows-exe/NEEZY.exe"
+          apk="$(find dist/android-apk -name '*.apk' | head -n 1)"
+          cp "$exe" "NEEZY-windows-${short_sha}.exe"
+          cp "$apk" "NEEZY-android-${short_sha}.apk"
+          gh release create "$tag" \
+            "NEEZY-windows-${short_sha}.exe" \
+            "NEEZY-android-${short_sha}.apk" \
+            --target "$GITHUB_SHA" \
+            --title "NEEZY build ${{ github.run_number }} (${short_sha})" \
+            --notes "Unsigned builds from commit ${GITHUB_SHA}. Windows: SmartScreen will warn because the EXE is not code-signed. Android: the APK is signed with the Buildozer debug key, so enable 'install unknown apps' to sideload it."
