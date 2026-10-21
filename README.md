@@ -112,6 +112,15 @@ python -m neezy_app
 
 The original `python forex_signals.py` entry point remains available. The GUI requires a desktop session.
 
+**Kaggle notebooks.** `kaggle/NEEZY_on_Kaggle.ipynb` installs the headless engine and CLI
+in a Kaggle session, points `NEEZY_HOME` at `/kaggle/working/neezy-home` so candles,
+settings and history survive the session, prints live confluence cards, and can capture a
+screenshot of the Tk workspace on a virtual display. Kaggle has no desktop session, so the
+GUI is not interactive there, and the MT5 bridge, Telegram bot, local MCP server and
+Cloudflare tunnel are not usable on Kaggle. With Internet switched off, attach a copy of
+this repository as a Kaggle Dataset and set `INSTALL_SOURCE = "dataset"`; see
+[`kaggle/README.md`](kaggle/README.md) for both install paths, storage and limits.
+
 **Android / Pydroid 3:** NEEZY's Python backend and `neezy-cli` are headless and do not import Tkinter. In Pydroid, install/clone the project in a writable directory, install the base dependency (`websocket-client`) with Pydroid's pip/quick-install support, and run `python -m neezy_backend --help` or `python -m neezy_backend markets`. Grant the app storage permission if you choose a shared location; set `NEEZY_HOME` to a writable app-owned directory if the default config path is unsuitable. Market data still needs an internet connection. Tkinter/desktop widgets are not expected to work in Pydroid. Native `llama-cpp-python`, PyTorch, Transformers, and `cloudflared` availability depends on compatible Android wheels/binaries; NEEZY does not bundle them, and the optional model/tunnel features may therefore be unavailable on a particular phone. This repository has not been validated on a physical Android/Pydroid device.
 
 ## Command-line tools
