@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## [Unreleased] - CLI menu styling
+
+### Changed
+- **`neezy-cli menu` redesigned**: header panel with a status bar, a grouped
+  palette (System, MT5 read-only, MT5 orders, MCP, Exit), and a prompt.
+  Type `/text` to filter the palette, `?` for help, `q` to quit. Each run
+  echoes its command and ends with an `[exit N]` badge.
+- Enter on an empty line redraws the palette. It used to quit. `q`, `0`,
+  `quit`, Ctrl-C and end-of-input all exit cleanly.
+- Styling is ASCII only and follows `NO_COLOR`, `FORCE_COLOR`, `TERM=dumb`,
+  and whether the stream is a TTY. `neezy-cli menu --plain` turns colour off.
+  JSON output from other commands is not styled.
+
+### Added
+- `neezy_backend/ui_style.py`: colour decision, Windows VT enablement, panel
+  and key-line helpers. Stdlib only.
+
 ## [Unreleased] - Gated MT5 bridge and UI split
 
 ### Changed

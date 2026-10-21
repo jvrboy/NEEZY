@@ -1392,10 +1392,11 @@ def cmd_local_model(args, fetch, out) -> int:
 
 def cmd_menu(args, fetch, out) -> int:
     """Interactive text menu that works in cmd.exe and PowerShell."""
-    del args, fetch
+    del fetch
     from .menu import run_menu
+    from .ui_style import color_enabled
 
-    return run_menu(out)
+    return run_menu(out, color=color_enabled(out, plain=args.plain))
 
 
 def cmd_mcp(args, fetch, out) -> int:
@@ -1974,6 +1975,7 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--json", action="store_true")
 
     p = sub.add_parser("menu", help="interactive menu for cmd.exe and PowerShell")
+    p.add_argument("--plain", action="store_true", help="no colour (also: NO_COLOR=1)")
     p.set_defaults(handler=cmd_menu)
 
     p = sub.add_parser("mcp", help="third-party MCP server catalog and configs")
