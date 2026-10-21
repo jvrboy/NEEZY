@@ -289,6 +289,29 @@ class App(tk.Tk):
             value=self.settings.telegram_allow_commands
         )
         self.telegram_token_var = tk.StringVar(value="")
+
+        self.mt5_enabled_var = tk.BooleanVar(value=self.settings.mt5_enabled)
+        self.mt5_server_var = tk.StringVar(value=self.settings.mt5_server)
+        self.mt5_login_var = tk.IntVar(value=self.settings.mt5_login)
+        self.mt5_password_var = tk.StringVar(value=self.settings.mt5_password)
+        self.mt5_path_var = tk.StringVar(value=self.settings.mt5_path)
+        self.mt5_magic_var = tk.IntVar(value=self.settings.mt5_magic)
+        self.mt5_symbol_map_var = tk.StringVar(value=self.settings.mt5_symbol_map)
+        self.mt5_auto_sync_var = tk.BooleanVar(value=self.settings.mt5_auto_sync)
+
+        self.dm_enabled_var = tk.BooleanVar(value=self.settings.dm_enabled)
+        self.dm_webhook_url_var = tk.StringVar(value=self.settings.dm_webhook_url)
+        self.dm_min_score_var = tk.IntVar(value=self.settings.dm_min_score)
+        self.dm_notify_signals_var = tk.BooleanVar(
+            value=self.settings.dm_notify_signals
+        )
+        self.dm_notify_alerts_var = tk.BooleanVar(value=self.settings.dm_notify_alerts)
+        self.default_risk_percent_var = tk.DoubleVar(
+            value=self.settings.default_risk_percent
+        )
+        self.max_drawdown_limit_var = tk.DoubleVar(
+            value=self.settings.max_drawdown_limit
+        )
         self.store_candles_var = tk.BooleanVar(value=self.settings.store_candles)
         self.retention_var = tk.IntVar(value=self.settings.retention_days)
         self.snapshots_var = tk.BooleanVar(value=self.settings.save_snapshots)
@@ -1422,6 +1445,8 @@ class App(tk.Tk):
         self._local_model_settings_tab(notebook)
         self._mcp_settings_tab(notebook)
         self._telegram_settings_tab(notebook)
+        self._mt5_settings_tab(notebook)
+        self._dm_settings_tab(notebook)
         self.settings_status = self._label(
             page, "Settings are saved locally", 10, self.GREEN
         )
@@ -2340,6 +2365,143 @@ class App(tk.Tk):
             justify="left",
             wraplength=330,
         ).pack(anchor="w", padx=16, pady=(0, 10))
+
+    def _mt5_settings_tab(self, notebook):
+        _tab, left, right = self._settings_tab(notebook, "MT5 BRIDGE")
+        self._label(left, "METATRADER 5 BRIDGE", 9, self.CYAN).pack(
+            anchor="w", padx=16, pady=(14, 6)
+        )
+        self._check_row(left, "Enable MetaTrader 5 local bridge", self.mt5_enabled_var)
+        self._check_row(
+            left, "Auto-sync quotes/candles from MT5", self.mt5_auto_sync_var
+        )
+        self._entry_row(left, "MT5 Server", self.mt5_server_var)
+        self._spin_row(
+            left, "MT5 Account Login ID", self.mt5_login_var, 0, 2147483647, 1
+        )
+        self._entry_row(left, "MT5 Account Password", self.mt5_password_var, show="•")
+        self._spin_row(left, "Magic Number", self.mt5_magic_var, 1, 2147483647, 1)
+
+        self._label(right, "ADVANCED MT5 CONFIG", 9, self.CYAN).pack(
+            anchor="w", padx=16, pady=(14, 6)
+        )
+        self._entry_row(right, "Terminal Executable Path (Optional)", self.mt5_path_var)
+        self._entry_row(
+            right,
+            "Symbol Map (e.g. frxEURUSD=EURUSD,frxGBPUSD=GBPUSD.m)",
+            self.mt5_symbol_map_var,
+        )
+        btn_frame = tk.Frame(right, bg=self.PANEL)
+        btn_frame.pack(fill="x", padx=16, pady=(12, 6))
+        tk.Button(
+            btn_frame,
+            text="Test MT5 Connection",
+            command=self._test_mt5_connection,
+            bg=self.PANEL2,
+            fg=self.TEXT,
+            relief="flat",
+            padx=10,
+            pady=6,
+        ).pack(side="left")
+        self.mt5_status_label = self._label(
+            right, "MT5 Bridge status: idle", 9, self.MUTED, wraplength=330
+        )
+        self.mt5_status_label.pack(anchor="w", padx=16, pady=(6, 10))
+
+    def _test_mt5_connection(self):
+        from neezy_backend.mt5_bridge import MT5Bridge
+
+        bridge = MT5Bridge(
+            login=int(self.mt5_login_var.get()),
+            password=self.mt5_password_var.get(),
+            server=self.mt5_server_var.get().strip(),
+            path=self.mt5_path_var.get().strip(),
+            magic=int(self.mt5_magic_var.get()),
+            symbol_map=self.mt5_symbol_map_var.get().strip(),
+        )
+        res = bridge.connect()
+        if res.get("success"):
+            acc = res.get("account")
+            srv = res.get("server", "N/A")
+            self.mt5_status_label.config(
+                text=f"Connected! Account: {acc} | Server: {srv}",
+                fg=self.GREEN,
+            )
+        else:
+            self.mt5_status_label.config(
+                text=f"Connection failed: {res.get('error')}", fg=self.RED
+            )
+
+    def _dm_settings_tab(self, notebook):
+        _tab, left, right = self._settings_tab(notebook, "DIRECT MESSAGING")
+        self._label(left, "WEBHOOK DIRECT MESSAGING", 9, self.CYAN).pack(
+            anchor="w", padx=16, pady=(14, 6)
+        )
+        self._check_row(
+            left, "Enable Direct Message Notifications", self.dm_enabled_var
+        )
+        self._check_row(
+            left, "Notify on Signal Transitions", self.dm_notify_signals_var
+        )
+        self._check_row(left, "Notify on Alert Triggers", self.dm_notify_alerts_var)
+        self._entry_row(
+            left, "Webhook URL (Discord / Slack / Custom HTTP)", self.dm_webhook_url_var
+        )
+        self._spin_row(left, "Min Signal Score to Send", self.dm_min_score_var, 1, 4, 1)
+
+        self._label(right, "RISK & DECISION METRICS", 9, self.CYAN).pack(
+            anchor="w", padx=16, pady=(14, 6)
+        )
+        self._spin_row(
+            right,
+            "Default Account Risk %",
+            self.default_risk_percent_var,
+            0.1,
+            100.0,
+            0.5,
+        )
+        self._spin_row(
+            right, "Max Drawdown Limit %", self.max_drawdown_limit_var, 0.1, 100.0, 1.0
+        )
+        btn_frame = tk.Frame(right, bg=self.PANEL)
+        btn_frame.pack(fill="x", padx=16, pady=(12, 6))
+        tk.Button(
+            btn_frame,
+            text="Send Test Direct Message",
+            command=self._test_dm_webhook,
+            bg=self.PANEL2,
+            fg=self.TEXT,
+            relief="flat",
+            padx=10,
+            pady=6,
+        ).pack(side="left")
+        self.dm_status_label = self._label(
+            right, "Direct messaging status: idle", 9, self.MUTED, wraplength=330
+        )
+        self.dm_status_label.pack(anchor="w", padx=16, pady=(6, 10))
+
+    def _test_dm_webhook(self):
+        from neezy_backend.dm import send_dm_notification
+
+        url = self.dm_webhook_url_var.get().strip()
+        if not url:
+            self.dm_status_label.config(
+                text="Please enter a Webhook URL first.", fg=self.RED
+            )
+            return
+        res = send_dm_notification(
+            url,
+            "NEEZY Direct Message Test",
+            "This is a test notification from your NEEZY desktop workspace.",
+            level="info",
+            fields={"App": "NEEZY", "Version": "1.5.0", "Status": "Active"},
+        )
+        if res.get("success"):
+            self.dm_status_label.config(
+                text="Test message sent successfully!", fg=self.GREEN
+            )
+        else:
+            self.dm_status_label.config(text=f"Failed: {res.get('error')}", fg=self.RED)
 
     def _copy_public_mcp_url(self):
         url = self.mcp_public_url_var.get().strip()
@@ -3433,6 +3595,21 @@ class App(tk.Tk):
                 telegram_chat_ids=self.telegram_chat_ids_var.get().strip(),
                 telegram_alerts_enabled=self.telegram_alerts_var.get(),
                 telegram_allow_commands=self.telegram_commands_var.get(),
+                mt5_enabled=self.mt5_enabled_var.get(),
+                mt5_server=self.mt5_server_var.get().strip(),
+                mt5_login=int(self.mt5_login_var.get()),
+                mt5_password=self.mt5_password_var.get(),
+                mt5_path=self.mt5_path_var.get().strip(),
+                mt5_magic=int(self.mt5_magic_var.get()),
+                mt5_symbol_map=self.mt5_symbol_map_var.get().strip(),
+                mt5_auto_sync=self.mt5_auto_sync_var.get(),
+                dm_enabled=self.dm_enabled_var.get(),
+                dm_webhook_url=self.dm_webhook_url_var.get().strip(),
+                dm_min_score=int(self.dm_min_score_var.get()),
+                dm_notify_signals=self.dm_notify_signals_var.get(),
+                dm_notify_alerts=self.dm_notify_alerts_var.get(),
+                default_risk_percent=float(self.default_risk_percent_var.get()),
+                max_drawdown_limit=float(self.max_drawdown_limit_var.get()),
                 store_candles=self.store_candles_var.get(),
                 retention_days=int(self.retention_var.get()),
                 save_snapshots=self.snapshots_var.get(),
