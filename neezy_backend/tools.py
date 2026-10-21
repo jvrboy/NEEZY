@@ -91,7 +91,13 @@ class Tool:
             },
         }
 
-    def execute(self, dry_run: bool = False, **kwargs: Any) -> Any:
+    def execute(
+        self, dry_run: bool = False, confirm: bool = False, **kwargs: Any
+    ) -> Any:
+        """Run the tool. WRITE/DESTRUCTIVE tools need ``confirm=True`` to run.
+
+        ``dry_run`` is always allowed and never calls the tool function.
+        """
         parameters = {
             key: value
             for key, value in self._signature.parameters.items()
@@ -125,6 +131,11 @@ class Tool:
                 "permission": self.permission.name,
                 "kwargs": kwargs,
             }
+        if self.permission is not ToolPermission.READ_ONLY and not confirm:
+            raise PermissionError(
+                f"{self.name} is {self.permission.name}; "
+                "pass confirm=True to run it (or dry_run=True to preview)"
+            )
         return self.func(**kwargs)
 
 
@@ -166,11 +177,17 @@ class ToolRegistry:
             for tool in self._tools.values()
         ]
 
-    def execute(self, tool_name: str, dry_run: bool = False, **kwargs: Any) -> Any:
+    def execute(
+        self,
+        tool_name: str,
+        dry_run: bool = False,
+        confirm: bool = False,
+        **kwargs: Any,
+    ) -> Any:
         tool = self.get(tool_name)
         if not tool:
             raise KeyError(f"Tool '{tool_name}' not found in registry")
-        return tool.execute(dry_run=dry_run, **kwargs)
+        return tool.execute(dry_run=dry_run, confirm=confirm, **kwargs)
 
 
 # Global default registry instance
@@ -180,6 +197,21 @@ DEFAULT_REGISTRY = ToolRegistry()
 def _bounded(value: Any, low: int, high: int) -> int:
     """Coerce an agent-supplied count (often a string) into ``[low, high]``."""
     return min(max(int(value), low), high)
+
+
+def _mt5_ready() -> tuple[Any, str | None]:
+    """Connect the global MT5 bridge; return (bridge, error) with no fake data.
+
+    The bridge's read methods fall back to simulated values when disconnected,
+    so read tools must check this before reporting anything to the user.
+    """
+    from neezy_backend.mt5_bridge import ready_bridge
+
+    return ready_bridge()
+
+
+def _mt5_label(bridge: Any) -> str:
+    return " [SIMULATED - bridge in mock mode]" if bridge.mock else ""
 
 
 def register_default_tools(registry: ToolRegistry = DEFAULT_REGISTRY) -> None:
@@ -312,6 +344,59 @@ def register_default_tools(registry: ToolRegistry = DEFAULT_REGISTRY) -> None:
         quote = bridge.get_quote(symbol)
         return f"MT5 Quote ({symbol}): {quote}"
 
+    def tool_mt5_positions() -> str:
+        bridge, error = _mt5_ready()
+        if error:
+            return error
+        positions = bridge.get_positions()
+        label = _mt5_label(bridge)
+        if not positions:
+            return f"MT5 open positions{label}: none"
+        return f"MT5 open positions{label}:\n" + "\n".join(str(p) for p in positions)
+
+    def tool_mt5_history(days: int = 7) -> str:
+        bridge, error = _mt5_ready()
+        if error:
+            return error
+        window = _bounded(days, 1, 90)
+        deals = bridge.get_account_history(days=window)
+        label = _mt5_label(bridge)
+        if not deals:
+            return f"MT5 closed deals (last {window} days){label}: none"
+        return f"MT5 closed deals (last {window} days){label}:\n" + "\n".join(
+            str(d) for d in deals
+        )
+
+    def tool_mt5_candles(
+        symbol: str = "frxEURUSD", timeframe: str = "5m", count: int = 100
+    ) -> str:
+        bridge, error = _mt5_ready()
+        if error:
+            return error
+        candles = bridge.fetch_candles(
+            symbol, timeframe=timeframe, count=_bounded(count, 1, 1000)
+        )
+        last = candles[-1] if candles else None
+        return (
+            f"MT5 candles ({symbol} {timeframe}){_mt5_label(bridge)}: "
+            f"{len(candles)} fetched; last={last}"
+        )
+
+    def tool_mt5_order_preview(
+        symbol: str = "frxEURUSD",
+        order_type: str = "BUY",
+        volume: float = 0.01,
+        sl: float = 0.0,
+        tp: float = 0.0,
+    ) -> str:
+        """Validate an order and show what would be sent. Never sends an order."""
+        from neezy_backend.mt5_bridge import get_global_mt5_bridge
+
+        preview = get_global_mt5_bridge().preview_order(
+            symbol, order_type=order_type, volume=volume, sl=sl, tp=tp
+        )
+        return f"MT5 order preview (NOT SENT): {preview}"
+
     def tool_send_dm(webhook_url: str, title: str, message: str) -> str:
         from neezy_backend.dm import send_dm_notification
 
@@ -399,6 +484,30 @@ def register_default_tools(registry: ToolRegistry = DEFAULT_REGISTRY) -> None:
         "mt5_quote",
         "Get live tick quote for a symbol from MetaTrader 5.",
         tool_mt5_quote,
+        permission=ToolPermission.READ_ONLY,
+    )
+    registry.register(
+        "mt5_positions",
+        "List open MetaTrader 5 positions (read-only).",
+        tool_mt5_positions,
+        permission=ToolPermission.READ_ONLY,
+    )
+    registry.register(
+        "mt5_candles",
+        "Fetch recent MetaTrader 5 candles for a symbol and timeframe (read-only).",
+        tool_mt5_candles,
+        permission=ToolPermission.READ_ONLY,
+    )
+    registry.register(
+        "mt5_history",
+        "List closed MetaTrader 5 deals for the last N days (read-only, max 90).",
+        tool_mt5_history,
+        permission=ToolPermission.READ_ONLY,
+    )
+    registry.register(
+        "mt5_order_preview",
+        "Validate an MT5 order and show what would be sent. Never sends an order.",
+        tool_mt5_order_preview,
         permission=ToolPermission.READ_ONLY,
     )
     registry.register(

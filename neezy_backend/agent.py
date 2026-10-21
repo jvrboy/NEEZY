@@ -46,15 +46,22 @@ class AgentPlanner:
         return steps
 
     def execute_plan(
-        self, steps: list[PlanStep], dry_run: bool = False
+        self, steps: list[PlanStep], dry_run: bool = False, confirm: bool = False
     ) -> list[PlanStep]:
-        """Execute a list of planned steps in order."""
+        """Execute a list of planned steps in order.
+
+        WRITE/DESTRUCTIVE tools only run when ``confirm`` is true; otherwise the
+        step fails with a PermissionError message and nothing is changed.
+        """
         for step in steps[: self.max_steps]:
             step.status = "running"
             if step.tool_name:
                 try:
                     step.result = self.registry.execute(
-                        step.tool_name, dry_run=dry_run, **step.tool_args
+                        step.tool_name,
+                        dry_run=dry_run,
+                        confirm=confirm,
+                        **step.tool_args,
                     )
                     step.status = "completed"
                 except Exception as err:  # noqa: BLE001 - step execution error capture

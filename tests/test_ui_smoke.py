@@ -346,9 +346,9 @@ class AppSmokeTests(unittest.TestCase):
 
         with (
             mock.patch(
-                "neezy_app.ui.generate_chat", return_value="Offline answer"
+                "neezy_app.ui_panels.chat.generate_chat", return_value="Offline answer"
             ) as generate,
-            mock.patch("neezy_app.ui.threading.Thread", ImmediateThread),
+            mock.patch("neezy_app.ui_panels.chat.threading.Thread", ImmediateThread),
         ):
             self.app._ask()
 
@@ -361,7 +361,9 @@ class AppSmokeTests(unittest.TestCase):
         server = mock.Mock()
         server.url = "http://127.0.0.1:9876/mcp"
         server.running = True
-        with mock.patch("neezy_app.ui.MCPServer", return_value=server) as factory:
+        with mock.patch(
+            "neezy_app.ui_panels.mcp.MCPServer", return_value=server
+        ) as factory:
             self.app.mcp_enabled_var.set(True)
             self.app.mcp_port_var.set(9876)
             self.app._settings_changed()
@@ -408,7 +410,8 @@ class AppSmokeTests(unittest.TestCase):
         self.app.mcp_tunnel_service = tunnel
 
         with mock.patch(
-            "neezy_app.ui.MCPServer", side_effect=[local_server, public_server]
+            "neezy_app.ui_panels.mcp.MCPServer",
+            side_effect=[local_server, public_server],
         ) as factory:
             self.app.mcp_enabled_var.set(True)
             self.app.mcp_port_var.set(9876)
@@ -435,7 +438,7 @@ class AppSmokeTests(unittest.TestCase):
         service.running = True
         service.last_error = ""
         with mock.patch(
-            "neezy_app.ui.TelegramBotService", return_value=service
+            "neezy_app.ui_panels.telegram.TelegramBotService", return_value=service
         ) as factory:
             self.app.telegram_token_var.set(token)
             self.app._telegram_save_token()
@@ -683,7 +686,7 @@ class AppSmokeTests(unittest.TestCase):
             mock.patch.object(
                 self.app, "after", side_effect=lambda _ms, fn: queued.append(fn)
             ),
-            mock.patch.object(ui.threading, "Thread", side_effect=make_thread),
+            mock.patch.object(threading, "Thread", side_effect=make_thread),
         ):
             self.app._ask()
             for thread in started:
@@ -708,8 +711,9 @@ class AppSmokeTests(unittest.TestCase):
         self.app.candles[symbol] = sample_candles(30)
         self.app._persist_candles(symbol)
         destination = Path(self.directory.name) / "export.json"
-        with mock.patch.object(
-            ui.filedialog, "asksaveasfilename", return_value=str(destination)
+        with mock.patch(
+            "neezy_app.ui_panels.database.filedialog.asksaveasfilename",
+            return_value=str(destination),
         ):
             self.app._export_database()
         self.assertTrue(destination.exists())

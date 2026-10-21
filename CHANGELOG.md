@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## [Unreleased] - Gated MT5 bridge and UI split
+
+### Changed
+- **Live MT5 orders are gated**: `neezy-cli mt5 order` requires `--confirm`;
+  `--dry-run` previews without contacting the terminal. `place_order` refuses
+  when MT5 is disconnected instead of returning a fake success.
+- **Agent and MCP paths are read-only for orders**: WRITE and DESTRUCTIVE tools
+  raise `PermissionError` unless `confirm=True`; `dry_run` never calls the tool.
+- **MT5 reads fail closed**: when the terminal is not connected, account, quote,
+  candle and position reads return an error, not sample data. Simulated output
+  is labelled `[SIMULATED - bridge in mock mode]`.
+- **Desktop UI split**: `neezy_app/ui.py` delegates each screen to a module in
+  `neezy_app/ui_panels/`. Behaviour is unchanged.
+- **README and DECISIONS** corrected: NEEZY can place MT5 orders, but only
+  behind the confirmation gate.
+
+### Added
+- `neezy-cli menu`: terminal menu. Live orders need the typed word `SEND`.
+- `neezy-cli mt5 preflight`: checks the terminal without placing orders or
+  printing passwords.
+- `neezy-cli mcp list | show | config`: catalogues six third-party MCP servers.
+  Catalogued only; nothing is installed or run.
+- Read-only MT5 tools `mt5_positions`, `mt5_candles`, `mt5_account_history`
+  (MCP) and `mt5_history` (agent). None are on the public tunnel.
+
 ## [1.6.0] - Confluence Engine, Data Providers and Card Workspace
 
 ### Added

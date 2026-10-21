@@ -1390,10 +1390,86 @@ def cmd_local_model(args, fetch, out) -> int:
     raise ValueError(f"unknown local-model action {args.action!r}")
 
 
+def cmd_menu(args, fetch, out) -> int:
+    """Interactive text menu that works in cmd.exe and PowerShell."""
+    del args, fetch
+    from .menu import run_menu
+
+    return run_menu(out)
+
+
+def cmd_mcp(args, fetch, out) -> int:
+    """List, describe, and print client config for third-party MCP servers."""
+    del fetch
+    from .mcp_catalog import MCP_SERVERS, client_config, get_server, warnings_for
+
+    if args.action == "list":
+        if args.json:
+            _emit(
+                out,
+                [
+                    {"id": s.id, "risk": s.risk, "license": s.license, "repo": s.repo}
+                    for s in MCP_SERVERS
+                ],
+            )
+        else:
+            for s in MCP_SERVERS:
+                out.write(f"{s.id:<20} [{s.risk}] {s.summary}\n")
+        return 0
+    if args.action == "show":
+        server = get_server(args.server_id)
+        data = {
+            "id": server.id,
+            "repo": server.repo,
+            "license": server.license,
+            "risk": server.risk,
+            "summary": server.summary,
+            "command": [server.command, *server.args],
+            "read_only_profile": server.has_safe_profile,
+            "notes": server.notes,
+        }
+        if args.json:
+            _emit(out, data)
+        else:
+            for key, value in data.items():
+                out.write(f"{key}: {value}\n")
+        return 0
+    if args.action == "config":
+        safe = not args.unsafe
+        for message in warnings_for(args.server_id, safe=safe):
+            sys.stderr.write(f"neezy-cli: warning: {message}\n")
+        _emit(out, client_config(args.server_id, safe=safe))
+        return 0
+    raise ValueError(f"unknown mcp action {args.action!r}")
+
+
+def _mt5_require_live(bridge) -> None:
+    """Refuse MT5 reads unless the terminal is really connected (no simulated data)."""
+    conn = bridge.connect()
+    if not conn.get("success") or conn.get("mock"):
+        reason = conn.get("error") or "terminal is simulated, not connected"
+        raise RuntimeError(f"MT5 not connected ({reason}); no live data read")
+
+
 def cmd_mt5(args, fetch, out) -> int:
     """Interact with local MetaTrader 5 terminal bridge."""
     del fetch
     from .mt5_bridge import get_global_mt5_bridge, is_mt5_available
+
+    if args.action == "preflight":
+        from .mt5_preflight import checks_as_dicts, has_failures, run_preflight
+
+        checks = run_preflight()
+        if args.json:
+            _emit(
+                out, {"checks": checks_as_dicts(checks), "ok": not has_failures(checks)}
+            )
+        else:
+            for check in checks:
+                out.write(f"[{check.status.upper():4}] {check.name}: {check.detail}\n")
+            verdict = "NOT READY" if has_failures(checks) else "READY (read-only check)"
+            out.write(f"MT5 preflight: {verdict}\n")
+        return 1 if has_failures(checks) else 0
 
     bridge = get_global_mt5_bridge()
     if args.action == "status":
@@ -1404,7 +1480,7 @@ def cmd_mt5(args, fetch, out) -> int:
             out.write(f"MT5 Available: {is_mt5_available()}\nMT5 Status: {status}\n")
         return 0
     if args.action == "account":
-        bridge.connect()
+        _mt5_require_live(bridge)
         acc = bridge.get_account_info()
         if args.json:
             _emit(out, acc)
@@ -1412,7 +1488,7 @@ def cmd_mt5(args, fetch, out) -> int:
             out.write(f"MT5 Account Info: {acc}\n")
         return 0
     if args.action == "quote":
-        bridge.connect()
+        _mt5_require_live(bridge)
         quote = bridge.get_quote(args.symbol)
         if args.json:
             _emit(out, quote)
@@ -1420,7 +1496,7 @@ def cmd_mt5(args, fetch, out) -> int:
             out.write(f"MT5 Quote ({args.symbol}): {quote}\n")
         return 0
     if args.action == "candles":
-        bridge.connect()
+        _mt5_require_live(bridge)
         candles = bridge.fetch_candles(
             args.symbol, timeframe=args.timeframe, count=args.count
         )
@@ -1432,16 +1508,35 @@ def cmd_mt5(args, fetch, out) -> int:
             out.write(f"MT5 Candles ({args.symbol}): fetched {len(candles)} candles\n")
         return 0
     if args.action == "order":
-        bridge.connect()
-        res = bridge.place_order(
-            args.symbol,
-            order_type=args.type,
-            volume=args.volume,
-            price=args.price,
-            sl=args.sl,
-            tp=args.tp,
-            comment=args.comment,
-        )
+        order_kwargs = {
+            "order_type": args.type,
+            "volume": args.volume,
+            "price": args.price,
+            "sl": args.sl,
+            "tp": args.tp,
+            "comment": args.comment,
+        }
+        if args.dry_run:
+            preview = bridge.preview_order(args.symbol, **order_kwargs)
+            if not preview["valid"]:
+                raise ValueError("; ".join(preview["errors"]))
+            if args.json:
+                _emit(out, preview)
+            else:
+                out.write(f"MT5 Order DRY RUN (not sent): {preview}\n")
+            return 0
+        if not args.confirm:
+            raise ValueError(
+                "refusing to send a live order without --confirm "
+                "(use --dry-run to preview)"
+            )
+        conn = bridge.connect()
+        if not conn.get("success") or conn.get("mock"):
+            reason = conn.get("error") or "terminal is simulated, not connected"
+            raise RuntimeError(f"live order refused: MT5 not connected ({reason})")
+        res = bridge.place_order(args.symbol, **order_kwargs)
+        if not res.get("success"):
+            raise RuntimeError(f"order failed: {res.get('error')}")
         if args.json:
             _emit(out, res)
         else:
@@ -1843,6 +1938,11 @@ def build_parser() -> argparse.ArgumentParser:
     mt5_actions = p.add_subparsers(dest="action", required=True)
     a = mt5_actions.add_parser("status", help="check MT5 bridge status")
     a.add_argument("--json", action="store_true")
+    a = mt5_actions.add_parser(
+        "preflight",
+        help="read-only checklist of saved MT5 settings (never sends orders)",
+    )
+    a.add_argument("--json", action="store_true")
     a = mt5_actions.add_parser("account", help="query MT5 account info")
     a.add_argument("--json", action="store_true")
     a = mt5_actions.add_parser("quote", help="get MT5 tick quote")
@@ -1861,7 +1961,36 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--sl", type=float, default=0.0)
     a.add_argument("--tp", type=float, default=0.0)
     a.add_argument("--comment", default="NEEZY Trade")
+    a.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="validate and print the order without contacting MT5",
+    )
+    a.add_argument(
+        "--confirm",
+        action="store_true",
+        help="required to send a live order to the MT5 terminal",
+    )
     a.add_argument("--json", action="store_true")
+
+    p = sub.add_parser("menu", help="interactive menu for cmd.exe and PowerShell")
+    p.set_defaults(handler=cmd_menu)
+
+    p = sub.add_parser("mcp", help="third-party MCP server catalog and configs")
+    p.set_defaults(handler=cmd_mcp)
+    mcp_actions = p.add_subparsers(dest="action", required=True)
+    a = mcp_actions.add_parser("list", help="list known MCP servers")
+    a.add_argument("--json", action="store_true")
+    a = mcp_actions.add_parser("show", help="describe one MCP server")
+    a.add_argument("server_id", help="e.g. mt5-ariadng or desktop-win32")
+    a.add_argument("--json", action="store_true")
+    a = mcp_actions.add_parser("config", help="print an MCP client config entry")
+    a.add_argument("server_id", help="e.g. mt5-ariadng or desktop-win32")
+    a.add_argument(
+        "--unsafe",
+        action="store_true",
+        help="skip the read-only profile and enable every tool",
+    )
 
     p = sub.add_parser("dm", help="direct message webhook notifications")
     p.set_defaults(handler=cmd_dm)

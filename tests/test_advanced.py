@@ -173,6 +173,7 @@ class DefaultToolTests(unittest.TestCase):
         saved = registry.execute(
             "add_memory",
             dry_run=False,
+            confirm=True,
             content="Volatility spike after news",
             category="notes",
         )
@@ -186,7 +187,9 @@ class DefaultToolTests(unittest.TestCase):
 
     def test_add_memory_rejects_blank_content(self) -> None:
         with self.assertRaises(ValueError):
-            self._registry().execute("add_memory", dry_run=False, content="   ")
+            self._registry().execute(
+                "add_memory", dry_run=False, confirm=True, content="   "
+            )
 
     def test_recent_signals_lists_saved_rows_newest_first(self) -> None:
         from neezy_backend.database import LocalDatabase
@@ -236,7 +239,7 @@ class ToolRegistryTests(unittest.TestCase):
         self.assertEqual(dry_res["kwargs"], {"text": "hello"})
 
         # Normal execution test
-        res = registry.execute("sample", dry_run=False, text="hello")
+        res = registry.execute("sample", dry_run=False, confirm=True, text="hello")
         self.assertEqual(res, "Processed: hello")
 
     def test_read_market_tool_uses_real_granularity_and_market_keys(self) -> None:

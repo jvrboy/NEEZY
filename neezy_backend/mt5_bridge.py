@@ -31,6 +31,25 @@ if mt5 is not None:
     }
 
 
+NOT_CONNECTED = "MT5 not connected; no live data returned"
+MT5_TIMEFRAME_NAMES = ("1m", "2m", "3m", "5m", "10m", "15m", "30m", "1h", "4h", "1d")
+DEAL_TYPES = {0: "BUY", 1: "SELL"}
+DEAL_ENTRIES = {0: "IN", 1: "OUT", 2: "INOUT", 3: "OUT_BY"}
+
+
+def ready_bridge() -> tuple[MT5Bridge, str | None]:
+    """Connect the global bridge for a read; return (bridge, error) with no fake data.
+
+    Read methods on a disconnected simulated bridge return sample values, so
+    every read path must check the error before reporting anything.
+    """
+    bridge = get_global_mt5_bridge()
+    status = bridge.connect()
+    if not status.get("success"):
+        return bridge, f"MT5 not connected: {status.get('error', 'unknown error')}"
+    return bridge, None
+
+
 def is_mt5_available() -> bool:
     """Return True if the MetaTrader5 Python package is installed."""
     return mt5 is not None
@@ -78,6 +97,11 @@ class MT5Bridge:
                 if k.strip() and v.strip():
                     mapping[k.strip()] = v.strip()
         return mapping
+
+    @property
+    def symbol_mappings(self) -> dict[str, str]:
+        """Explicit NEEZY-to-MT5 symbol pairs from the saved symbol map."""
+        return dict(self._mappings)
 
     def map_symbol(self, symbol: str) -> str:
         """Translate a canonical symbol to the local MT5 symbol name."""
@@ -200,7 +224,9 @@ class MT5Bridge:
 
     def get_account_info(self) -> dict[str, Any]:
         """Query active MT5 account information."""
-        if self.mock or not self.connected:
+        if not self.mock and not self.connected:
+            return {"error": NOT_CONNECTED, "mock": False}
+        if self.mock:
             return {
                 "login": self.login or 1000001,
                 "trade_mode": "DEMO",
@@ -234,7 +260,14 @@ class MT5Bridge:
     def get_quote(self, symbol: str) -> dict[str, Any]:
         """Fetch real-time tick quote for a given symbol."""
         mt5_sym = self.map_symbol(symbol)
-        if self.mock or not self.connected:
+        if not self.mock and not self.connected:
+            return {
+                "symbol": symbol,
+                "mt5_symbol": mt5_sym,
+                "error": NOT_CONNECTED,
+                "mock": False,
+            }
+        if self.mock:
             now = time.time()
             return {
                 "symbol": symbol,
@@ -271,7 +304,9 @@ class MT5Bridge:
     ) -> list[dict[str, Any]]:
         """Fetch historical candle rates from MT5 terminal."""
         mt5_sym = self.map_symbol(symbol)
-        if self.mock or not self.connected:
+        if not self.mock and not self.connected:
+            return []
+        if self.mock:
             now = int(time.time())
             step = 300 if timeframe == "5m" else 60
             candles = []
@@ -311,7 +346,9 @@ class MT5Bridge:
 
     def get_positions(self) -> list[dict[str, Any]]:
         """Query open trading positions."""
-        if self.mock or not self.connected:
+        if not self.mock and not self.connected:
+            return []
+        if self.mock:
             return [
                 {
                     "ticket": 987654321,
@@ -350,6 +387,57 @@ class MT5Bridge:
             )
         return res
 
+    def get_account_history(
+        self, days: int = 7, limit: int = 200
+    ) -> list[dict[str, Any]]:
+        """Read closed deals from the last ``days`` days. Read-only; never trades."""
+        if not self.mock and not self.connected:
+            return []
+        if self.mock:
+            return [
+                {
+                    "ticket": 555001,
+                    "order": 555001,
+                    "time": int(time.time()) - 86400,
+                    "symbol": "EURUSD",
+                    "type": "SELL",
+                    "entry": "OUT",
+                    "volume": 0.1,
+                    "price": 1.0850,
+                    "profit": 12.50,
+                    "commission": -0.70,
+                    "swap": 0.0,
+                    "comment": "NEEZY mock deal",
+                    "mock": True,
+                }
+            ]
+
+        now = int(time.time())
+        deals = mt5.history_deals_get(now - int(days) * 86400, now)
+        if not deals:
+            return []
+        rows = []
+        for deal in sorted(deals, key=lambda d: d.time)[-int(limit) :]:
+            d = deal._asdict()
+            rows.append(
+                {
+                    "ticket": d.get("ticket"),
+                    "order": d.get("order"),
+                    "time": d.get("time"),
+                    "symbol": d.get("symbol"),
+                    "type": DEAL_TYPES.get(d.get("type"), "OTHER"),
+                    "entry": DEAL_ENTRIES.get(d.get("entry"), "OTHER"),
+                    "volume": d.get("volume"),
+                    "price": d.get("price"),
+                    "profit": d.get("profit"),
+                    "commission": d.get("commission"),
+                    "swap": d.get("swap"),
+                    "comment": d.get("comment"),
+                    "mock": False,
+                }
+            )
+        return rows
+
     def place_order(
         self,
         symbol: str,
@@ -364,7 +452,18 @@ class MT5Bridge:
         mt5_sym = self.map_symbol(symbol)
         order_type_clean = order_type.strip().upper()
 
-        if self.mock or not self.connected:
+        if order_type_clean not in ("BUY", "SELL"):
+            return {"success": False, "error": f"Unknown order type {order_type!r}"}
+        if volume <= 0:
+            return {"success": False, "error": "Volume must be greater than zero"}
+        if not self.connected:
+            return {
+                "success": False,
+                "error": "MT5 bridge is not connected; order not sent",
+                "mock": self.mock,
+            }
+
+        if self.mock:
             ticket = int(time.time() * 1000) % 1000000000
             fill_price = (
                 price
@@ -441,9 +540,48 @@ class MT5Bridge:
             "message": "Order placed successfully",
         }
 
+    def preview_order(
+        self,
+        symbol: str,
+        order_type: str,
+        volume: float,
+        price: float = 0.0,
+        sl: float = 0.0,
+        tp: float = 0.0,
+        comment: str = "NEEZY Trade",
+    ) -> dict[str, Any]:
+        """Describe the order that would be sent, without contacting MT5."""
+        order_type_clean = order_type.strip().upper()
+        errors = []
+        if order_type_clean not in ("BUY", "SELL"):
+            errors.append(f"Unknown order type {order_type!r}")
+        if volume <= 0:
+            errors.append("Volume must be greater than zero")
+        return {
+            "status": "dry_run",
+            "sent": False,
+            "valid": not errors,
+            "errors": errors,
+            "symbol": symbol,
+            "mt5_symbol": self.map_symbol(symbol),
+            "order_type": order_type_clean,
+            "volume": volume,
+            "price": price,
+            "sl": sl,
+            "tp": tp,
+            "magic": self.magic,
+            "comment": comment,
+        }
+
     def close_position(self, ticket: int) -> dict[str, Any]:
         """Close an open position by ticket number."""
-        if self.mock or not self.connected:
+        if not self.connected:
+            return {
+                "success": False,
+                "error": "MT5 bridge is not connected; position not closed",
+                "mock": self.mock,
+            }
+        if self.mock:
             return {
                 "success": True,
                 "ticket": ticket,
@@ -494,27 +632,71 @@ class MT5Bridge:
         }
 
 
-# Global active MT5 bridge instance
+# Global active MT5 bridge instance, keyed by the connection settings it was
+# built from so a settings change takes effect on the next call.
 _GLOBAL_BRIDGE: MT5Bridge | None = None
+_GLOBAL_KEY: tuple[Any, ...] | None = None
+
+
+def bridge_from_settings(settings: Any = None) -> MT5Bridge:
+    """Build a bridge from saved NEEZY settings (``settings.json``) by default."""
+    if settings is None:
+        from neezy_backend.storage import SettingsStore
+
+        settings = SettingsStore().load()
+    return MT5Bridge(
+        login=settings.mt5_login,
+        password=settings.mt5_password,
+        server=settings.mt5_server,
+        path=settings.mt5_path,
+        magic=settings.mt5_magic,
+        symbol_map=settings.mt5_symbol_map,
+    )
 
 
 def get_global_mt5_bridge(
-    login: int = 0,
-    password: str = "",
-    server: str = "",
-    path: str = "",
-    magic: int = 123456,
-    symbol_map: str = "",
+    login: int | None = None,
+    password: str | None = None,
+    server: str | None = None,
+    path: str | None = None,
+    magic: int | None = None,
+    symbol_map: str | None = None,
 ) -> MT5Bridge:
-    """Get or instantiate the global MT5Bridge object."""
-    global _GLOBAL_BRIDGE
-    if _GLOBAL_BRIDGE is None:
-        _GLOBAL_BRIDGE = MT5Bridge(
-            login=login,
-            password=password,
-            server=server,
-            path=path,
-            magic=magic,
-            symbol_map=symbol_map,
+    """Return the shared bridge, configured from saved settings unless overridden.
+
+    Passing no arguments uses the MT5 fields saved by the GUI, so the CLI, the
+    agent tools, and the MCP tools all connect with the same account.
+    """
+    global _GLOBAL_BRIDGE, _GLOBAL_KEY
+    explicit = (login, password, server, path, magic, symbol_map)
+    if all(value is None for value in explicit):
+        bridge = bridge_from_settings()
+        key: tuple[Any, ...] = (
+            bridge.login,
+            bridge.password,
+            bridge.server,
+            bridge.path,
+            bridge.magic,
+            bridge.symbol_map_str,
         )
+    else:
+        key = (
+            0 if login is None else login,
+            "" if password is None else password,
+            "" if server is None else server,
+            "" if path is None else path,
+            123456 if magic is None else magic,
+            "" if symbol_map is None else symbol_map,
+        )
+        bridge = MT5Bridge(
+            login=key[0],
+            password=key[1],
+            server=key[2],
+            path=key[3],
+            magic=key[4],
+            symbol_map=key[5],
+        )
+    if _GLOBAL_BRIDGE is None or _GLOBAL_KEY != key:
+        _GLOBAL_BRIDGE = bridge
+        _GLOBAL_KEY = key
     return _GLOBAL_BRIDGE

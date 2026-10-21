@@ -1,94 +1,104 @@
-# AUDIT.md
+# NEEZY Repository Audit
 
-# NEEZY Repository Audit Report
+Refreshed on branch `neezy-update-2026-10` against the working tree. Earlier
+versions of this file described the 2,326-line `ui.py` and 372 tests; both are
+out of date.
 
-**Date**: Autonomous Upgrade Baseline
-**Scope**: Entire codebase (`neezy_backend`, `neezy_app`, `tests`, root scripts & packaging)
+## Snapshot
 
----
+| Item | Value |
+|------|-------|
+| Tests | `python -m unittest discover -s tests`: 438 run, 2 skipped, all OK |
+| Lint | `ruff check` on `neezy_app neezy_backend tests forex_signals.py local_ci.py`: 24 errors, all in files this branch did not touch (`neezy_app/glass.py` 12, `neezy_backend/quant.py` 10, `neezy_backend/exporters.py` 2) |
+| Format | `ruff format --check`: 3 files would change (`glass.py`, `exporters.py`, `quant.py`), all pre-existing |
+| Desktop window | `neezy_app/ui.py` is 784 lines: `App(tk.Tk)` shell, theme, widget helpers, settings apply, close. Screens live in 16 mixins under `neezy_app/ui_panels/` |
+| Backend | `neezy_backend/`: 52 Python files, about 16,000 lines |
 
-## 1. Executive Summary & App Overview
+The split moved 144 methods without changing their bodies. A check of the
+parsed AST of each method against `HEAD` found no changes and no missing
+methods. `NAV` and `RESEARCH_CONTROLS` moved to `neezy_app/ui_panels/constants.py`
+and are still importable from `neezy_app.ui`.
 
-**NEEZY** is a native Python desktop workspace designed for financial market monitoring, technical analysis, automated rule alerting, backtesting, and AI-assisted market analysis.
-
-Key properties:
-- **Local Desktop App**: Runs 100% locally on the user's machine using Python and Tkinter.
-- **Data Source**: Reconnecting background WebSocket connection to public market candles (Deriv API).
-- **Storage**: Local SQLite database (`neezy.sqlite3` in WAL mode), local JSON/JSONL configuration files.
-- **AI Integrations**: Bring-your-own-key multi-provider pool (Gemini, Grok, OpenRouter, Ollama Cloud) with automated failover and cooldowns.
-- **Target User**: Quantitative traders, market researchers, and technical analysts who want zero-cloud, privacy-first local tooling.
-
----
-
-## 2. Architecture & Data Flow Overview
+## Architecture
 
 ```
-               ┌──────────────────────────────────────────────┐
-               │              Deriv WebSocket API             │
-               └──────────────────────┬───────────────────────┘
-                                      │ (candles / ticks)
-                                      ▼
-               ┌──────────────────────────────────────────────┐
-               │     neezy_backend.stream / DerivStream       │
-               └──────────────────────┬───────────────────────┘
-                                      │
-                                      ▼
-               ┌──────────────────────────────────────────────┐
-               │    Engine Analysis (Indicators, Supertrend,   │
-               │    Divergence, Strategies, Candlesticks)     │
-               └──────────────┬────────────────┬──────────────┘
-                              │                │
-                              ▼                ▼
-     ┌─────────────────────────────┐   ┌─────────────────────────────┐
-     │ SQLite DB (neezy.sqlite3)   │   │  neezy_app.ui (Tkinter UI)  │
-     │ - candles, signals, AI logs │   │  - App Shell, Charts, Tools │
-     └─────────────────────────────┘   └──────────────┬──────────────┘
-                                                      │
-                                                      ▼
-                                       ┌─────────────────────────────┐
-                                       │    neezy_backend.ai / Chat  │
-                                       │    (Gemini/Grok/OR/Ollama)  │
-                                       └─────────────────────────────┘
+Deriv public WebSocket ──► neezy_backend.stream / DerivStreamClient
+                                   │
+                    indicators, patterns, strategies, confluence, alerts
+                                   │
+        ┌──────────────────────────┴───────────────────────────┐
+  SQLite (neezy.sqlite3, WAL)                       neezy_app.ui (Tkinter)
+  candles, signals, history                  shell + ui_panels/* mixins
+                                                       │
+                                  AI providers (BYOK) · local GGUF models
+                                  MCP server · Telegram · MT5 bridge (gated)
 ```
 
----
+Panel modules: `market` (watchlist, chart, polling), `signals`, `insights`
+(research, brain, strategies), `chat`, `tools_page`, `alerts`, `history`,
+`database`, `settings`, `ai_settings`, `local_models`, `data_providers`, `mcp`,
+`telegram`, `remote`, `integrations` (MT5 and webhook settings).
 
-## 3. Findings Ranked by Priority
+Thread rule that still holds: network and model work runs in worker threads and
+hands results back through `App.after`. Widgets are only touched on the main
+thread. The chat test in `tests/test_ui_smoke.py` checks this for the AI
+fallback path.
 
-### Critical / High Priority
+## Status of earlier findings
 
-1. **Test Environment Dependency Discrepancy (FIXED IN BOOTSTRAP)**:
-   - `pytest` invoked directly was missing `websocket-client` because tests ran in a separate virtual environment than the installed pip package.
-   - *Status*: Resolved by ensuring `websocket-client` and editable package install in test environment.
+1. **Test environment mismatch.** Resolved. Tests run from a venv with the
+   package installed. On Debian/PEP 668 systems use a venv; `pip install -e`
+   into the system Python is blocked.
 
-2. **Lack of Structured Agent Tool Schema & Sandboxing**:
-   - Agent interaction in `ai.py` was limited to plain text generation with context injection (`context.py`). No formal agent tool execution loop, tool registry, dry-run capabilities, or permission tiers existed.
-   - Potential local risk if tools execute arbitrary shell or unvalidated path access.
+2. **No agent tool permission model.** Resolved. `neezy_backend/tools.py` has
+   `ToolPermission` tiers. `WRITE` and `DESTRUCTIVE` tools raise
+   `PermissionError` unless `confirm=True`. `dry_run` is always allowed.
 
-3. **UI Monolith & Thread Safety**:
-   - `neezy_app/ui.py` is a single 2,326-line file handling layout, rendering, event handling, network dispatching, and chart drawing.
-   - Heavy operations like backtesting or multi-market scanning risk blocking the Tkinter event loop if not strictly queued in worker threads.
+3. **UI monolith.** Resolved for structure. `ui.py` went from 4,929 lines to
+   784, and screens are in separate mixin modules. The methods are unchanged, so
+   the split does not by itself fix any UI-thread issues. Heavy work (analysis,
+   backtests, model training) still runs in threads; that path was not re-audited
+   in this pass.
 
-### Medium Priority
+4. **Live order path could report success while disconnected.** Resolved.
+   `place_order` refuses when MT5 is not connected. `preview_order` never
+   contacts the terminal. `neezy-cli mt5 order` requires `--confirm` unless
+   `--dry-run`. The terminal menu requires typing `SEND`. No agent or MCP tool
+   calls `place_order`.
 
-4. **Long-Term Memory & Evals Absence**:
-   - Chat history was stored as simple conversation turns or database logs without vector/semantic retrieval, BM25 context search, or short-term summarization.
-   - No benchmark evaluation suite (`/evals`) or local fine-tuning/few-shot data curation pipeline existed.
+5. **Simulated market data mixed with live data.** Resolved. With the bridge
+   disconnected, `get_account_info`, `get_quote`, `fetch_candles`, and
+   `get_positions` return an error, not sample numbers. CLI `mt5 account`,
+   `quote`, and `candles` refuse to print simulated output. Mock output in
+   agent tools is labelled `[SIMULATED]`.
 
-5. **UI Visual Cohesion & Design System**:
-   - Standard Tkinter widgets and basic canvas drawing lack a modern enterprise feel (e.g. command palette, toast notification system, dark/light theme tokens, collapsible sidebar navigation).
+6. **MCP server sprawl.** Partly addressed. Six third-party MT5 and Windows
+   desktop MCP servers are listed in `neezy_backend/mcp_catalog.py` for reference
+   only. Nothing is installed or started. Two have a read-only mode
+   (`desktop-win32`, `desktop-winremote`); the other four do not.
 
-### Low Priority / Quick Wins
+## Open items
 
-6. **Documentation & CLI Polish**:
-   - Missing explicit architectural breakdown docs (`docs/ARCHITECTURE.md`, `docs/AGENT.md`, `docs/LOCAL_SECURITY.md`, `docs/UI.md`).
-   - Need unified local CI test script and Makefile / task runner for one-command developer verification.
+- **Plain-text MT5 password.** `settings.json` stores the MT5 password in plain
+  text. Moving it to the OS keychain is future work (see `DECISIONS.md`,
+  Decision 6). Ariadng's MCP config passes the password on the command line,
+  which is visible to other local processes.
+- **Thread safety of heavy work.** Analysis, backtest, and training threads have
+  not been re-checked for shared state since the split.
+- **Pre-existing lint debt.** The 24 ruff errors and 3 unformatted files are in
+  `glass.py`, `quant.py`, and `exporters.py`. They were not touched.
+- **Test resource warnings.** Six `unclosed database` ResourceWarnings appear in
+  the baseline too. They are test-only and do not fail the run.
+- **Windows verification.** `packaging/windows/neezy_entry.py` and the
+  PowerShell and cmd CLI paths have not been run on Windows from this environment.
+- **Phase 4 ("ide") undefined.** Needs a decision from the owner.
 
----
+## Checklist
 
-## 4. Quick Wins Checklist
-
-- [x] Create git backup tag `pre-upgrade-backup`.
-- [x] Verify full test suite execution (117 tests passing).
-- [ ] Implement `scripts/local_ci.sh` for instant local linting, formatting, and test validation.
-- [ ] Create sandboxed path validation helper in `neezy_backend/storage.py`.
+- [x] Git backup tag `pre-upgrade-backup`.
+- [x] Full test suite passing (438 tests).
+- [x] Unified local CI script (`local_ci.py`) runs syntax, ruff lint/format, and unittest gates.
+- [x] Split `neezy_app/ui.py` into panel mixins.
+- [x] Sandboxed path validation helper in `neezy_backend/storage.py`.
+- [ ] Move the MT5 password out of `settings.json`.
+- [ ] Re-audit background threads in the UI.

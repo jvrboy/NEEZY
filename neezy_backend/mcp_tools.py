@@ -252,14 +252,65 @@ def register_app_tools(
         return get_global_mt5_bridge().get_status()
 
     def mt5_account_info() -> dict[str, Any]:
-        from neezy_backend.mt5_bridge import get_global_mt5_bridge
+        from neezy_backend.mt5_bridge import ready_bridge
 
-        return get_global_mt5_bridge().get_account_info()
+        bridge, error = ready_bridge()
+        if error:
+            return {"error": error}
+        return bridge.get_account_info()
 
     def mt5_get_quote(symbol: str) -> dict[str, Any]:
-        from neezy_backend.mt5_bridge import get_global_mt5_bridge
+        from neezy_backend.mt5_bridge import ready_bridge
 
-        return get_global_mt5_bridge().get_quote(_check_market(symbol))
+        bridge, error = ready_bridge()
+        if error:
+            return {"error": error}
+        return bridge.get_quote(_check_market(symbol))
+
+    def mt5_positions() -> dict[str, Any]:
+        from neezy_backend.mt5_bridge import ready_bridge
+
+        bridge, error = ready_bridge()
+        if error:
+            return {"error": error}
+        return {"mock": bridge.mock, "positions": bridge.get_positions()}
+
+    def mt5_candles(
+        symbol: str, timeframe: str = "5m", count: int = 100
+    ) -> dict[str, Any]:
+        from neezy_backend.mt5_bridge import MT5_TIMEFRAME_NAMES, ready_bridge
+
+        market = _check_market(symbol)
+        if timeframe not in MT5_TIMEFRAME_NAMES:
+            raise ValueError(
+                f"unknown timeframe {timeframe!r}; use one of "
+                + ", ".join(MT5_TIMEFRAME_NAMES)
+            )
+        bridge, error = ready_bridge()
+        if error:
+            return {"error": error}
+        candles = bridge.fetch_candles(
+            market, timeframe=timeframe, count=_bounded(count, 1, 1000)
+        )
+        return {
+            "mock": bridge.mock,
+            "symbol": market,
+            "timeframe": timeframe,
+            "candles": candles,
+        }
+
+    def mt5_account_history(days: int = 7) -> dict[str, Any]:
+        from neezy_backend.mt5_bridge import ready_bridge
+
+        bridge, error = ready_bridge()
+        if error:
+            return {"error": error}
+        window = _bounded(days, 1, 90)
+        return {
+            "mock": bridge.mock,
+            "days": window,
+            "deals": bridge.get_account_history(days=window),
+        }
 
     def send_dm_message(webhook_url: str, title: str, message: str) -> dict[str, Any]:
         from neezy_backend.dm import send_dm_notification
@@ -464,6 +515,21 @@ def register_app_tools(
         "mt5_get_quote",
         "Get live tick quote from MetaTrader 5 bridge.",
         mt5_get_quote,
+    )
+    registry.register(
+        "mt5_positions",
+        "List open MetaTrader 5 positions (read-only).",
+        mt5_positions,
+    )
+    registry.register(
+        "mt5_candles",
+        "Fetch recent MetaTrader 5 candles for a market and timeframe (read-only).",
+        mt5_candles,
+    )
+    registry.register(
+        "mt5_account_history",
+        "List closed MetaTrader 5 deals for the last N days (read-only, max 90).",
+        mt5_account_history,
     )
     registry.register(
         "send_dm_message",

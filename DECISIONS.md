@@ -25,3 +25,10 @@ This document records architectural, design, and operational decisions made duri
 ## Decision 5: Versioned Prompt Registry & /evals Evaluation Harness
 - **Context**: Prompt strings were previously scattered or simple. System needs structured agent loops, tool schemas, and local benchmark evaluations.
 - **Decision**: Create a dedicated prompt management package (`neezy_backend/prompts/`) storing versioned system prompts and dynamic templates. Build a local evaluation harness in `evals/` that runs benchmark tasks against local rules or LLM providers and outputs standardized JSON/Markdown report cards.
+
+## Decision 6: Live MT5 Orders Only Behind Explicit Confirmation (2026-10 update)
+- **Context**: The earlier README and this log said NEEZY never places trades. The MT5 bridge could already send orders, and a mock path returned `success: true` when no terminal was connected.
+- **Decision**: Live orders stay available, but only through `neezy-cli mt5 order`, which refuses unless `--confirm` is given and MT5 is really connected. `--dry-run` validates without contacting MT5. The terminal menu requires typing `SEND`. Agent and MCP tools can read MT5 or preview an order and cannot send one. Tools marked WRITE or DESTRUCTIVE in the registry raise `PermissionError` unless `confirm=True`. Read commands (account, quote, candles) refuse simulated or disconnected data instead of returning made-up values.
+- **Scope**: The bridge connects only to the MetaTrader 5 terminal on the user's own PC, which the user has already logged in to their broker. This stays inside Decision 1: no NEEZY-hosted service and no telemetry.
+- **Not done**: No third-party MCP server is installed or run. `neezy_backend/mcp_catalog.py` only describes six community servers, with their risks and read-only profiles where they exist.
+- **Known gap**: Saved MT5 passwords are plain text in `settings.json` under `NEEZY_HOME`, as in earlier versions. Moving them to the OS keychain is future work.

@@ -1,6 +1,6 @@
 # NEEZY
 
-NEEZY is a native Python/Tkinter market-monitoring workspace. It reads public market candles from Deriv's WebSocket API and computes educational technical-analysis summaries. It does not place trades, authenticate to broker accounts, or provide financial advice.
+NEEZY is a native Python/Tkinter market-monitoring workspace. It reads public market candles from Deriv's WebSocket API and computes educational technical-analysis summaries. Its analysis never places trades. The optional MetaTrader 5 bridge can send orders to a MetaTrader 5 terminal you run on your own PC, but only from the CLI with `--confirm` (or the menu's typed `SEND`). Agent and MCP tools can preview orders and never send them. NEEZY does not provide financial advice. See [MetaTrader 5 bridge](#metatrader-5-bridge-live-orders-gated).
 
 ## Confluence engine, data providers and card workspace (v1.6.0)
 
@@ -122,6 +122,33 @@ this repository as a Kaggle Dataset and set `INSTALL_SOURCE = "dataset"`; see
 [`kaggle/README.md`](kaggle/README.md) for both install paths, storage and limits.
 
 **Android / Pydroid 3:** NEEZY's Python backend and `neezy-cli` are headless and do not import Tkinter. In Pydroid, install/clone the project in a writable directory, install the base dependency (`websocket-client`) with Pydroid's pip/quick-install support, and run `python -m neezy_backend --help` or `python -m neezy_backend markets`. Grant the app storage permission if you choose a shared location; set `NEEZY_HOME` to a writable app-owned directory if the default config path is unsuitable. Market data still needs an internet connection. Tkinter/desktop widgets are not expected to work in Pydroid. Native `llama-cpp-python`, PyTorch, Transformers, and `cloudflared` availability depends on compatible Android wheels/binaries; NEEZY does not bundle them, and the optional model/tunnel features may therefore be unavailable on a particular phone. This repository has not been validated on a physical Android/Pydroid device.
+
+## MetaTrader 5 bridge (live orders, gated)
+
+The bridge talks to a MetaTrader 5 terminal running on the same Windows PC. It is the only part of NEEZY that can send a trade, and it is off unless you use it.
+
+**Requirements.** Windows, the MetaTrader 5 terminal installed and logged in to your broker, and `pip install MetaTrader5` in the Python that runs NEEZY. Enable Algo Trading in the terminal. Without the package NEEZY runs in simulated mode and refuses live reads and orders.
+
+**Settings.** Open **SETTINGS → MT5 BRIDGE** and fill in the server, login, password, terminal path (optional), magic number, and symbol map (for example `frxEURUSD=EURUSD`). The password is saved in plain text in `settings.json` under `NEEZY_HOME`, so keep that folder private. The CLI reads these saved fields; the GUI's enable checkbox is not required for CLI use.
+
+**Check before you trade.** `neezy-cli mt5 preflight` runs a read-only checklist: package, terminal path, login and server, connection, account type (demo or live), trading permission, and symbols. It never sends orders and never changes Market Watch. Exit code 1 means not ready.
+
+```bash
+neezy-cli mt5 status
+neezy-cli mt5 account
+neezy-cli mt5 quote frxEURUSD
+neezy-cli mt5 candles frxEURUSD -t 5m -n 100
+neezy-cli mt5 order frxEURUSD --type BUY --volume 0.1 --dry-run     # validates, never sends
+neezy-cli mt5 order frxEURUSD --type BUY --volume 0.1 --confirm     # sends a live order
+```
+
+Without `--confirm` an order is refused. With `--confirm` but no connected terminal, it is refused too; nothing is reported as placed unless MT5 returns success. The quote, account, and candle reads refuse simulated or disconnected data instead of printing made-up values.
+
+**Agent and MCP tools.** `mt5_status`, `mt5_account`, `mt5_quote`, `mt5_positions`, `mt5_candles`, and `mt5_order_preview` are read-only or preview-only. No agent tool sends an order. Tools marked write or destructive require `confirm=True` in code.
+
+**Windows terminal menu.** `neezy-cli menu` is a plain-text menu for cmd.exe and PowerShell. Option 7 places a live order only after you type `SEND`. Option `p` runs the preflight. This was tested on Linux with scripted input; it has not been run on Windows in this update.
+
+**Third-party MCP servers.** `neezy-cli mcp list`, `mcp show <id>`, and `mcp config <id>` describe six community MCP servers for MetaTrader 5 and Windows desktop control. NEEZY does not install, run, or connect to them. `mcp config` prints a client config with the read-only profile where the server offers one; `--unsafe` prints the full-access config. Two handle your broker password badly: Qoyyuum's server takes it through a login tool call, so the AI client sees it, and ariadng's config puts it on the command line. Review both before use.
 
 ## Command-line tools
 
