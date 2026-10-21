@@ -101,6 +101,25 @@ class AppSettings:
     # the deterministic signal score or places trades.
     use_brain_model: bool = False
 
+    # Reproducible public-data research (advisory; never places orders).
+    ml_history_candles: int = 3000
+    ml_epochs: int = 60
+    ml_horizon: int = 5
+    ml_deadband_atr: float = 0.1
+    ml_min_samples: int = 100
+    ml_seed: int = 17
+    ml_probability: float = 0.60
+    ml_fetch_timeout: float = 15.0
+    pair_lookback: int = 60
+    pair_min_overlap: int = 300
+    pair_entry_z: float = 2.0
+    pair_exit_z: float = 0.5
+    pair_stop_z: float = 4.0
+    pair_cost_bps: float = 2.0
+    pair_max_holding: int = 48
+    pair_min_correlation: float = 0.3
+    insights_max_rows: int = 25
+
     # Optional local generative model. Imported weights remain where the user
     # selected them; inference is CPU-oriented and never downloads model files.
     local_llm_enabled: bool = False
@@ -129,6 +148,33 @@ class AppSettings:
     telegram_allow_commands: bool = False
 
     def __post_init__(self) -> None:
+        for field_name, low, high in (
+            ("ml_history_candles", 400, 50000),
+            ("ml_epochs", 1, 500),
+            ("ml_horizon", 1, 100),
+            ("ml_min_samples", 60, 10000),
+            ("ml_seed", 0, 2147483647),
+            ("pair_lookback", 20, 1000),
+            ("pair_min_overlap", 100, 20000),
+            ("pair_max_holding", 1, 2000),
+            ("insights_max_rows", 5, 200),
+        ):
+            _require_int(field_name, getattr(self, field_name), low, high)
+        for field_name, low, high in (
+            ("ml_deadband_atr", 0.0, 5.0),
+            ("ml_probability", 0.51, 0.99),
+            ("ml_fetch_timeout", 2.0, 120.0),
+            ("pair_entry_z", 0.5, 6.0),
+            ("pair_exit_z", 0.0, 3.0),
+            ("pair_stop_z", 1.0, 10.0),
+            ("pair_cost_bps", 0.0, 100.0),
+            ("pair_min_correlation", 0.0, 1.0),
+        ):
+            _require_float(field_name, getattr(self, field_name), low, high)
+        if not self.pair_exit_z < self.pair_entry_z < self.pair_stop_z:
+            raise ValueError("pair thresholds must satisfy exit < entry < stop")
+        if self.pair_min_overlap < self.pair_lookback * 3:
+            raise ValueError("pair overlap must be at least three lookback windows")
         if self.theme not in THEMES:
             raise ValueError(f"Unsupported theme preset: {self.theme!r}")
         _require_int("polling_ms", self.polling_ms, 50, 2000)
