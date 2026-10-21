@@ -35,7 +35,9 @@ def _row(record: Mapping[str, Any]) -> dict[str, Any]:
 def signals_to_csv(signals: Sequence[Mapping[str, Any]]) -> str:
     """Render signal records as a CSV sheet with a stable header row."""
     buffer = io.StringIO(newlines="")
-    writer = csv.DictWriter(buffer, fieldnames=list(SIGNAL_CSV_FIELDS), extrasaction="ignore")
+    writer = csv.DictWriter(
+        buffer, fieldnames=list(SIGNAL_CSV_FIELDS), extrasaction="ignore"
+    )
     writer.writeheader()
     for record in signals:
         writer.writerow(_row(record))
@@ -51,7 +53,8 @@ def write_text(path: str | Path, text: str) -> Path:
     """Write export text to disk with a trailing newline and return the path."""
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(text if text.endswith("\n") else text + "\n", encoding="utf-8")
+    payload = text if text.endswith("\n") else text + "\n"
+    destination.write_text(payload, encoding="utf-8")
     return destination
 
 

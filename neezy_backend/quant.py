@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping, Sequence
+from itertools import pairwise
 from typing import Any
 
 TRADING_DAYS = 252
@@ -120,16 +121,19 @@ def historical_var(returns: Sequence[float], confidence: float = 0.95) -> float 
     if not 0 < confidence < 1:
         raise ValueError("confidence must be between 0 and 1")
     ordered = sorted(returns)
-    index = max(0, min(len(ordered) - 1, int(math.floor((1 - confidence) * len(ordered)))))
+    rank = math.floor((1 - confidence) * len(ordered))
+    index = max(0, min(len(ordered) - 1, rank))
     return max(-ordered[index], 0.0)
 
 
-def expected_shortfall(returns: Sequence[float], confidence: float = 0.95) -> float | None:
+def expected_shortfall(
+    returns: Sequence[float], confidence: float = 0.95
+) -> float | None:
     """Average loss beyond the VaR cut-off (CVaR)."""
     if len(returns) < 10:
         return None
     ordered = sorted(returns)
-    tail = ordered[: max(1, int(math.floor((1 - confidence) * len(ordered))))]
+    tail = ordered[: max(1, math.floor((1 - confidence) * len(ordered)))]
     return max(-sum(tail) / len(tail), 0.0)
 
 
@@ -161,7 +165,9 @@ def hurst_exponent(closes: Sequence[float], min_window: int = 8) -> float | None
     ys: list[float] = []
     window = min_window
     while window <= len(diffs) // 2:
-        chunks = [diffs[i : i + window] for i in range(0, len(diffs) - window + 1, window)]
+        chunks = [
+            diffs[i : i + window] for i in range(0, len(diffs) - window + 1, window)
+        ]
         if not chunks:
             break
         mean_var = sum(sum(c) ** 2 / len(c) for c in chunks) / len(chunks)
@@ -177,7 +183,9 @@ def hurst_exponent(closes: Sequence[float], min_window: int = 8) -> float | None
     denom = sum((x - mean_x) ** 2 for x in xs)
     if denom == 0:
         return None
-    slope = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys)) / denom
+    slope = (
+        sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys, strict=True)) / denom
+    )
     return max(0.0, min(1.0, slope))
 
 
@@ -220,7 +228,7 @@ def risk_report(
     closes = closes_from_candles(candles)
     returns = [
         math.log(after / before)
-        for before, after in zip(closes, closes[1:])
+        for before, after in pairwise(closes)
         if before > 0 and after > 0
     ]
     hurst = hurst_exponent(closes)
@@ -230,7 +238,9 @@ def risk_report(
         "samples": len(closes),
         "returns": len(returns),
         "ewma_vol": ewma_volatility(returns, periods_per_year=None),
-        "ewma_vol_annualised": ewma_volatility(returns, periods_per_year=periods_per_year),
+        "ewma_vol_annualised": ewma_volatility(
+            returns, periods_per_year=periods_per_year
+        ),
         "sharpe": sharpe_ratio(returns, periods_per_year=periods_per_year),
         "sortino": sortino_ratio(returns, periods_per_year=periods_per_year),
         "max_drawdown": dd["max_drawdown"],
@@ -244,7 +254,9 @@ def risk_report(
     return report
 
 
-def format_risk_report(symbol_name: str, timeframe: str, report: Mapping[str, Any]) -> str:
+def format_risk_report(
+    symbol_name: str, timeframe: str, report: Mapping[str, Any]
+) -> str:
     """Render a risk report as a compact text panel for the UI."""
     if not report.get("samples"):
         return (

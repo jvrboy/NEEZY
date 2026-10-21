@@ -9,26 +9,21 @@ to `main` so progress survives if the run is interrupted.
 
 | Item | Value |
 |------|-------|
-| Phase | 1 (audit) → entering Phase 2 |
-| Current batch | n/a (Phase 2 pre-batch fix wave) |
-| Updates completed | 0/500 (ROADMAP.md not yet created) |
+| Phase | 3 (roadmap) — Phase 2 complete |
+| Current batch | Phase 2 push complete; next: author ROADMAP.md |
+| Updates completed | 0/500 (ROADMAP.md being authored) |
 | Updates remaining | 500 |
 | Run started | 2026-10-22 (SAST) |
 | Baseline at run start | commit `9a17b52`, v1.6.0 |
 
-## Verified baseline (measured this run, not inherited)
+## Verified state after Phase 2
 
-- Full suite: `python -m unittest discover -s tests` → **533 tests, 1 failure**
-  (`test_enterprise_ui`: `PAGE_TITLES` lacks the new `ORDERS` nav entry),
-  43.9 s. Tests must run with stdin redirected from `/dev/null` in headless
-  sandboxes (see bug N1 below) or the menu test can hang.
-- Lint: `ruff check .` → **43 errors** (kaggle notebook 19, `glass.py` 14,
-  `quant.py` 8, `exporters.py` 2). CI's lint path (`neezy_app neezy_backend
-  tests forex_signals.py`) sees 24 of them — **GitHub "Python CI" is RED on
-  main** for at least the last 10 runs (verified via workflow runs API).
-- Format: `ruff format --check .` → 4 files would be reformatted.
-- `python -m compileall` → clean.
-- Release workflow (Windows EXE + Android APK) is green.
+- Full suite: **535 tests OK** (2 new regression tests added).
+- `ruff check .` → clean (whole tree incl. kaggle notebook).
+- `ruff format --check .` → clean.
+- Fixes pushed: PAGE_TITLES ORDERS entry, menu `input` late binding,
+  settings.json chmod 0o600, quant.py/exporters.py/glass.py lint, notebook
+  lint, 4 files reformatted.
 
 ## Files touched this run
 

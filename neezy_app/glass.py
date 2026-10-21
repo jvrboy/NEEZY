@@ -49,6 +49,7 @@ def ease_in_out_sine(t: float) -> float:
 
 def mix_hex_color(first: str, second: str, t: float) -> str:
     """Blend two #rrggbb colours; result is a valid #rrggbb string."""
+
     def channels(color: str) -> tuple[int, int, int]:
         color = color.lstrip("#")
         if len(color) == 3:
@@ -62,7 +63,11 @@ def mix_hex_color(first: str, second: str, t: float) -> str:
         )
 
     a, b = channels(first), channels(second)
-    blended = (round(lerp(a[0], b[0], t)), round(lerp(a[1], b[1], t)), round(lerp(a[2], b[2], t)))
+    blended = (
+        round(lerp(a[0], b[0], t)),
+        round(lerp(a[1], b[1], t)),
+        round(lerp(a[2], b[2], t)),
+    )
     return "#{:02x}{:02x}{:02x}".format(*blended)
 
 
@@ -147,7 +152,13 @@ class GlassPanel(tk.Canvas):
         **kwargs: Any,
     ) -> None:
         super().__init__(
-            master, width=width, height=height, bg=fill, highlightthickness=0, bd=0, **kwargs
+            master,
+            width=width,
+            height=height,
+            bg=fill,
+            highlightthickness=0,
+            bd=0,
+            **kwargs,
         )
         self._radius = max(2, radius)
         self._fill = fill
@@ -162,9 +173,30 @@ class GlassPanel(tk.Canvas):
 
     def _rounded(self, x0: int, y0: int, x1: int, y1: int) -> Any:
         points = [
-            x0 + self._radius, y0, x1 - self._radius, y0, x1, y0, x1, y0 + self._radius,
-            x1, y1 - self._radius, x1, y1, x1 - self._radius, y1, x0 + self._radius, y1,
-            x0, y1, x0, y1 - self._radius, x0, y0 + self._radius, x0, y0,
+            x0 + self._radius,
+            y0,
+            x1 - self._radius,
+            y0,
+            x1,
+            y0,
+            x1,
+            y0 + self._radius,
+            x1,
+            y1 - self._radius,
+            x1,
+            y1,
+            x1 - self._radius,
+            y1,
+            x0 + self._radius,
+            y1,
+            x0,
+            y1,
+            x0,
+            y1 - self._radius,
+            x0,
+            y0 + self._radius,
+            x0,
+            y0,
         ]
         return self.create_polygon(*points, smooth=True, outline="", fill="")
 
@@ -174,10 +206,21 @@ class GlassPanel(tk.Canvas):
         self._rounded(1, 1, w - 2, h - 2)
         polygon_items = self.find_withtag("polygon")
         for item in polygon_items:
-            self.itemconfigure(item, fill=self._fill, outline=self._border, width=1, tags=("body",))
+            self.itemconfigure(
+                item,
+                fill=self._fill,
+                outline=self._border,
+                width=1,
+                tags=("body",),
+            )
         self.create_line(
-            self._radius, 3, w - self._radius, 3,
-            fill=_with_alpha(self._highlight, 0.55), width=1, capstyle="round",
+            self._radius,
+            3,
+            w - self._radius,
+            3,
+            fill=_with_alpha(self._highlight, 0.55),
+            width=1,
+            capstyle="round",
         )
 
     def _animate_sheen(self) -> None:
@@ -191,13 +234,19 @@ class GlassPanel(tk.Canvas):
             self._sheen_x = -w // 3
         x = self._sheen_x
         self.create_line(
-            x, 4, x + h // 2, h - 4,
-            fill=_with_alpha("#ffffff", 0.06), width=8, capstyle="round", tags=("sheen",),
+            x,
+            4,
+            x + h // 2,
+            h - 4,
+            fill=_with_alpha("#ffffff", 0.06),
+            width=8,
+            capstyle="round",
+            tags=("sheen",),
         )
         self.tag_raise("sheen")
         self._sheen_job = self.after(60, self._animate_sheen)
 
-    def destroy(self) -> None:  # noqa: D102 - inherited docstring
+    def destroy(self) -> None:  # inherited signature; see ttk.Canvas docs
         if self._sheen_job is not None:
             try:
                 self.after_cancel(self._sheen_job)
@@ -224,7 +273,13 @@ class GlassButton(tk.Canvas):
         **kwargs: Any,
     ) -> None:
         super().__init__(
-            master, width=width, height=height, bg=fill, highlightthickness=0, bd=0, **kwargs
+            master,
+            width=width,
+            height=height,
+            bg=fill,
+            highlightthickness=0,
+            bd=0,
+            **kwargs,
         )
         self._command = command
         self._w = width
@@ -236,7 +291,10 @@ class GlassButton(tk.Canvas):
         self._ripples: list[dict[str, Any]] = []
         self._job: str | None = None
         self._label = self.create_text(
-            width // 2, height // 2, text=text, fill=text_color,
+            width // 2,
+            height // 2,
+            text=text,
+            fill=text_color,
             font=font or ("Segoe UI", 10, "bold"),
         )
         self._draw(fill)
@@ -248,15 +306,24 @@ class GlassButton(tk.Canvas):
     def _draw(self, fill: str) -> None:
         self.delete("pill", "ripple")
         self.create_oval(
-            2, 2, self._w - 2, self._h - 2,
-            outline=self._border, width=1, fill=fill, tags=("pill",),
+            2,
+            2,
+            self._w - 2,
+            self._h - 2,
+            outline=self._border,
+            width=1,
+            fill=fill,
+            tags=("pill",),
         )
         self.tag_lower("ripple")
 
     def _hover(self, inside: bool) -> None:
         target = mix_hex_color(self._fill, self._glow, 0.18 if inside else 0.0)
         self._draw(target)
-        self.itemconfigure(self._label, fill=self._text_color if inside else _with_alpha(self._text_color, 0.86))
+        self.itemconfigure(
+            self._label,
+            fill=self._text_color if inside else _with_alpha(self._text_color, 0.86),
+        )
         if inside:
             self._spring()
 
@@ -298,7 +365,10 @@ class GlassButton(tk.Canvas):
                 self.delete(ripple["item"])
             r = ripple["r"]
             ripple["item"] = self.create_oval(
-                cx - r, cy - r / 2, cx + r, cy + r / 2,
+                cx - r,
+                cy - r / 2,
+                cx + r,
+                cy + r / 2,
                 outline="",
                 fill=_with_alpha(self._glow, ripple["alpha"]),
                 tags=("ripple",),
@@ -325,7 +395,15 @@ class PulseDot(tk.Canvas):
         period_ms: int = 1600,
         **kwargs: Any,
     ) -> None:
-        super().__init__(master, width=size, height=size, bg=master["bg"] if isinstance(master, tk.Widget) else "#000000", highlightthickness=0, bd=0, **kwargs)
+        super().__init__(
+            master,
+            width=size,
+            height=size,
+            bg=master["bg"] if isinstance(master, tk.Widget) else "#000000",
+            highlightthickness=0,
+            bd=0,
+            **kwargs,
+        )
         self._color = color
         self._size = size
         self._period = period_ms
@@ -348,8 +426,13 @@ class PulseDot(tk.Canvas):
         r = 3 + 4 * t
         self.delete("ring")
         self.create_oval(
-            c - r, c - r, c + r, c + r,
-            outline=_with_alpha(self._color, 0.45 * (1 - t)), width=2, tags=("ring",),
+            c - r,
+            c - r,
+            c + r,
+            c + r,
+            outline=_with_alpha(self._color, 0.45 * (1 - t)),
+            width=2,
+            tags=("ring",),
         )
         self._job = self.after(FRAME_MS, self._pulse)
 
@@ -371,7 +454,13 @@ class GlassSparkline(tk.Canvas):
         **kwargs: Any,
     ) -> None:
         super().__init__(
-            master, width=width, height=height, bg=base, highlightthickness=0, bd=0, **kwargs
+            master,
+            width=width,
+            height=height,
+            bg=base,
+            highlightthickness=0,
+            bd=0,
+            **kwargs,
         )
         self._w = width
         self._h = height
@@ -393,8 +482,11 @@ class GlassSparkline(tk.Canvas):
         self.delete("all")
         if len(self._points) < 2:
             self.create_text(
-                self._w // 2, self._h // 2, text="awaiting data",
-                fill=_with_alpha(self._stroke, 0.4), font=("Segoe UI", 8),
+                self._w // 2,
+                self._h // 2,
+                text="awaiting data",
+                fill=_with_alpha(self._stroke, 0.4),
+                font=("Segoe UI", 8),
             )
             return
         visible = max(2, int(len(self._points) * ease_out_cubic(t)))
@@ -409,11 +501,16 @@ class GlassSparkline(tk.Canvas):
             coords.extend((x, y))
         if len(coords) >= 4:
             fill_top = self._h - 6
-            polygon = list(coords) + [coords[-2], fill_top, coords[0], fill_top]
+            polygon = [*coords, coords[-2], fill_top, coords[0], fill_top]
             self.create_polygon(
-                *polygon, fill=_with_alpha(self._stroke, 0.14), outline="", smooth=True,
+                *polygon,
+                fill=_with_alpha(self._stroke, 0.14),
+                outline="",
+                smooth=True,
             )
-            self.create_line(*coords, fill=self._stroke, width=2, smooth=True, capstyle="round")
+            self.create_line(
+                *coords, fill=self._stroke, width=2, smooth=True, capstyle="round"
+            )
 
 
 class GradientSheen(tk.Canvas):
@@ -428,7 +525,13 @@ class GradientSheen(tk.Canvas):
         **kwargs: Any,
     ) -> None:
         super().__init__(
-            master, width=width, height=height, bg="#000000", highlightthickness=0, bd=0, **kwargs
+            master,
+            width=width,
+            height=height,
+            bg="#000000",
+            highlightthickness=0,
+            bd=0,
+            **kwargs,
         )
         self._w = width
         self._h = height
@@ -451,8 +554,12 @@ class GradientSheen(tk.Canvas):
             b = self._colors[(first + 1) % len(self._colors)]
             color = mix_hex_color(a, b, (cycle * len(self._colors)) % 1.0)
             self.create_rectangle(
-                round(t * self._w), 0, round((t + 1 / bands) * self._w) + 1, self._h,
-                outline="", fill=color,
+                round(t * self._w),
+                0,
+                round((t + 1 / bands) * self._w) + 1,
+                self._h,
+                outline="",
+                fill=color,
             )
         self._job = self.after(50, self._drift)
 

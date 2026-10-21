@@ -171,6 +171,25 @@ class MenuRenderTests(unittest.TestCase):
         self.assertNotIn("\x1b", out.getvalue())
         self.assertIn("NEEZY", out.getvalue())
 
+    def test_menu_reads_input_late_so_patch_applies(self):
+        """run_menu must resolve `input` at call time, not import time.
+
+        Regression: binding the default at import time made
+        mock.patch("builtins.input") ineffective and hung interactive
+        stdin environments in a prompt loop.
+        """
+        out = io.StringIO()
+        prompts: list[str] = []
+
+        def fake_input(prompt: str) -> str:
+            prompts.append(prompt)
+            return "0"
+
+        with mock.patch("builtins.input", new=fake_input):
+            code = run_menu(out, color=False)
+        self.assertEqual(code, 0)
+        self.assertTrue(prompts, "run_menu should read through builtins.input")
+
 
 if __name__ == "__main__":
     unittest.main()

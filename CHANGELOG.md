@@ -1,5 +1,34 @@
 # CHANGELOG
 
+## [Unreleased] - Autonomous engineering run (Phase 2: quality gates restored)
+
+### Fixed
+- CI is green again: all 24 ruff errors in the CI lint path resolved
+  (`neezy_app/glass.py`, `neezy_backend/quant.py`, `neezy_backend/exporters.py`)
+  and the 4 unformatted files reformatted. `ruff check .` (whole tree, including
+  the kaggle notebook) is clean.
+- `tests/test_enterprise_ui.py` failure: `PAGE_TITLES` in
+  `neezy_app/enterprise.py` lacked the `ORDERS` entry added with the ORDERS
+  page; it now maps to "ORDER DESK".
+- `neezy_backend/menu.py` `run_menu` bound the builtin `input` as a default
+  argument at import time, so `mock.patch("builtins.input")` had no effect and
+  interactive-stdin environments hung in a prompt loop. The default is now
+  resolved at call time. Regression test added.
+- `neezy_backend/storage.py` `SettingsStore.save` now chmods `settings.json`
+  to 0o600 on POSIX (the file stores the MT5 password), matching every other
+  secret store. Regression test added.
+- `neezy_backend/quant.py`: redundant `int()` casts around `math.floor`
+  removed; `zip(..., strict=True)` where lengths must match;
+  `itertools.pairwise` for successive pairs; long lines split.
+- `kaggle/NEEZY_on_Kaggle.ipynb`: 19 lint findings fixed (line length,
+  blind-except noqa, unused loop variable, iterable unpacking).
+
+### Added
+- Root `ARCHITECTURE.md`: authoritative architecture reference verified
+  against this tree (supersedes `docs/ARCHITECTURE.md`).
+- Root `AUDIT.md`: refreshed with this run's measured baseline and findings.
+- `HANDOFF.md`: run memory for the 500-update engineering program.
+
 ## [Unreleased] - Neural model types
 
 ### Added

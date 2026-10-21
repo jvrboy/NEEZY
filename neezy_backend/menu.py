@@ -152,15 +152,20 @@ def _result_line(style: Style, code: int) -> str:
 def run_menu(
     out: TextIO,
     *,
-    input_fn: Callable[[str], str] = input,
+    input_fn: Callable[[str], str] | None = None,
     run: Callable[[list[str]], int] | None = None,
     color: bool | None = None,
 ) -> int:
     """Loop over the menu until the user quits. `run` executes one CLI argv.
 
-    `color` forces colour on or off. Left as None, it follows the stream: a
-    terminal gets colour, a pipe or StringIO does not.
+    `input_fn` defaults to the builtin ``input`` resolved at call time (not
+    import time), so ``mock.patch("builtins.input")`` works in tests and no
+    default-argument capture holds a stale reference. `color` forces colour on
+    or off. Left as None, it follows the stream: a terminal gets colour, a
+    pipe or StringIO does not.
     """
+    if input_fn is None:
+        input_fn = input
     style = Style(color_enabled(out) if color is None else color)
     if run is None:
         from .cli import main as cli_main

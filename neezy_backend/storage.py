@@ -160,7 +160,13 @@ class SettingsStore:
             return AppSettings()
 
     def save(self, settings: AppSettings) -> None:
+        """Persist settings, then tighten permissions (holds the MT5 password)."""
         _atomic_json_write(self.path, settings.to_dict())
+        try:
+            # Match the other secret stores: owner-only read/write.
+            self.path.chmod(0o600)
+        except OSError:
+            pass  # best effort; some filesystems reject chmod
 
 
 class SignalHistoryStore:

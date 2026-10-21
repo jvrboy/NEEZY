@@ -68,6 +68,17 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(loaded.polling_ms, 250)
         self.assertFalse(hasattr(loaded, "future_option"))
 
+    def test_settings_save_restricts_file_permissions(self) -> None:
+        import os
+        import sys
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "settings.json"
+            SettingsStore(path).save(AppSettings())
+            mode = path.stat().st_mode & 0o777
+            if os.name == "posix" and sys.platform != "cygwin":
+                self.assertEqual(mode, 0o600)
+
 
 class EventBusTests(unittest.TestCase):
     def test_event_bus_fans_out_and_drains(self) -> None:
