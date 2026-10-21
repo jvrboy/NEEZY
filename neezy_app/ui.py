@@ -42,6 +42,8 @@ from neezy_backend.brain import train_model as train_brain_model
 from neezy_backend.config import AppSettings
 from neezy_backend.context import chat_messages, format_context, market_snapshot
 from neezy_backend.database import LocalDatabase
+from neezy_backend.datasets import model_weights
+from neezy_backend.insights import knowledge_brief
 from neezy_backend.events import EventBus
 from neezy_backend.indicators import analyze, ema
 from neezy_backend.knowledge import load_knowledge
@@ -82,7 +84,17 @@ from neezy_backend.tools import ToolRegistry
 from neezy_backend.tunnel import CloudflareQuickTunnel, TunnelError
 
 logger = logging.getLogger(__name__)
-NAV = ["CHAT", "SYMBOLS", "CHART", "SIGNALS", "TOOLS", "ALERTS", "HISTORY", "SETTINGS"]
+NAV = [
+    "CHAT",
+    "SYMBOLS",
+    "CHART",
+    "SIGNALS",
+    "INSIGHTS",
+    "TOOLS",
+    "ALERTS",
+    "HISTORY",
+    "SETTINGS",
+]
 
 
 class App(tk.Tk):
@@ -479,6 +491,7 @@ class App(tk.Tk):
             self.nb.add(page, text=name)
             self.pages[name] = page
         self._signals_page()
+        self._insights_page()
         self._symbols_page()
         self._chart_page()
         self._chat_page()
@@ -567,6 +580,70 @@ class App(tk.Tk):
         self.detail.tag_configure("buy", foreground=self.GREEN)
         self.detail.tag_configure("sell", foreground=self.RED)
         self.detail.pack(fill="both", expand=True)
+
+    def _insights_page(self):
+        p = self.pages["INSIGHTS"]
+        bar = tk.Frame(p, bg=self.BG)
+        bar.pack(fill="x", pady=(5, 12))
+        self._label(bar, "Dataset insights", 16).pack(side="left")
+        self._label(
+            bar,
+            "What the shipped knowledge datasets and learned weights say.",
+            10,
+            self.MUTED,
+        ).pack(side="left", padx=12)
+        self.insights_output = self._output(p, height=16)
+        self._action_button(
+            p, "REFRESH INSIGHTS", lambda: self._refresh_insights()
+        )
+
+    def _refresh_insights(self):
+        """Render a read-only digest of the shipped knowledge datasets."""
+        try:
+            brief = knowledge_brief()
+        except Exception as error:  # defensive: datasets are read-only files
+            self._write(
+                self.insights_output, f"Could not load datasets: {error}"
+            )
+            return
+        lines = [
+            "SHIPPED KNOWLEDGE DATASETS",
+            "  " + ", ".join(brief.get("datasets", [])),
+            "",
+            "INDICATORS COVERED",
+        ]
+        names = brief.get("indicators", [])
+        for start in range(0, len(names), 6):
+            lines.append("  " + ", ".join(names[start : start + 6]))
+        lines += [
+            "",
+            "PATTERNS: " + ", ".join(brief.get("patterns", [])),
+            "",
+            "NAMED STRATEGIES: " + ", ".join(brief.get("strategies", [])),
+            "",
+            f"LEARNED WEIGHTS: {brief.get('weighted_symbols', 0)} symbols "
+            "with out-of-sample edge weights.",
+            "",
+            "SYMBOL LEAN (edge weight from past-candle studies; not a forecast)",
+        ]
+        leans = []
+        for symbol, record in model_weights().get("symbols", {}).items():
+            weight = record.get("edge_weight", 0.0)
+            if weight > 0.15 or weight < -0.15:
+                leans.append(
+                    f"  {symbol:<12} {weight:+.2f}  "
+                    f"({record.get('verdict', 'unknown')})"
+                )
+        if leans:
+            lines += sorted(leans, key=lambda item: item.split()[1], reverse=True)
+        else:
+            lines.append("  No strong weights learned yet.")
+        lines += [
+            "",
+            "Backtests use historical candles with a charged spread; "
+            "out-of-sample for that window only. Not financial advice.",
+        ]
+        self._write(self.insights_output, "\n".join(lines))
 
     def _symbols_page(self):
         p = self.pages["SYMBOLS"]
