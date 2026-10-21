@@ -1,5 +1,38 @@
 # CHANGELOG
 
+## [1.5.0] - Fresh Public-Data Research and Settings
+
+### Added
+- Real staged MLP training: 11 markets x 3,000 fresh Deriv candles, initial/final
+  chronological reports, 11 learned models, source timestamps and raw-data hashes.
+- Raw JSON candle snapshots and neural research report included in package data.
+- Timestamp-aligned, train-only hedge estimation and lagged, cost-aware Forex pair
+  research; six held-out experiments retained, including their negative returns.
+- Dedicated history-only DSI research selector, live public-data refit action,
+  saved-FX-pair research action, and neural/pair findings in INSIGHTS.
+- ML RESEARCH and PAIR RESEARCH settings tabs with 17 validated, persisted controls.
+- `neezy-cli research status/train`, same-timeframe shipped-model fallback, and
+  three read-only private MCP research tools.
+
+### Fixed
+- Prior lint/format regressions, enterprise INSIGHTS glyph/title, initial insight
+  loading and numeric ranking; ordinary learned chat context respects opt-in.
+- Dataset path/symlink escapes and mutable shared cache results.
+- UI regression tests no longer start real connections or leak test sockets.
+- Local CI now fails on lint/format errors and does not require undeclared pytest.
+- Corrected educational API subscription/granularity/RSI notes; legacy derived
+  weights are explicitly labelled heuristics rather than neural training.
+- Package metadata/version aligned at 1.5.0 with nested raw-data inclusion.
+
+### Verification and caveats
+- 313 tests passed locally with no skips, plus Ruff, syntax, actual Tk enterprise,
+  CLI and wheel checks. GitHub-hosted CI failure remains unverified: bridge logs 404.
+- DSI10/20/30 passed directional holdout screening, not a profitability test.
+  Current DSI candles were available; tick subscriptions rejected those symbols.
+- Volatility/Forex neural models remained research-only; all six FX-pair net
+  simulations were negative after assumed costs. No trades were executed.
+
+
 ## [1.4.0] - Knowledge Dataset Release
 
 ### Added

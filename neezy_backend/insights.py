@@ -5,9 +5,9 @@ the curated market knowledge (``datasets.py``) with the per-symbol edge
 weights derived from NEEZY's train-then-validate study records so the plain
 offline answer can carry one extra, honest line of context.
 
-Everything here is descriptive. A positive edge weight means the studied
-rule set cleared its out-of-sample bar on past candles; it is not a
-forecast.
+Everything here is descriptive. The legacy edge weight is a bounded expectancy
+score, not a learned neural parameter or a test of statistical significance. See
+ml_research.json for neural weights and chronological test results.
 """
 
 from __future__ import annotations
@@ -51,7 +51,7 @@ def insight_line(symbol: str) -> str | None:
     confidence = record.get("confidence", 0.0)
     lean = "positive" if weight > 0.15 else "negative" if weight < -0.15 else "neutral"
     return (
-        f"Learned context for {symbol}: {lean} edge weight {weight:+.2f} "
+        f"Learned context for {symbol}: {lean} derived expectancy score {weight:+.2f} "
         f"(verdict {verdict}, sample-coverage score {confidence:.0%}) "
         "from out-of-sample backtests on past candles; not a forecast."
     )

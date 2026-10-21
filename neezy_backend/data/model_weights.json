@@ -2,7 +2,7 @@
   "schema": 1,
   "trained_at": "2026-10-20T20:57:57+00:00",
   "source": "derived from neezy_backend/data/knowledge.json out-of-sample study records (train-then-validate backtests, see study.py)",
-  "method": "per-symbol edge weight = logistic-style score from held-out expectancy_r and t-stat; confidence scaled by test-trade count. No new market data was fetched in this sandbox (Deriv WS blocked); weights are recomputed from the shipped knowledge.json.",
+  "method": "Descriptive heuristic only, not ML: start at clip(2 * held-out expectancy_r, -1, 1), multiply by 1 + clip(t_stat/10, -0.5, 0.5) and clip again. Legacy confidence field is min(test_trades/100, 1), a sample-coverage score, NOT predictive confidence. See ml_research.json for real neural training.",
   "symbols": {
     "1HZ100V": {
       "edge_weight": 0.078,
@@ -627,5 +627,6 @@
       "trades": 297,
       "expectancy_r": 0.0264
     }
-  }
+  },
+  "confidence_definition": "Legacy field name: min(test_trades/100, 1). Not a probability of profit or a statistical confidence interval."
 }

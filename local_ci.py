@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Local CI runner for NEEZY.
 
-Runs syntax compilation, ruff checks (if available), and the test suite.
+Runs syntax compilation, mandatory Ruff lint/format gates, and unittest.
 """
 
 import subprocess
@@ -41,21 +41,18 @@ def main():
     else:
         print("PASS: Syntax compilation OK.")
 
-    # 2. Run Ruff check if installed
-    print("\n2. Running Linter Checks...")
-    try:
-        ret = run_cmd(["ruff", "check", "neezy_app", "neezy_backend", "tests"])
+    # 2. Match the GitHub workflow: lint and formatting are mandatory gates.
+    print("\n2. Running Linter and Formatting Checks...")
+    targets = ["neezy_app", "neezy_backend", "tests", "forex_signals.py", "local_ci.py"]
+    for options in (["check"], ["format", "--check"]):
+        ret = run_cmd([sys.executable, "-m", "ruff", *options, *targets])
         if ret != 0:
-            print("WARNING: Ruff check reported issues.")
-    except FileNotFoundError:
-        print("INFO: Ruff linter not found in environment, skipping.")
+            print("ERROR: Ruff gate failed; install dev dependencies if missing.")
+            errors += 1
 
-    # 3. Run Pytest test suite
-    print("\n3. Running Pytest Test Suite...")
-    pytest_bin = Path(sys.executable).parent / "pytest"
-    if not pytest_bin.exists():
-        pytest_bin = "pytest"
-    ret = run_cmd([str(pytest_bin)])
+    # 3. Use the standard-library test runner; no undeclared pytest dependency.
+    print("\n3. Running Unittest Suite...")
+    ret = run_cmd([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-v"])
     if ret != 0:
         print("ERROR: Test suite failed.")
         errors += 1

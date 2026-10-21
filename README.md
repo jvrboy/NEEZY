@@ -281,6 +281,95 @@ The package `neezy_backend/data` folder ships versioned JSON knowledge datasets 
 
 The weights are derived from backtests over historical candles with a charged spread; they are out-of-sample for that window only and are not forecasts.
 
+## Fresh public-data ML and pair research (v1.5.0)
+
+This release actually ran the package's neural model on **33,000 newly fetched
+5-minute candles across 11 instruments**. The source is Deriv's no-login public
+endpoint, `wss://api.derivws.com/trading/v1/options/ws/public`. Legacy v3 hosts
+returned HTTP 520 in this environment; the current public endpoint worked.
+
+- `neezy_backend/research.py` orchestrates an initial fit on the oldest 70%, then
+  a final fresh fit with the existing purged chronological train/validation/test
+  split. These are **22 fresh MLP fits, not warm-start fine-tuning**. Training-only
+  feature normalization and validation-only early stopping remain in `brain.py`.
+  No seed, horizon or strategy search used the final test segment.
+- `data/ml_research.json` stores learned neural weights, initial/final evaluation
+  reports, capture timestamps, settings, raw OHLC SHA256 hashes and caveats.
+- `data/research_candles/*.json` retains the exact 11 raw public candle snapshots
+  used for training; these are also included in the wheel.
+- Six Forex pair experiments align candles by timestamp, estimate hedge beta on
+  the training slice, use lagged rolling z-scores for subsequent return intervals,
+  apply entry/exit/stop/time-stop rules and charge turnover plus final-flattening
+  costs. This is an exposure-normalized log-return approximation, not broker fills,
+  a cointegration test, an executable trading system or a claim of profitability.
+
+### Captured holdout results
+
+Captured at `2026-10-21T00:20:37+00:00`. The potentially active final bar is excluded.
+
+| Market | Test examples | Balanced accuracy | Directional screening |
+| --- | ---: | ---: | --- |
+| `1HZ100V` | 419 | 52.38% | research-only |
+| `DSI10` | 428 | 58.27% | passed screening |
+| `DSI20` | 435 | 67.08% | passed screening |
+| `DSI30` | 431 | 60.61% | passed screening |
+| `R_10` | 409 | 39.80% | research-only |
+| `R_100` | 419 | 50.53% | research-only |
+| `R_50` | 427 | 49.90% | research-only |
+| `frxAUDUSD` | 418 | 49.52% | research-only |
+| `frxEURUSD` | 412 | 50.05% | research-only |
+| `frxGBPUSD` | 410 | 47.59% | research-only |
+| `frxUSDJPY` | 409 | 49.30% | research-only |
+
+The three Drift Switching models passed the existing directional screening rule,
+not a significance or profitability test. Five-bar labels overlap, reducing the
+effective independent sample count. **DSI history requests returned current data,
+but these symbols were absent from `active_symbols` and rejected by `ticks`**;
+the UI labels them as history-only research, not live-stream availability.
+Volatility and Forex models stayed unqualified and return neutral directions.
+All six Forex pair simulations were negative after the default assumed costs;
+the losing findings are retained rather than tuned away on the test segment.
+
+### Desktop, CLI and backend tools
+
+**INSIGHTS** now displays neural holdout metrics and FX-pair findings alongside the
+reference datasets. It includes a dedicated research-market selector (including
+DSI history), a fresh-data training action, and a saved-candle FX-pair action.
+Same-market, same-timeframe bundled models can back the existing opt-in neural
+advisory setting; local trained models take precedence. No trades are placed.
+
+**SETTINGS → ML RESEARCH / PAIR RESEARCH** adds 17 validated, persisted controls:
+history length, epochs, horizon, ATR deadband, minimum labels, seed, probability
+threshold, API timeout, insight row limit, pair z-score lookback, minimum aligned
+overlap, entry/exit/stop z thresholds, costs in bps, maximum holding bars, and
+minimum training correlation. The pair reference market is a session selector.
+
+```bash
+# Offline: report actual bundled live-data evaluations (no model matrices)
+neezy-cli research status
+
+# Fetch NEW public candles, refit and checkpoint after each market
+neezy-cli research train DSI10 DSI20 DSI30 R_100 frxEURUSD frxGBPUSD \
+  --timeframe 5m --candles 3000 --epochs 60 --horizon 5 --seed 17 \
+  --out ./research-run.json
+```
+
+Private loopback MCP adds `get_research_report`, `get_dataset_inventory`, and
+`research_forex_pair` as read-only tools; the public tunnel allow-list is unchanged.
+The legacy `model_weights.json` is a descriptive heuristic, **not ML weights**;
+its old `confidence` field denotes sample coverage, not probability of profit.
+
+Dataset loading now rejects traversal/symlinks and returns defensive cache copies.
+Knowledge remains opt-in in ordinary chat. UI smoke tests no longer open real
+network connections. `python local_ci.py` treats lint/format failures as failures
+and uses the standard-library unittest runner, matching the workflow gates.
+
+Local verification: 313 tests passed with no skips, Ruff lint/format checks passed,
+real Tk enterprise construction/navigation/settings persistence passed under Xvfb,
+CLI smoke checks passed, and the 1.5.0 wheel built. GitHub-hosted runs still report
+failure and the bridge's job-log request returns 404; the remote failure cause is
+unverified, so this is not a claim of green GitHub CI.
+
 ## Development checks
 
 ```bash

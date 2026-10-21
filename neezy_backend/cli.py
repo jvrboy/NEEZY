@@ -190,7 +190,7 @@ def cmd_datasets(args, fetch, out) -> int:
                 continue
             print(
                 f"\n{symbol}: edge weight {record.get('edge_weight'):+.2f}, "
-                f"verdict {record.get('verdict')}, confidence "
+                f"verdict {record.get('verdict')}, sample coverage "
                 f"{record.get('confidence', 0):.0%}",
                 file=out,
             )

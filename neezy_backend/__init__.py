@@ -1,6 +1,6 @@
 """Reusable backend services for the NEEZY desktop workspace."""
 
-__version__ = "1.2.0"
+__version__ = "1.5.0"
 
 from .ai import PROVIDERS, AIClient, AIError, AIKeyStore, free_models
 from .alerts import AlertEngine, AlertRule, AlertRuleStore

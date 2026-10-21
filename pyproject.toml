@@ -1,14 +1,14 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "neezy-market-workspace"
-version = "1.2.0"
+version = "1.5.0"
 description = "A native Python market-monitoring desktop workspace"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "Proprietary" }
+license = "LicenseRef-Proprietary"
 authors = [{ name = "NEEZY contributors" }]
 dependencies = ["websocket-client>=1.8,<2"]
 
@@ -30,7 +30,7 @@ neezy-cli = "neezy_backend.cli:main"
 include = ["neezy_app*", "neezy_backend*"]
 
 [tool.setuptools.package-data]
-neezy_backend = ["data/*.json"]
+neezy_backend = ["data/*.json", "data/research_candles/*.json"]
 
 [tool.ruff]
 target-version = "py310"
