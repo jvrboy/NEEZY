@@ -12,6 +12,7 @@ from typing import Any
 
 from .divergence import detect_divergences
 from .indicators import analyze
+from .insights import insight_line
 from .knowledge import learned_note
 from .markets import display_name, format_price
 from .patterns import price_action_summary
@@ -272,4 +273,8 @@ def offline_answer(snapshot: dict[str, Any] | None, question: str = "") -> str:
         f"({strategy.get('confidence')}% confidence).",
         "Educational indicator summary, not financial advice.",
     ]
+    symbol = snapshot.get("symbol") or ""
+    learned = insight_line(str(symbol)) if symbol else None
+    if learned:
+        parts.append(learned)
     return " ".join(parts)
