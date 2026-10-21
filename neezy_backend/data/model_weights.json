@@ -1,0 +1,631 @@
+{
+  "schema": 1,
+  "trained_at": "2026-10-20T20:57:57+00:00",
+  "source": "derived from neezy_backend/data/knowledge.json out-of-sample study records (train-then-validate backtests, see study.py)",
+  "method": "per-symbol edge weight = logistic-style score from held-out expectancy_r and t-stat; confidence scaled by test-trade count. No new market data was fetched in this sandbox (Deriv WS blocked); weights are recomputed from the shipped knowledge.json.",
+  "symbols": {
+    "1HZ100V": {
+      "edge_weight": 0.078,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 227,
+      "expectancy_r": 0.0377
+    },
+    "1HZ10V": {
+      "edge_weight": -0.1166,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 204,
+      "expectancy_r": -0.0619
+    },
+    "1HZ15V": {
+      "edge_weight": 0.0036,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 615,
+      "expectancy_r": 0.0018
+    },
+    "1HZ25V": {
+      "edge_weight": -0.032,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 486,
+      "expectancy_r": -0.0165
+    },
+    "1HZ30V": {
+      "edge_weight": 0.0235,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 255,
+      "expectancy_r": 0.0116
+    },
+    "1HZ50V": {
+      "edge_weight": 0.0486,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 315,
+      "expectancy_r": 0.0237
+    },
+    "1HZ75V": {
+      "edge_weight": 0.0447,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 634,
+      "expectancy_r": 0.0214
+    },
+    "1HZ90V": {
+      "edge_weight": -0.008,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 253,
+      "expectancy_r": -0.004
+    },
+    "BOOM1000": {
+      "edge_weight": 1.0,
+      "confidence": 1.0,
+      "verdict": "edge",
+      "trades": 669,
+      "expectancy_r": 1.1377
+    },
+    "BOOM150N": {
+      "edge_weight": 0.7316,
+      "confidence": 1.0,
+      "verdict": "edge",
+      "trades": 563,
+      "expectancy_r": 0.2718
+    },
+    "BOOM300N": {
+      "edge_weight": 1.0,
+      "confidence": 1.0,
+      "verdict": "edge",
+      "trades": 613,
+      "expectancy_r": 0.553
+    },
+    "BOOM50": {
+      "edge_weight": 0.599,
+      "confidence": 1.0,
+      "verdict": "edge",
+      "trades": 349,
+      "expectancy_r": 0.2409
+    },
+    "BOOM500": {
+      "edge_weight": 1.0,
+      "confidence": 1.0,
+      "verdict": "edge",
+      "trades": 628,
+      "expectancy_r": 0.5746
+    },
+    "BOOM600": {
+      "edge_weight": 1.0,
+      "confidence": 1.0,
+      "verdict": "edge",
+      "trades": 671,
+      "expectancy_r": 0.4334
+    },
+    "BOOM900": {
+      "edge_weight": 1.0,
+      "confidence": 1.0,
+      "verdict": "edge",
+      "trades": 644,
+      "expectancy_r": 0.9423
+    },
+    "CRASH1000": {
+      "edge_weight": 1.0,
+      "confidence": 1.0,
+      "verdict": "edge",
+      "trades": 638,
+      "expectancy_r": 0.9483
+    },
+    "CRASH150N": {
+      "edge_weight": 0.8649,
+      "confidence": 1.0,
+      "verdict": "edge",
+      "trades": 584,
+      "expectancy_r": 0.3093
+    },
+    "CRASH300N": {
+      "edge_weight": 1.0,
+      "confidence": 1.0,
+      "verdict": "edge",
+      "trades": 611,
+      "expectancy_r": 0.4636
+    },
+    "CRASH50": {
+      "edge_weight": 0.3275,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 494,
+      "expectancy_r": 0.1397
+    },
+    "CRASH500": {
+      "edge_weight": 1.0,
+      "confidence": 1.0,
+      "verdict": "edge",
+      "trades": 641,
+      "expectancy_r": 0.9158
+    },
+    "CRASH600": {
+      "edge_weight": 1.0,
+      "confidence": 1.0,
+      "verdict": "edge",
+      "trades": 666,
+      "expectancy_r": 0.858
+    },
+    "CRASH900": {
+      "edge_weight": 1.0,
+      "confidence": 1.0,
+      "verdict": "edge",
+      "trades": 665,
+      "expectancy_r": 1.0459
+    },
+    "JD10": {
+      "edge_weight": 0.4408,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 193,
+      "expectancy_r": 0.191
+    },
+    "JD100": {
+      "edge_weight": 0.3458,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 234,
+      "expectancy_r": 0.1523
+    },
+    "JD25": {
+      "edge_weight": 0.4918,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 184,
+      "expectancy_r": 0.2111
+    },
+    "JD50": {
+      "edge_weight": 0.2461,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 186,
+      "expectancy_r": 0.1129
+    },
+    "JD75": {
+      "edge_weight": 0.1909,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 475,
+      "expectancy_r": 0.0846
+    },
+    "OTC_AEX": {
+      "edge_weight": 0.0661,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 395,
+      "expectancy_r": 0.0319
+    },
+    "OTC_AS51": {
+      "edge_weight": 0.177,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 515,
+      "expectancy_r": 0.0787
+    },
+    "OTC_DJI": {
+      "edge_weight": 0.3336,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 195,
+      "expectancy_r": 0.1484
+    },
+    "OTC_FCHI": {
+      "edge_weight": 0.1986,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 162,
+      "expectancy_r": 0.0922
+    },
+    "OTC_FTSE": {
+      "edge_weight": 0.056,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 178,
+      "expectancy_r": 0.0273
+    },
+    "OTC_GDAXI": {
+      "edge_weight": 0.0404,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 203,
+      "expectancy_r": 0.0197
+    },
+    "OTC_HSI": {
+      "edge_weight": 0.4614,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 218,
+      "expectancy_r": 0.2041
+    },
+    "OTC_N225": {
+      "edge_weight": -0.058,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 194,
+      "expectancy_r": -0.03
+    },
+    "OTC_NDX": {
+      "edge_weight": 0.0459,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 167,
+      "expectancy_r": 0.0225
+    },
+    "OTC_SPC": {
+      "edge_weight": -0.0026,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 244,
+      "expectancy_r": -0.0013
+    },
+    "OTC_SSMI": {
+      "edge_weight": -0.0243,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 374,
+      "expectancy_r": -0.0123
+    },
+    "OTC_SX5E": {
+      "edge_weight": 0.36,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 169,
+      "expectancy_r": 0.1589
+    },
+    "RB100": {
+      "edge_weight": -0.3051,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 146,
+      "expectancy_r": -0.1819
+    },
+    "RB200": {
+      "edge_weight": -0.5,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 211,
+      "expectancy_r": -0.5072
+    },
+    "RDBEAR": {
+      "edge_weight": 0.3861,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 164,
+      "expectancy_r": 0.1694
+    },
+    "RDBULL": {
+      "edge_weight": 0.1613,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 175,
+      "expectancy_r": 0.0756
+    },
+    "R_10": {
+      "edge_weight": -0.1153,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 267,
+      "expectancy_r": -0.0623
+    },
+    "R_100": {
+      "edge_weight": -0.0254,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 341,
+      "expectancy_r": -0.0129
+    },
+    "R_25": {
+      "edge_weight": 0.217,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 251,
+      "expectancy_r": 0.0993
+    },
+    "R_50": {
+      "edge_weight": 0.1914,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 316,
+      "expectancy_r": 0.0879
+    },
+    "R_75": {
+      "edge_weight": -0.1372,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 186,
+      "expectancy_r": -0.0738
+    },
+    "WLDAUD": {
+      "edge_weight": 0.2694,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 395,
+      "expectancy_r": 0.1189
+    },
+    "WLDEUR": {
+      "edge_weight": 0.1106,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 200,
+      "expectancy_r": 0.0529
+    },
+    "WLDGBP": {
+      "edge_weight": -0.0574,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 411,
+      "expectancy_r": -0.0302
+    },
+    "WLDUSD": {
+      "edge_weight": -0.0638,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 256,
+      "expectancy_r": -0.033
+    },
+    "WLDXAU": {
+      "edge_weight": 0.1217,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 324,
+      "expectancy_r": 0.0574
+    },
+    "cryBTCUSD": {
+      "edge_weight": 0.0125,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 493,
+      "expectancy_r": 0.0062
+    },
+    "cryETHUSD": {
+      "edge_weight": -0.0392,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 274,
+      "expectancy_r": -0.02
+    },
+    "frxAUDCAD": {
+      "edge_weight": -0.1991,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 276,
+      "expectancy_r": -0.1197
+    },
+    "frxAUDCHF": {
+      "edge_weight": -0.2994,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 300,
+      "expectancy_r": -0.2286
+    },
+    "frxAUDJPY": {
+      "edge_weight": -0.3791,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 208,
+      "expectancy_r": -0.2598
+    },
+    "frxAUDNZD": {
+      "edge_weight": -0.3466,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 238,
+      "expectancy_r": -0.3005
+    },
+    "frxAUDUSD": {
+      "edge_weight": -0.3255,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 302,
+      "expectancy_r": -0.3255
+    },
+    "frxEURAUD": {
+      "edge_weight": -0.074,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 183,
+      "expectancy_r": -0.0385
+    },
+    "frxEURCAD": {
+      "edge_weight": 0.0275,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 164,
+      "expectancy_r": 0.0136
+    },
+    "frxEURCHF": {
+      "edge_weight": -0.3912,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 230,
+      "expectancy_r": -0.3912
+    },
+    "frxEURGBP": {
+      "edge_weight": -0.5,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 382,
+      "expectancy_r": -0.6893
+    },
+    "frxEURJPY": {
+      "edge_weight": -0.2213,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 283,
+      "expectancy_r": -0.1388
+    },
+    "frxEURNZD": {
+      "edge_weight": -0.1561,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 173,
+      "expectancy_r": -0.0845
+    },
+    "frxEURUSD": {
+      "edge_weight": -0.3109,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 303,
+      "expectancy_r": -0.2595
+    },
+    "frxGBPAUD": {
+      "edge_weight": -0.1633,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 219,
+      "expectancy_r": -0.0912
+    },
+    "frxGBPCAD": {
+      "edge_weight": -0.1567,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 255,
+      "expectancy_r": -0.089
+    },
+    "frxGBPCHF": {
+      "edge_weight": -0.2923,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 272,
+      "expectancy_r": -0.2116
+    },
+    "frxGBPJPY": {
+      "edge_weight": -0.1709,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 221,
+      "expectancy_r": -0.0979
+    },
+    "frxGBPNZD": {
+      "edge_weight": -0.2296,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 252,
+      "expectancy_r": -0.1445
+    },
+    "frxGBPUSD": {
+      "edge_weight": -0.3148,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 242,
+      "expectancy_r": -0.2296
+    },
+    "frxNZDJPY": {
+      "edge_weight": -0.3238,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 244,
+      "expectancy_r": -0.2535
+    },
+    "frxNZDUSD": {
+      "edge_weight": -0.3833,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 242,
+      "expectancy_r": -0.3553
+    },
+    "frxUSDCAD": {
+      "edge_weight": -0.3467,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 190,
+      "expectancy_r": -0.2181
+    },
+    "frxUSDCHF": {
+      "edge_weight": -0.3139,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 298,
+      "expectancy_r": -0.264
+    },
+    "frxUSDJPY": {
+      "edge_weight": -0.3196,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 246,
+      "expectancy_r": -0.2205
+    },
+    "frxUSDMXN": {
+      "edge_weight": 0.173,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 191,
+      "expectancy_r": 0.0807
+    },
+    "frxUSDPLN": {
+      "edge_weight": 0.0408,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 377,
+      "expectancy_r": 0.0198
+    },
+    "frxXAGUSD": {
+      "edge_weight": 0.1498,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 435,
+      "expectancy_r": 0.0692
+    },
+    "frxXAUUSD": {
+      "edge_weight": 0.1006,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 325,
+      "expectancy_r": 0.0479
+    },
+    "frxXPDUSD": {
+      "edge_weight": -0.0622,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 334,
+      "expectancy_r": -0.0322
+    },
+    "frxXPTUSD": {
+      "edge_weight": -0.0531,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 210,
+      "expectancy_r": -0.0274
+    },
+    "stpRNG": {
+      "edge_weight": -0.0362,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 382,
+      "expectancy_r": -0.0185
+    },
+    "stpRNG2": {
+      "edge_weight": -0.1005,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 230,
+      "expectancy_r": -0.053
+    },
+    "stpRNG3": {
+      "edge_weight": -0.0535,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 377,
+      "expectancy_r": -0.028
+    },
+    "stpRNG4": {
+      "edge_weight": -0.1393,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 323,
+      "expectancy_r": -0.0759
+    },
+    "stpRNG5": {
+      "edge_weight": 0.0542,
+      "confidence": 1.0,
+      "verdict": "no_edge",
+      "trades": 297,
+      "expectancy_r": 0.0264
+    }
+  }
+}

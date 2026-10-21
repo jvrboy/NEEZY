@@ -1,0 +1,108 @@
+{
+  "schema": 1,
+  "name": "strategy_playbook",
+  "description": "Reference sheet for NEEZY's named strategies: what each rule looks for, its typical regime, and how consensus weights it. Educational reference for the chat assistant and the scan tools.",
+  "generated_at": "2026-10-21T00:00:00Z",
+  "source": "neezy_backend/strategies.py and README feature notes",
+  "strategies": [
+    {
+      "name": "SUPERTREND",
+      "kind": "trend-following",
+      "signal": "Direction of the ATR(14) x3 trailing line; flip events reset the bias.",
+      "best_regime": "Trending markets with expanding ATR.",
+      "weak_regime": "Sideways ranges cause repeated flips.",
+      "key_metrics": [
+        "direction",
+        "bars_since_flip",
+        "distance_from_line"
+      ]
+    },
+    {
+      "name": "EMA_PULLBACK",
+      "kind": "trend-following pullback",
+      "signal": "In an EMA50 uptrend, buy tags of the EMA21 that close back above it (mirror for downtrends).",
+      "best_regime": "Orderly trends with shallow pullbacks.",
+      "weak_regime": "Deep, fast reversals invalidates the tag.",
+      "key_metrics": [
+        "trend_slope",
+        "tag_depth",
+        "close_location"
+      ]
+    },
+    {
+      "name": "DIVERGENCE",
+      "kind": "momentum reversal",
+      "signal": "Fractal-pivot RSI/MACD-histogram divergence against the price extreme, scored 0-1 by strength.",
+      "best_regime": "Exhausted extended moves.",
+      "weak_regime": "Strong trends print serial divergences that keep running.",
+      "key_metrics": [
+        "kind",
+        "strength",
+        "pivot_distance"
+      ]
+    },
+    {
+      "name": "DONCHIAN",
+      "kind": "breakout",
+      "signal": "Close beyond the 20-bar high/low channel with follow-through.",
+      "best_regime": "Compression followed by expansion.",
+      "weak_regime": "Chop produces failed breakouts.",
+      "key_metrics": [
+        "channel_width",
+        "break_age",
+        "retest"
+      ]
+    },
+    {
+      "name": "SQUEEZE",
+      "kind": "volatility breakout",
+      "signal": "Bollinger bandwidth in its lowest percentile while price coils inside the Keltner channel.",
+      "best_regime": "Pre-news or post-range coiling.",
+      "weak_regime": "Squeezes can resolve slowly or in both directions.",
+      "key_metrics": [
+        "bandwidth_percentile",
+        "squeeze_bars"
+      ]
+    },
+    {
+      "name": "MACD",
+      "kind": "momentum",
+      "signal": "Histogram sign with slope agreement against EMA50 context.",
+      "best_regime": "Sustained directional moves.",
+      "weak_regime": "Ranging markets flip the histogram repeatedly.",
+      "key_metrics": [
+        "histogram",
+        "histogram_slope",
+        "cross_age"
+      ]
+    },
+    {
+      "name": "KELTNER",
+      "kind": "channel expansion",
+      "signal": "Close outside the EMA20/ATR1.5 channel with rising ATR.",
+      "best_regime": "Expansion phases away from equilibrium.",
+      "weak_regime": "Mean-reverting ranges fade the close.",
+      "key_metrics": [
+        "channel_position",
+        "atr_slope"
+      ]
+    },
+    {
+      "name": "CORRELATION_DIVERGENCE",
+      "kind": "statistical pair signal",
+      "signal": "Short-window rolling correlation versus a long baseline: converging, decoupling, stable, or inverted.",
+      "best_regime": "Basket context where one leg leads.",
+      "weak_regime": "Correlation regime shifts with no lead-lag.",
+      "key_metrics": [
+        "short_corr",
+        "baseline_corr",
+        "label"
+      ]
+    }
+  ],
+  "consensus": {
+    "rule": "run_all() scores every strategy; consensus() builds a vote-weighted verdict from direction x confidence.",
+    "interpretation": "Wide agreement across kinds (trend + momentum + volatility) is treated as a stronger context than any single vote.",
+    "caveat": "Votes are correlations observed on past candles, not forecasts."
+  }
+}

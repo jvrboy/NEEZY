@@ -1,0 +1,189 @@
+{
+  "schema": 1,
+  "name": "market_knowledge",
+  "description": "Curated educational knowledge dataset shipped with NEEZY. Reference material for the local chat assistant: indicator definitions, candle patterns, risk rules, and Deriv public API notes. Educational only; not financial advice.",
+  "generated_at": "2026-10-21T00:00:00Z",
+  "indicators": [
+    {
+      "name": "EMA",
+      "period": "9 / 21 / 50",
+      "category": "trend",
+      "definition": "Exponential moving average; weights recent closes more than a simple average.",
+      "reading": "Price above a rising 50 EMA is bullish context; a 9/21 cross marks short-term momentum shifts.",
+      "caveat": "Lags price; whipsaws in ranges."
+    },
+    {
+      "name": "RSI",
+      "period": 14,
+      "category": "momentum",
+      "definition": "Relative Strength Index, 0-100 oscillator of average gains versus losses.",
+      "reading": "Above 70 overbought, below 30 oversold; 50 is the mid-line. Hidden divergence signals weakening momentum.",
+      "caveat": "Can stay extreme in strong trends."
+    },
+    {
+      "name": "MACD",
+      "period": "12/26/9",
+      "category": "momentum",
+      "definition": "Difference of two EMAs plus a signal EMA of that difference (histogram).",
+      "reading": "Histogram crossing zero agrees with trend change; shrinking histogram warns of momentum loss.",
+      "caveat": "Lags; false flips in chop."
+    },
+    {
+      "name": "ATR",
+      "period": 14,
+      "category": "volatility",
+      "definition": "Average True Range; mean candle range including gaps.",
+      "reading": "Rising ATR means wider stops and bigger targets; falling ATR means compression.",
+      "caveat": "Directionless by itself."
+    },
+    {
+      "name": "Bollinger",
+      "period": "20, 2 sd",
+      "category": "volatility",
+      "definition": "Moving average with standard-deviation bands.",
+      "reading": "Squeeze (narrow bands) often precedes expansion; rides on the band mark strong trends.",
+      "caveat": "Bands are not support/resistance by themselves."
+    },
+    {
+      "name": "Supertrend",
+      "period": "ATR 14, x3",
+      "category": "trend",
+      "definition": "ATR trailing band that flips sides when price closes through it.",
+      "reading": "Direction of the line is the regime; bars-since-flip shows how fresh the regime is.",
+      "caveat": "Whipsaws in sideways markets."
+    },
+    {
+      "name": "Stochastic",
+      "period": "14, 3, 3",
+      "category": "momentum",
+      "definition": "Close position within the recent high-low range, smoothed.",
+      "reading": "Crosses under 80 / over 20 mark turning attempts; works best with trend filter.",
+      "caveat": "Many false signals in trends."
+    },
+    {
+      "name": "ADX",
+      "period": 14,
+      "category": "trend strength",
+      "definition": "Average Directional Index; strength of trend regardless of direction.",
+      "reading": "Above 25 suggests a trending market; below 20 suggests range conditions.",
+      "caveat": "Lagging; says nothing about direction."
+    },
+    {
+      "name": "Keltner",
+      "period": "20 EMA, ATR x1.5",
+      "category": "volatility",
+      "definition": "EMA channel with ATR-based bands.",
+      "reading": "Close outside the channel with rising ATR marks expansion; inside means compression.",
+      "caveat": "Channel width depends on ATR settings."
+    },
+    {
+      "name": "Donchian",
+      "period": 20,
+      "category": "breakout",
+      "definition": "Highest high and lowest low over the lookback window.",
+      "reading": "Break of the upper channel is a classic breakout signal; width shows volatility.",
+      "caveat": "Breakouts often fail in ranges."
+    },
+    {
+      "name": "CCI",
+      "period": 20,
+      "category": "momentum",
+      "definition": "Commodity Channel Index; deviation of price from its average.",
+      "reading": "Beyond +100 / -100 marks strong momentum in that direction.",
+      "caveat": "Untethered scale; compare within symbol."
+    },
+    {
+      "name": "Williams %R",
+      "period": 14,
+      "category": "momentum",
+      "definition": "Inverted stochastic, 0 to -100.",
+      "reading": "Above -20 overbought; below -80 oversold.",
+      "caveat": "Same whipsaw issues as stochastic."
+    },
+    {
+      "name": "Stochastic RSI",
+      "period": "14, 14, 3, 3",
+      "category": "momentum",
+      "definition": "Stochastic applied to RSI instead of price.",
+      "reading": "Faster than RSI alone; crosses near extremes flag early turns.",
+      "caveat": "Very noisy; use with a trend filter."
+    }
+  ],
+  "patterns": [
+    {
+      "name": "Bullish engulfing",
+      "type": "reversal",
+      "bias": "bullish",
+      "definition": "A down candle fully engulfed by the next up candle.",
+      "context": "Most meaningful after a decline at a support level."
+    },
+    {
+      "name": "Bearish engulfing",
+      "type": "reversal",
+      "bias": "bearish",
+      "definition": "An up candle fully engulfed by the next down candle.",
+      "context": "Most meaningful after a rally at resistance."
+    },
+    {
+      "name": "Hammer",
+      "type": "reversal",
+      "bias": "bullish",
+      "definition": "Small body near the high with a long lower wick.",
+      "context": "Shows rejection of lower prices after a fall."
+    },
+    {
+      "name": "Shooting star",
+      "type": "reversal",
+      "bias": "bearish",
+      "definition": "Small body near the low with a long upper wick.",
+      "context": "Shows rejection of higher prices after a rise."
+    },
+    {
+      "name": "Doji",
+      "type": "indecision",
+      "bias": "neutral",
+      "definition": "Open and close nearly equal.",
+      "context": "Signals balance; wait for the confirming candle."
+    },
+    {
+      "name": "Inside bar",
+      "type": "continuation",
+      "bias": "neutral",
+      "definition": "Candle range entirely inside the prior candle's range.",
+      "context": "Compression; breakout of the mother bar often follows."
+    }
+  ],
+  "risk_rules": [
+    "Define the maximum loss per idea in R before entering; 1R is the amount risked.",
+    "Position size from stop distance: size = risk_amount / (stop_distance * value_per_unit).",
+    "ATR-based stops (1.5-2 ATR) adapt to volatility better than fixed pip stops.",
+    "Reward-to-risk above 1.5 lets a sub-50% hit rate still be positive expectancy.",
+    "Expectancy = (win_rate * avg_win) - (loss_rate * avg_loss); track it in R.",
+    "A streak of losses is expected; judge a rule on a sample of trades, not one.",
+    "Backtest results are simulations with charged spread; out-of-sample verdicts are not forecasts.",
+    "Never risk money needed elsewhere; educational tools do not manage your account."
+  ],
+  "glossary": {
+    "candle": "One OHLC record for a fixed interval (epoch, open, high, low, close).",
+    "granularity": "Candle interval in seconds; NEEZY supports Deriv's standard granularities (60-3600).",
+    "divergence": "Price makes a new extreme while the oscillator does not; momentum is fading.",
+    "drawdown": "Peak-to-trough decline of an equity curve.",
+    "edge": "Positive expectancy verified out of sample; the label NEEZY's study engine assigns cautiously.",
+    "out-of-sample": "Data held back from parameter selection, used only to validate.",
+    "spread": "Difference between buy and sell price; charged by the simulation on every trade.",
+    "t-stat": "Ratio of an estimate to its standard error; NEEZY wants 2 or more before calling an edge.",
+    "volatility": "Standard deviation of returns; drives ATR, band width, and stop size.",
+    "WAL mode": "SQLite journal mode that allows concurrent readers with one writer; used by NEEZY's local DB."
+  },
+  "deriv_api": {
+    "endpoint": "wss://ws.derivws.com/websockets/v3?app_id=1089",
+    "auth": "Public market data only; no token needed for these calls.",
+    "calls": {
+      "active_symbols": "List tradable symbols: {active_symbols: 'brief', product_type: 'basic'}.",
+      "ticks_history": "Candles: {ticks_history: SYMBOL, end: 'latest', count: N, style: 'candles', granularity: S}.",
+      "contracts_for": "Available contract types per symbol: {contracts_for: SYMBOL, currency: 'USD'}.",
+      "subscribe": "Add ticks: 1 to any request to stream updates (used by the live client)."
+    },
+    "limits": "Rate limits apply; NEEZY keeps one connection with bounded reconnect backoff."
+  }
+}
