@@ -1,5 +1,33 @@
 # CHANGELOG
 
+## [Unreleased] - Neural model types
+
+### Added
+- `train_model(..., model_type=...)` in `neezy_backend/brain.py` now accepts two
+  new layouts next to the default `neezy_mlp_v1`:
+  - `neezy_mlp_ensemble_v1` (`members`, 2 to 25, default 5): bagged MLPs, each
+    trained on a bootstrap resample of the training partition. Prediction is the
+    member average. `probability_spread` (standard deviation across members) is
+    reported as a rough uncertainty estimate.
+  - `neezy_seq_mlp_v1` (`window`, 2 to 40, default 10): an MLP over the last
+    `window` log returns, each divided by the current ATR as a fraction of price,
+    plus the eight v1 features.
+- `validate_model` accepts the three types and rejects anything else. Ensemble
+  members and sequence windows are checked for dimensions and finite weights.
+- `sequence_feature_names(window)` describes the sequence feature layout.
+
+### Notes
+- `neezy_mlp_v1` is unchanged. Training with the same seed produces the same
+  model document as before; the report gains a `model_type` field.
+- All three types share the same chronological split, purge, scaling, and
+  deployment gate.
+- The deployment gate is unchanged. A new type is not `deployment_ready` unless
+  its held-out test set clears the same thresholds as v1.
+- Only the Python API selects a model type. The CLI, menu, and desktop panels
+  still train `neezy_mlp_v1`.
+- `probability_spread` is shown in `predict` output but does not yet gate the
+  BUY/SELL direction. A wide spread does not turn a signal into NEUTRAL.
+
 ## [Unreleased] - Market regime and correlation snapshot
 
 ### Added
