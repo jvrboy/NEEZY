@@ -13,16 +13,28 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .divergence import correlation_divergence, detect_divergences
-from .indicators import atr, bollinger, ema, macd_histogram_series
+from .indicators import adx, atr, bollinger, ema, macd_histogram_series, rsi_series
 from .trend import (
     band_squeeze,
+    cci,
     channel_breakout,
     donchian,
     keltner,
+    rate_of_change,
+    stoch_rsi,
     supertrend,
 )
 
 Candle = Sequence[float]
+
+
+def _midline(
+    highs: Sequence[float], lows: Sequence[float], period: int
+) -> float | None:
+    """Donchian-midline helper used by the Ichimoku strategy."""
+    if len(highs) < period or len(lows) < period:
+        return None
+    return (max(highs[-period:]) + min(lows[-period:])) / 2.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -369,6 +381,244 @@ def keltner_strategy(candles: Sequence[Candle], period: int = 20) -> StrategySig
     )
 
 
+def ichimoku_strategy(
+    candles: Sequence[Candle],
+    conversion: int = 9,
+    base: int = 26,
+    cloud: int = 52,
+) -> StrategySignal:
+    """Ichimoku-style read: cloud position plus conversion/base alignment."""
+    closed = _closed(candles)
+    if len(closed) < cloud + 5:
+        return StrategySignal("ICHIMOKU", summary="Not enough closed candles")
+    highs = [row[2] for row in closed]
+    lows = [row[3] for row in closed]
+    closes = [row[4] for row in closed]
+    close = closes[-1]
+    tenkan = _midline(highs, lows, conversion)
+    kijun = _midline(highs, lows, base)
+    # The cloud is projected `base` bars forward, so it reads the flat lines
+    # drawn from the bars `base` and `cloud + base` periods back.
+    senkou_a = _midline(highs[:-base], lows[:-base], cloud)
+    senkou_b = _midline(highs[: -(base + cloud)], lows[: -(base + cloud)], cloud)
+    if tenkan is None or kijun is None or senkou_a is None or senkou_b is None:
+        return StrategySignal("ICHIMOKU", summary="Ichimoku lines still warming up")
+    cloud_top = max(senkou_a, senkou_b)
+    cloud_bottom = min(senkou_a, senkou_b)
+    above_cloud = close > cloud_top
+    below_cloud = close < cloud_bottom
+    inside = not above_cloud and not below_cloud
+    direction = 0
+    if above_cloud and tenkan > kijun:
+        direction = 1
+    elif below_cloud and tenkan < kijun:
+        direction = -1
+    span = max(cloud_top - cloud_bottom, 1e-9)
+    cloud_middle = (cloud_top + cloud_bottom) / 2.0
+    alignment = (
+        55.0
+        + (25.0 if tenkan > kijun else 0.0)
+        + min(abs((close - cloud_middle) / span), 1.0) * 20.0
+    )
+    return StrategySignal(
+        strategy="ICHIMOKU",
+        direction=direction,
+        confidence=min(100.0, alignment) if direction else min(alignment, 60.0),
+        summary=(
+            f"Price {'above' if above_cloud else 'below' if below_cloud else 'inside'} "
+            "the Kumo cloud"
+        ),
+        reasons=(
+            f"close {close:.6g} vs cloud {cloud_bottom:.6g}-{cloud_top:.6g}",
+            f"conversion {'above' if tenkan > kijun else 'below'} base line",
+        ),
+        metrics={
+            "tenkan": round(tenkan, 8),
+            "kijun": round(kijun, 8),
+            "cloud_top": round(cloud_top, 8),
+            "cloud_bottom": round(cloud_bottom, 8),
+            "inside_cloud": inside,
+        },
+    )
+
+
+def stochrsi_strategy(
+    candles: Sequence[Candle], period: int = 14, smooth: int = 3
+) -> StrategySignal:
+    """Stochastic RSI band exit: oversold recovery is long, overbought fades short."""
+    closed = _closed(candles)
+    if len(closed) < period + smooth + 10:
+        return StrategySignal("STOCH_RSI", summary="Not enough closed candles")
+    closes = [row[4] for row in closed]
+    series = stoch_rsi(closes, period, smooth)
+    latest, previous = series[-1], series[-2]
+    if latest is None or previous is None:
+        return StrategySignal("STOCH_RSI", summary="Stochastic RSI still warming up")
+    if previous < 20 <= latest:
+        direction, label = 1, "oversold recovery"
+    elif previous > 80 >= latest:
+        direction, label = -1, "overbought rollover"
+    else:
+        return StrategySignal(
+            "STOCH_RSI",
+            summary=f"Stochastic RSI at {latest:.1f}, no band exit",
+            metrics={"stoch_rsi": latest, "previous": previous},
+        )
+    return StrategySignal(
+        strategy="STOCH_RSI",
+        direction=direction,
+        confidence=70.0 + abs(latest - 50.0) * 0.3,
+        summary=f"Stochastic RSI {label}",
+        reasons=(
+            f"left the {'lower' if direction > 0 else 'upper'} band at {latest:.1f}",
+            f"prior reading {previous:.1f}",
+        ),
+        metrics={"stoch_rsi": latest, "previous": previous, "period": period},
+    )
+
+
+def momentum_strategy(
+    candles: Sequence[Candle], period: int = 10, strength: int = 25
+) -> StrategySignal:
+    """Rate-of-change burst confirmed by an ADX above the trend threshold."""
+    closed = _closed(candles)
+    if len(closed) < strength * 2 + 5:
+        return StrategySignal("MOMENTUM", summary="Not enough closed candles")
+    highs = [row[2] for row in closed]
+    lows = [row[3] for row in closed]
+    closes = [row[4] for row in closed]
+    roc_series = rate_of_change(closes, period)
+    roc = roc_series[-1]
+    dm = adx(highs, lows, closes, strength)
+    if roc is None or dm is None:
+        return StrategySignal("MOMENTUM", summary="Momentum engine still warming up")
+    trending = dm["adx"] >= 20.0
+    direction = 1 if roc > 0 else -1 if roc < 0 else 0
+    if not trending or direction == 0:
+        return StrategySignal(
+            "MOMENTUM",
+            summary="Rate of change without directional confirmation",
+            metrics={"roc": roc, "adx": dm["adx"]},
+        )
+    magnitude = min(abs(roc) / 1.0, 1.0)
+    confidence = 45.0 + min(dm["adx"], 50.0) * 0.6 + magnitude * 35.0
+    return StrategySignal(
+        strategy="MOMENTUM",
+        direction=direction,
+        confidence=min(confidence, 100.0),
+        summary="Momentum burst inside a trending market",
+        reasons=(
+            f"ROC {roc:+.3f}% over {period} bars",
+            f"ADX {dm['adx']:.1f} confirms a trend",
+        ),
+        metrics={
+            "roc": roc,
+            "adx": dm["adx"],
+            "plus_di": dm["plus_di"],
+            "minus_di": dm["minus_di"],
+        },
+    )
+
+
+def rsi_reversal_strategy(
+    candles: Sequence[Candle], period: int = 14, extreme: float = 30.0
+) -> StrategySignal:
+    """Mean-reversion entry when RSI leaves an extreme against a band touch."""
+    closed = _closed(candles)
+    if len(closed) < period + 15:
+        return StrategySignal("RSI_REVERSAL", summary="Not enough closed candles")
+    closes = [row[4] for row in closed]
+    series = rsi_series(closes, period)
+    latest, previous = series[-1], series[-2]
+    bands = bollinger(closes)
+    if latest is None or previous is None or bands is None:
+        return StrategySignal("RSI_REVERSAL", summary="RSI or bands still warming up")
+    oversold_recover = previous < 100.0 - extreme <= latest
+    overbought_fade = previous > extreme >= latest
+    close = closes[-1]
+    band_touch = (
+        close <= bands["lower"]
+        if oversold_recover
+        else close >= bands["upper"]
+        if overbought_fade
+        else False
+    )
+    if not (oversold_recover or overbought_fade):
+        return StrategySignal(
+            "RSI_REVERSAL",
+            summary=f"RSI {latest:.1f} inside neutral ground",
+            metrics={"rsi": latest, "previous": previous},
+        )
+    direction = 1 if oversold_recover else -1
+    confidence = (
+        55.0 + (25.0 if band_touch else 0.0) + min(abs(latest - 50.0), 50.0) * 0.2
+    )
+    return StrategySignal(
+        strategy="RSI_REVERSAL",
+        direction=direction,
+        confidence=min(confidence, 100.0),
+        summary=(
+            "RSI left oversold with room to the mean"
+            if direction > 0
+            else "RSI left overbought with room to the mean"
+        ),
+        reasons=(
+            f"RSI moved "
+            f"{'up from oversold' if direction > 0 else 'down from overbought'} "
+            f"({previous:.1f} to {latest:.1f})",
+            (
+                "close "
+                + (
+                    "at the lower Bollinger band"
+                    if direction > 0
+                    else "at the upper Bollinger band"
+                )
+            )
+            if band_touch
+            else "no Bollinger band touch",
+        ),
+        metrics={"rsi": latest, "previous": previous, "band_touch": band_touch},
+    )
+
+
+def cci_reversion_strategy(
+    candles: Sequence[Candle], period: int = 20, extreme: float = 100.0
+) -> StrategySignal:
+    """Fade CCI extremes back toward the mean once the reading normalizes."""
+    closed = _closed(candles)
+    if len(closed) < period + 10:
+        return StrategySignal("CCI_REVERSION", summary="Not enough closed candles")
+    highs = [row[2] for row in closed]
+    lows = [row[3] for row in closed]
+    closes = [row[4] for row in closed]
+    series = cci(highs, lows, closes, period)
+    latest, previous = series[-1], series[-2]
+    if latest is None or previous is None:
+        return StrategySignal("CCI_REVERSION", summary="CCI still warming up")
+    up = previous < -extreme <= latest
+    down = previous > extreme >= latest
+    if not (up or down):
+        return StrategySignal(
+            "CCI_REVERSION",
+            summary=f"CCI {latest:.1f} not at an extreme",
+            metrics={"cci": latest, "previous": previous},
+        )
+    direction = 1 if up else -1
+    scale = max((abs(item) for item in series if item is not None), default=extreme)
+    strength = min(abs(latest) / max(scale, 1e-9), 1.0)
+    return StrategySignal(
+        strategy="CCI_REVERSION",
+        direction=direction,
+        confidence=min(100.0, 55.0 + strength * 40.0),
+        summary="CCI extreme normalization",
+        reasons=(
+            f"CCI swung {previous:.1f} to {latest:.1f}",
+            "statistical mean reversion window",
+        ),
+        metrics={"cci": latest, "previous": previous, "period": period},
+    )
+
+
 def correlation_divergence_strategy(
     first: Sequence[float],
     second: Sequence[float],
@@ -443,6 +693,36 @@ STRATEGIES: dict[str, StrategySpec] = {
         "Keltner channel",
         "Channel breakout with EMA agreement.",
         keltner_strategy,
+    ),
+    "ICHIMOKU": StrategySpec(
+        "ICHIMOKU",
+        "Ichimoku cloud",
+        "Kumo cloud position with Tenkan/Kijun alignment.",
+        ichimoku_strategy,
+    ),
+    "STOCH_RSI": StrategySpec(
+        "STOCH_RSI",
+        "Stochastic RSI",
+        "Band-exit timing from the stochastic of RSI.",
+        stochrsi_strategy,
+    ),
+    "MOMENTUM": StrategySpec(
+        "MOMENTUM",
+        "ROC momentum burst",
+        "Rate-of-change burst confirmed by ADX trend strength.",
+        momentum_strategy,
+    ),
+    "RSI_REVERSAL": StrategySpec(
+        "RSI_REVERSAL",
+        "RSI band reversal",
+        "Mean reversion after RSI leaves an extreme with band touch.",
+        rsi_reversal_strategy,
+    ),
+    "CCI_REVERSION": StrategySpec(
+        "CCI_REVERSION",
+        "CCI mean reversion",
+        "Fade normalized CCI extremes back toward the statistical mean.",
+        cci_reversion_strategy,
     ),
     "CORRELATION_DIVERGENCE": StrategySpec(
         "CORRELATION_DIVERGENCE",

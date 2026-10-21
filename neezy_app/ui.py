@@ -40,6 +40,7 @@ from neezy_backend.backtest import BacktestConfig, run_backtest
 from neezy_backend.brain import predict as predict_brain
 from neezy_backend.brain import train_model as train_brain_model
 from neezy_backend.config import AppSettings
+from neezy_backend.confluence import resolve_outcome, scan_candles
 from neezy_backend.context import chat_messages, format_context, market_snapshot
 from neezy_backend.database import LocalDatabase
 from neezy_backend.datasets import model_weights, research_report, shipped_brain_model
@@ -64,10 +65,26 @@ from neezy_backend.markets import (
 from neezy_backend.mcp import MCPServer, MCPTokenStore
 from neezy_backend.mcp_tools import register_app_tools, register_public_app_tools
 from neezy_backend.patterns import price_action_summary
+from neezy_backend.providers import (
+    PROVIDERS as MARKET_PROVIDERS,
+)
+from neezy_backend.providers import (
+    ProviderError,
+    ProviderKeyStore,
+    get_candles,
+    provider_key_issues,
+    resolve_provider,
+)
 from neezy_backend.remote import AppCommandBridge
 from neezy_backend.research import DEFAULT_RESEARCH_SYMBOLS, pair_research, training_run
 from neezy_backend.risk import atr_levels, position_size
-from neezy_backend.storage import SettingsStore, SignalHistoryStore, get_data_dir
+from neezy_backend.scanner import ConfluenceAnalyzer
+from neezy_backend.storage import (
+    ConfluenceHistoryStore,
+    SettingsStore,
+    SignalHistoryStore,
+    get_data_dir,
+)
 from neezy_backend.strategies import (
     STRATEGIES,
     consensus,
@@ -157,6 +174,9 @@ class App(tk.Tk):
         self.minsize(1050, 650)
         self.settings_store = SettingsStore()
         self.history_store = SignalHistoryStore()
+        self.confluence_store = ConfluenceHistoryStore()
+        self.provider_keys = ProviderKeyStore()
+        self.analyzer = ConfluenceAnalyzer(settings=self.settings)
         self.settings = self.settings_store.load()
         self.db = self._open_database()
         self.command_bridge = AppCommandBridge(timeout=15.0)
@@ -209,6 +229,7 @@ class App(tk.Tk):
         self.results = {}
         self.price_action = {}
         self._backtest_running = False
+        self._analysis_running = False
         self.last_signal = {}
         self.selected = "frxEURUSD"
         self.history = self.history_store.read(limit=1000)
@@ -232,6 +253,19 @@ class App(tk.Tk):
         self.corr_window_var = tk.IntVar(value=self.settings.correlation_window)
         self.corr_baseline_var = tk.IntVar(value=self.settings.correlation_baseline)
         self.overlay_var = tk.BooleanVar(value=self.settings.show_strategy_overlay)
+        self.data_provider_var = tk.StringVar(value=self.settings.market_data_provider)
+        self.provider_key_var = tk.StringVar()
+        self.provider_count_var = tk.IntVar(value=self.settings.provider_candle_count)
+        self.conf_min_score_var = tk.DoubleVar(value=self.settings.confluence_min_score)
+        self.conf_search_score_var = tk.DoubleVar(
+            value=self.settings.confluence_search_score
+        )
+        self.conf_stop_var = tk.DoubleVar(value=self.settings.confluence_atr_stop_mult)
+        self.conf_tp_var = tk.DoubleVar(value=self.settings.confluence_atr_tp_mult)
+        self.conf_horizon_var = tk.IntVar(value=self.settings.confluence_horizon)
+        self.conf_min_analogs_var = tk.IntVar(
+            value=self.settings.confluence_min_analogs
+        )
         self.use_knowledge_var = tk.BooleanVar(value=self.settings.use_knowledge)
         self.use_memory_var = tk.BooleanVar(value=self.settings.use_memory)
         self.research_vars = {
@@ -608,6 +642,48 @@ class App(tk.Tk):
             v = self._label(card, "—", 18, accent)
             v.pack(anchor="w", padx=14, pady=(0, 10))
             self.card_values[key] = v
+        cards_outer = tk.Frame(p, bg=self.BG)
+        cards_outer.pack(fill="x", pady=(0, 10))
+        self.signal_ticket_canvas = tk.Canvas(
+            cards_outer,
+            bg=self.BG,
+            height=174,
+            highlightthickness=0,
+        )
+        self.signal_ticket_frame = tk.Frame(self.signal_ticket_canvas, bg=self.BG)
+        self.signal_ticket_canvas.pack(fill="x", expand=True)
+        self.signal_ticket_id = self.signal_ticket_canvas.create_window(
+            (0, 0),
+            window=self.signal_ticket_frame,
+            anchor="nw",
+        )
+        self.signal_ticket_frame.bind(
+            "<Configure>",
+            lambda _event, c=self.signal_ticket_canvas, f=self.signal_ticket_frame: (
+                c.configure(scrollregion=c.bbox("all"))
+            ),
+        )
+        self.signal_ticket_canvas.bind(
+            "<Resize>",
+            lambda event, c=self.signal_ticket_canvas, i=self.signal_ticket_id: (
+                c.itemconfigure(i, width=event.width - 4)
+            ),
+        )
+        self._render_signal_cards([])
+        self.analysis_status = self._label(top, "", 9, self.CYAN)
+        self.analysis_status.pack(side="right", padx=(0, 12))
+        self.analysis_button = tk.Button(
+            top,
+            text="ANALYSIS",
+            command=self._run_analysis,
+            bg=self.CYAN,
+            fg="#08111f",
+            relief="flat",
+            padx=18,
+            pady=6,
+            font=("Helvetica", 10, "bold"),
+        )
+        self.analysis_button.pack(side="right")
         self.tf = ttk.Combobox(top, values=list(TIMEFRAMES), width=7, state="readonly")
         self.tf.set(self.settings.default_timeframe)
         self.tf.pack(side="right")
@@ -1366,24 +1442,31 @@ class App(tk.Tk):
             padx=14,
             pady=7,
         ).pack(side="right")
-        self.hist = tk.Listbox(
-            page, bg=self.PANEL, fg=self.TEXT, relief="flat", font=("Courier", 10)
+        self.hist_canvas = tk.Canvas(page, bg=self.BG, highlightthickness=0)
+        self.hist_frame = tk.Frame(self.hist_canvas, bg=self.BG)
+        self.hist_canvas.pack(fill="both", expand=True)
+        self.hist_window_id = self.hist_canvas.create_window(
+            (0, 0),
+            window=self.hist_frame,
+            anchor="nw",
         )
-        self.hist.pack(fill="both", expand=True)
+        self.hist_frame.bind(
+            "<Configure>",
+            lambda _event, c=self.hist_canvas, f=self.hist_frame: c.configure(
+                scrollregion=c.bbox("all")
+            ),
+        )
+        self.hist_canvas.bind(
+            "<Resize>",
+            lambda event, c=self.hist_canvas, i=self.hist_window_id: c.itemconfigure(
+                i, width=event.width - 4
+            ),
+        )
 
     def _render_history(self):
         if not hasattr(self, "hist"):
             return
-        self.hist.delete(0, "end")
-        for record in reversed(self.history):
-            stamp = record.get("timestamp", "")
-            market = SYMBOLS.get(record.get("symbol"), record.get("symbol", "?"))
-            self.hist.insert(
-                "end",
-                f"{stamp[:19]:<19}  {market:<18} "
-                f"{record.get('previous', '?')} → {record.get('current', '?')}  "
-                f"@ {record.get('price', 0):g}  [{record.get('score', 0):+d}]",
-            )
+        self._render_confluence_history()
 
     def _export_history(self):
         destination = filedialog.asksaveasfilename(
@@ -1403,6 +1486,403 @@ class App(tk.Tk):
         except OSError as error:
             logger.exception("Could not export signal history")
             messagebox.showerror("Export failed", str(error))
+
+    def _data_provider_key(self):
+        """Translate the DATA PROVIDERS combo label into a provider key."""
+        value = self.data_provider_var.get().strip()
+        if "(" in value:
+            value = value.rsplit("(", 1)[1].rstrip(")")
+        try:
+            resolve_provider(value)
+            return value
+        except ValueError:
+            return "deriv"
+
+    def _build_signal_card(self, parent, record):
+        """Card fields: INSTRUMENT, BUY/SELL, ENTRY, SL, TP, WIN RATE."""
+        symbol = record.get("symbol", "")
+        instrument = record.get("instrument") or SYMBOLS.get(symbol, symbol)
+        direction = int(record.get("direction", 0) or 0)
+        label = "BUY" if direction > 0 else "SELL"
+        color = self.GREEN if direction > 0 else self.RED
+        card = tk.Frame(
+            parent,
+            bg=self.PANEL2,
+            highlightbackground=self.BORDER,
+            highlightthickness=1,
+        )
+        inner = tk.Frame(card, bg=self.PANEL2)
+        inner.pack(fill="both", expand=True, padx=14, pady=10)
+        self._label(inner, "INSTRUMENT", 8, self.MUTED).pack(anchor="w")
+        self._label(inner, instrument, 13, "#ffffff").pack(anchor="w")
+        self._label(inner, label, 17, color).pack(anchor="w")
+        rows = tk.Frame(inner, bg=self.PANEL2)
+        rows.pack(fill="x", pady=(6, 0))
+        values = (
+            ("ENTRY", format_price(symbol, record.get("entry"))),
+            ("SL", format_price(symbol, record.get("stop_loss"))),
+            ("TP", format_price(symbol, record.get("take_profit"))),
+            ("WIN RATE", f"{float(record.get('win_rate', 0) or 0):.1f}%"),
+        )
+        for index, (name, value) in enumerate(values):
+            cell = tk.Frame(rows, bg=self.PANEL2)
+            cell.grid(row=0, column=index, padx=(0, 14), sticky="w")
+            self._label(cell, name, 8, self.MUTED).pack(anchor="w")
+            self._label(cell, value, 12, self.TEXT).pack(anchor="w")
+        if "outcome" in record:
+            outcome = record.get("outcome")
+            badge_color = (
+                self.GREEN
+                if outcome == "TP"
+                else self.RED
+                if outcome == "SL"
+                else self.MUTED
+            )
+            badge = "—"
+            if outcome in ("TP", "SL"):
+                badge = f"OUTCOME: {outcome}"
+            self._label(inner, badge, 10, badge_color).pack(anchor="w", pady=(8, 0))
+        footer = (
+            f"{record.get('timeframe', '')} · {record.get('mode', 'strict')}"
+            " · educational only"
+        ).strip(" ·")
+        self._label(inner, footer, 8, self.MUTED).pack(anchor="w", pady=(4, 0))
+        return card
+
+    def _render_signal_cards(self, signals):
+        """Fill the SIGNALS ticket strip with confluence cards."""
+        if not hasattr(self, "signal_ticket_frame"):
+            return
+        for child in self.signal_ticket_frame.winfo_children():
+            child.destroy()
+        items = list(signals)
+        if not items:
+            empty = self._label(
+                self.signal_ticket_frame,
+                "No confluence cards yet. Press ANALYSIS to scan every market "
+                "with the full backend.",
+                10,
+                self.MUTED,
+            )
+            empty.pack(anchor="w", padx=12, pady=12)
+            return
+        for column in range(3):
+            self.signal_ticket_frame.grid_columnconfigure(column, weight=1)
+        for index, signal in enumerate(items):
+            record = signal.to_dict() if hasattr(signal, "to_dict") else signal
+            card = self._build_signal_card(self.signal_ticket_frame, record)
+            card.grid(
+                row=index // 3,
+                column=index % 3,
+                padx=6,
+                pady=6,
+                sticky="nsew",
+            )
+
+    def _run_analysis(self):
+        """ANALYSIS button: scan the watchlist with the whole backend."""
+        if self._analysis_running:
+            return
+        self._analysis_running = True
+        self.analysis_button.config(state="disabled")
+        self.analysis_status.config(
+            text="Running confluence over every market…", fg="#f0bd62"
+        )
+        timeframe = self.tf.get()
+        provider = self._data_provider_key()
+        count = int(self.provider_count_var.get())
+        symbols = list(self.watch_symbols)
+        threading.Thread(
+            target=self._analysis_work,
+            args=(symbols, timeframe, provider, count),
+            name="neezy-analysis",
+            daemon=True,
+        ).start()
+
+    def _analysis_work(self, symbols, timeframe, provider, count):
+        candles_map = {}
+        errors = {}
+        seconds = TIMEFRAMES.get(timeframe, 300)
+        for symbol in symbols:
+            buffer = list(self.candles.get(symbol, []))
+            if len(buffer) < 90:
+                for attempt in (provider, "deriv"):
+                    try:
+                        if attempt == "deriv":
+                            buffer = fetch_candles(
+                                symbol,
+                                seconds,
+                                min(count, 1000),
+                                timeout=self.settings.ml_fetch_timeout,
+                            )
+                        else:
+                            buffer = get_candles(attempt, symbol, timeframe, count)
+                    except (
+                        ProviderError,
+                        ValueError,
+                        ConnectionError,
+                        OSError,
+                    ) as error:
+                        errors.setdefault(symbol, str(error))
+                        continue
+                    if buffer:
+                        errors.pop(symbol, None)
+                        break
+            if len(buffer) >= 90:
+                candles_map[symbol] = buffer[-900:]
+        signals = scan_candles(candles_map, timeframe, self.settings)
+        for signal in signals:
+            try:
+                self.confluence_store.append(signal.as_history_record())
+            except (OSError, ValueError):
+                pass
+        message = f"{len(signals)} signal(s) · provider: {provider}"
+        if errors:
+            message += f" · {len(errors)} market(s) without history"
+        self.after(
+            0,
+            lambda sent_signals=signals, sent_message=message: self._finish_analysis(
+                sent_signals, sent_message
+            ),
+        )
+
+    def _finish_analysis(self, signals, message):
+        self._analysis_running = False
+        if self.analysis_button.winfo_exists():
+            self.analysis_button.config(state="normal")
+        self.analysis_status.config(
+            text=message + " · search mode fills gaps so ANALYSIS always "
+            "produces signals",
+            fg=self.GREEN,
+        )
+        self._render_signal_cards(signals)
+        buys = sum(1 for signal in signals if signal.direction > 0)
+        sells = len(signals) - buys
+        average = (
+            sum(signal.score for signal in signals) / len(signals) if signals else 0
+        )
+        for key, value, color in [
+            ("active", str(len(signals)), self.CYAN),
+            ("buy", str(buys), self.GREEN),
+            ("sell", str(sells), self.RED),
+            ("confidence", f"{average:.0f}", self.MUTED),
+        ]:
+            self.card_values[key].config(text=value, fg=color)
+
+    def _render_confluence_history(self):
+        """History cards identical to SIGNALS plus exactly TP or SL outcome."""
+        if not hasattr(self, "hist_frame"):
+            return
+        for child in self.hist_frame.winfo_children():
+            child.destroy()
+        records = self.confluence_store.read(limit=60)[:12]
+        horizon = self.settings.confluence_horizon
+        resolutions = {}
+        for record in records:
+            if record.get("outcome") is not None:
+                continue
+            try:
+                epoch = datetime.fromisoformat(record["timestamp"]).timestamp()
+            except (ValueError, TypeError, OSError):
+                continue
+            rows = []
+            if self.db is not None:
+                try:
+                    rows = (
+                        self.db.load_candles(
+                            record["symbol"],
+                            record.get("timeframe", "5m"),
+                            limit=2 * horizon + 20,
+                        )
+                        or []
+                    )
+                except (sqlite3.Error, ValueError, OSError):
+                    rows = []
+            after = [row for row in rows if row[0] >= epoch]
+            outcome = resolve_outcome(
+                int(record["direction"]),
+                float(record["entry"]),
+                float(record["stop_loss"]),
+                float(record["take_profit"]),
+                after,
+                horizon,
+            )
+            if outcome in ("TP", "SL"):
+                resolutions[(record["symbol"], record["timestamp"])] = outcome
+        if resolutions:
+            try:
+                self.confluence_store.update_outcomes(resolutions)
+            except (OSError, ValueError):
+                pass
+            records = self.confluence_store.read(limit=60)[:12]
+        if not records:
+            self._label(
+                self.hist_frame,
+                "No confluence signals recorded yet. Every card the ANALYSIS "
+                "button produces lands here with its TP or SL outcome.",
+                10,
+                self.MUTED,
+            ).grid(row=0, column=0, padx=12, pady=12, sticky="w")
+            return
+        for column in range(3):
+            self.hist_frame.grid_columnconfigure(column, weight=1)
+        for index, record in enumerate(reversed(records)):
+            card = self._build_signal_card(self.hist_frame, record)
+            card.grid(
+                row=index // 3,
+                column=index % 3,
+                padx=6,
+                pady=6,
+                sticky="nsew",
+            )
+
+    def _data_provider_settings_tab(self, notebook):
+        _tab, left, right = self._settings_tab(notebook, "DATA PROVIDERS")
+        self._label(left, "CONFLUENCE ENGINE", 9, self.CYAN).pack(
+            anchor="w", padx=16, pady=(14, 6)
+        )
+        self._spin_row(
+            left, "Strict confluence score", self.conf_min_score_var, 0, 100, 5
+        )
+        self._spin_row(
+            left,
+            "Search-mode score (relaxed)",
+            self.conf_search_score_var,
+            0,
+            100,
+            5,
+        )
+        self._spin_row(left, "ATR stop multiple", self.conf_stop_var, 0.5, 6.0, 0.1)
+        self._spin_row(left, "ATR target multiple", self.conf_tp_var, 0.5, 10.0, 0.1)
+        self._spin_row(left, "Outcome horizon (bars)", self.conf_horizon_var, 3, 120, 1)
+        self._spin_row(
+            left,
+            "Minimum win-rate analog samples",
+            self.conf_min_analogs_var,
+            2,
+            100,
+            1,
+        )
+        self._label(
+            left,
+            "Signals below the strict score are still shown by the ANALYSIS "
+            "button in relaxed search mode, so the scan always yields cards.",
+            9,
+            self.MUTED,
+            wraplength=300,
+        ).pack(anchor="w", padx=16, pady=12)
+        self._label(right, "MARKET DATA PROVIDERS", 9, self.CYAN).pack(
+            anchor="w", padx=16, pady=(14, 6)
+        )
+        options = [f"{spec.label} ({spec.key})" for spec in MARKET_PROVIDERS.values()]
+        current = resolve_provider(self.settings.market_data_provider)
+        self.data_provider_var.set(f"{current.label} ({current.key})")
+        self._combo_row(right, "Active provider", self.data_provider_var, options)
+        self._spin_row(
+            right,
+            "Fetched candles per market",
+            self.provider_count_var,
+            60,
+            1000,
+            20,
+        )
+        self._entry_row(
+            right,
+            "API key for the selected provider (stored locally, never logged)",
+            self.provider_key_var,
+        )
+        buttons = tk.Frame(right, bg=right.cget("bg"))
+        buttons.pack(anchor="w", padx=16, pady=4)
+        tk.Button(
+            buttons,
+            text="SAVE KEY",
+            command=self._save_provider_key,
+            bg=self.PANEL2,
+            fg=self.TEXT,
+            relief="flat",
+            padx=12,
+            pady=6,
+        ).pack(side="left", padx=(0, 8))
+        tk.Button(
+            buttons,
+            text="TEST PROVIDER",
+            command=self._test_provider,
+            bg=self.PANEL2,
+            fg=self.TEXT,
+            relief="flat",
+            padx=12,
+            pady=6,
+        ).pack(side="left")
+        self.provider_status_label = self._label(
+            right, "", 9, self.MUTED, wraplength=300
+        )
+        self.provider_status_label.pack(anchor="w", padx=16, pady=8)
+        self._provider_status(
+            "Deriv is the default provider and needs no key. Alpha Vantage, "
+            "Finnhub and Twelve Data require one; Binance covers crypto only.",
+            self.MUTED,
+        )
+
+    def _provider_status(self, message, color):
+        if hasattr(self, "provider_status_label"):
+            self.provider_status_label.config(text=message, fg=color)
+
+    def _save_provider_key(self):
+        provider = self._data_provider_key()
+        spec = resolve_provider(provider)
+        if not spec.requires_key:
+            self._provider_status(f"{spec.label} needs no API key.", self.GREEN)
+            return
+        key = self.provider_key_var.get().strip()
+        try:
+            self.provider_keys.set(provider, key)
+        except OSError as error:
+            self._provider_status(f"Could not save key: {error}", self.RED)
+            return
+        self.provider_key_var.set("")
+        self._settings_changed()
+        issue = provider_key_issues(provider, self.provider_keys)
+        if issue:
+            self._provider_status(issue, self.RED)
+        else:
+            self._provider_status(
+                f"{spec.label} key saved locally ({self.provider_keys.path.name}).",
+                self.GREEN,
+            )
+
+    def _test_provider(self):
+        if getattr(self, "_provider_test_running", False):
+            return
+        self._provider_test_running = True
+        provider = self._data_provider_key()
+        issue = provider_key_issues(provider, self.provider_keys)
+        if issue:
+            self._provider_status(issue, self.RED)
+            return
+        symbol = next(iter(self.watch_symbols), "frxEURUSD")
+        timeframe = self.tf.get()
+        spec = resolve_provider(provider)
+
+        def work():
+            try:
+                rows = get_candles(provider, symbol, timeframe, 60)
+                message = (
+                    f"{spec.label}: fetched {len(rows)} candles for "
+                    f"{SYMBOLS.get(symbol, symbol)}."
+                )
+                color = self.GREEN
+            except (ProviderError, ValueError, ConnectionError, OSError) as error:
+                message = f"{spec.label}: {error}"
+                color = self.RED
+            self.after(
+                0,
+                lambda sent_message=message, sent_color=color: (
+                    self._provider_status(sent_message, sent_color),
+                    setattr(self, "_provider_test_running", False),
+                ),
+            )
+
+        threading.Thread(target=work, name="neezy-provider-test", daemon=True).start()
 
     def _open_database(self):
         try:
@@ -1437,6 +1917,7 @@ class App(tk.Tk):
         notebook.pack(fill="both", expand=True)
         self.settings_notebook = notebook
         self._workspace_settings_tab(notebook)
+        self._data_provider_settings_tab(notebook)
         self._engine_settings_tab(notebook)
         self._research_settings_tab(notebook, "ML RESEARCH")
         self._research_settings_tab(notebook, "PAIR RESEARCH")
@@ -3563,6 +4044,14 @@ class App(tk.Tk):
                 default_timeframe=self.default_tf_var.get(),
                 history_candles=int(self.history_var.get()),
                 watchlist_extra=self.watchlist_var.get().strip(),
+                market_data_provider=self._data_provider_key(),
+                provider_candle_count=int(self.provider_count_var.get()),
+                confluence_min_score=float(self.conf_min_score_var.get()),
+                confluence_search_score=float(self.conf_search_score_var.get()),
+                confluence_atr_stop_mult=float(self.conf_stop_var.get()),
+                confluence_atr_tp_mult=float(self.conf_tp_var.get()),
+                confluence_horizon=int(self.conf_horizon_var.get()),
+                confluence_min_analogs=int(self.conf_min_analogs_var.get()),
                 deriv_endpoint=self.endpoint_var.get().strip(),
                 reconnect_seconds=float(self.reconnect_var.get()),
                 max_reconnect_seconds=float(self.max_reconnect_var.get()),

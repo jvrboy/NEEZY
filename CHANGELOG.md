@@ -1,5 +1,46 @@
 # CHANGELOG
 
+## [1.6.0] - Confluence Engine, Data Providers and Card Workspace
+
+### Added
+- **Multi-factor confluence engine** (`neezy_backend/confluence.py`): every
+  backend tool - EMA stack, MACD, RSI, ADX, Bollinger extremes, all named
+  strategies, divergence and the shipped learned edge weights - votes with a
+  weight; the weighted net becomes one BUY/SELL verdict with ENTRY, SL (ATR
+  stop multiple), TP (ATR target multiple) and a win rate.
+- **Win-rate replay**: the engine is trained further on history by finding bars
+  whose per-bar confluence proxies match the current reading and replaying each
+  analog forward; hit-TP-first versus hit-SL-first counts become the card's WIN
+  RATE (sample count and basis are reported, not a forecast).
+- **Strict plus search passes**: signals below the strict threshold are
+  re-scanned in relaxed search mode, so a scan always yields cardable signals;
+  markets with too few candles are reported as errors instead of guessing.
+- **Five new named strategies**: ICHIMOKU, STOCH_RSI, MOMENTUM (ROC+ADX),
+  RSI_REVERSAL and CCI_REVERSION join the registry and the confluence vote.
+- **Market-data providers** (`neezy_backend/providers.py`): Deriv (default
+  public WebSocket), Alpha Vantage, Finnhub, Binance and Twelve Data, with
+  symbol translation, interval mapping, validated candle normalization and a
+  local owner-only `provider-keys.json` key store (environment fallback).
+- **Backend analysis agent** (`neezy_backend/scanner.py`):
+  `ConfluenceAnalyzer` scans a whole watchlist strict-first, reports per-market
+  errors separately, and offers `full_analysis()` strict + search.
+- **SIGNALS tab redesign**: signal cards now show exactly INSTRUMENT, BUY/SELL,
+  ENTRY, SL, TP, WIN RATE, plus an always-on **ANALYSIS** button that runs the
+  full backend over the watchlist, persists every card locally and updates the
+  overview counters.
+- **HISTORY tab redesign**: the same card fields plus one of exactly two
+  outcomes, TP or SL (the stop fills first when both levels sit inside one
+  candle); pending cards resolve automatically from locally stored candles and
+  the store refuses any third outcome value.
+- **SETTINGS > DATA PROVIDERS tab**: provider selector, local API-key save/scan,
+  provider test, fetched-candle count, and six persisted confluence controls
+  (strict score, search score, ATR stop/target multiples, outcome horizon,
+  minimum analog samples) validated in `AppSettings`.
+
+### Verification
+- 367 tests pass (2 environment skips); ruff lint and format clean; full
+  compile clean; fake-tk app construction passes with the new tabs and cards.
+
 ## [1.5.1] - Imported Knowledge Base and Second Training Capture
 
 ### Added

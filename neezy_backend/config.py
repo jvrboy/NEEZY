@@ -17,9 +17,18 @@ STRATEGIES = frozenset(
         "SQUEEZE",
         "MACD",
         "KELTNER",
+        "ICHIMOKU",
+        "STOCH_RSI",
+        "MOMENTUM",
+        "RSI_REVERSAL",
+        "CCI_REVERSION",
     }
 )
 AI_PROVIDERS = frozenset({"gemini", "grok", "openrouter", "ollama"})
+# External market-data providers used by the confluence engine.
+MARKET_DATA_PROVIDERS = frozenset(
+    {"deriv", "alpha_vantage", "finnhub", "binance", "twelve_data"}
+)
 
 
 def _require_bool(field_name: str, value: object) -> None:
@@ -166,6 +175,16 @@ class AppSettings:
     default_risk_percent: float = 1.0
     max_drawdown_limit: float = 10.0
 
+    # Confluence engine + external data providers (SETTINGS > DATA PROVIDERS)
+    market_data_provider: str = "deriv"
+    provider_candle_count: int = 300
+    confluence_min_score: float = 55.0
+    confluence_search_score: float = 30.0
+    confluence_atr_stop_mult: float = 1.5
+    confluence_atr_tp_mult: float = 2.5
+    confluence_horizon: int = 20
+    confluence_min_analogs: int = 4
+
     def __post_init__(self) -> None:
         for field_name, low, high in (
             ("ml_history_candles", 400, 50000),
@@ -212,6 +231,28 @@ class AppSettings:
         _require_int("history_candles", self.history_candles, 60, 1000)
         if self.history_candles > self.candle_limit:
             raise ValueError("history candles cannot exceed max candles in memory")
+        if self.market_data_provider not in MARKET_DATA_PROVIDERS:
+            raise ValueError(
+                f"Unsupported data provider {self.market_data_provider!r}; "
+                f"choose from {', '.join(sorted(MARKET_DATA_PROVIDERS))}"
+            )
+        _require_int("provider_candle_count", self.provider_candle_count, 60, 1000)
+        _require_float("confluence_min_score", self.confluence_min_score, 0.0, 100.0)
+        _require_float(
+            "confluence_search_score", self.confluence_search_score, 0.0, 100.0
+        )
+        if self.confluence_search_score > self.confluence_min_score:
+            raise ValueError(
+                "the search threshold cannot exceed the strict confluence threshold"
+            )
+        _require_float(
+            "confluence_atr_stop_mult", self.confluence_atr_stop_mult, 0.5, 6.0
+        )
+        _require_float("confluence_atr_tp_mult", self.confluence_atr_tp_mult, 0.5, 10.0)
+        if self.confluence_atr_tp_mult <= self.confluence_atr_stop_mult:
+            raise ValueError("the take-profit multiple must exceed the stop multiple")
+        _require_int("confluence_horizon", self.confluence_horizon, 3, 120)
+        _require_int("confluence_min_analogs", self.confluence_min_analogs, 2, 100)
         if not isinstance(self.deriv_endpoint, str):
             raise TypeError("deriv_endpoint must be a string")
         endpoint = self.deriv_endpoint.strip()

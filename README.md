@@ -2,6 +2,22 @@
 
 NEEZY is a native Python/Tkinter market-monitoring workspace. It reads public market candles from Deriv's WebSocket API and computes educational technical-analysis summaries. It does not place trades, authenticate to broker accounts, or provide financial advice.
 
+## Confluence engine, data providers and card workspace (v1.6.0)
+
+**Confluence.** `neezy_backend/confluence.py` combines every backend tool into one weighted vote per market: the EMA stack, MACD, RSI, ADX/DI, Bollinger extremes, all named strategies (including Divergence and the shipped learned edge weights). The weighted net becomes one card: **INSTRUMENT, BUY/SELL, ENTRY, SL, TP, WIN RATE**. The stop is the ATR multiple set in SETTINGS > DATA PROVIDERS and the target is its larger ATR multiple.
+
+**Win rate.** The card's win rate is a replay of the market's own history: bars whose cheap per-bar confluence proxies match the current reading are walked forward and counted as hit-TP-first or hit-SL-first (the stop fills first when both levels sit inside one candle). Cards report the analog sample count and call this an in-sample replay, never a forecast; not enough history falls back to a clearly-labelled confluence-strength estimate.
+
+**Always-signal ANALYSIS button.** The SIGNALS tab now renders signal cards and an **ANALYSIS** button. It scans the whole watchlist with the full backend, then relaxes strict-mode misses into search mode so the scan always produces cards (markets with too little candle history are listed as unavailable instead of guessing). Every produced card is stored locally and becomes a HISTORY card.
+
+**History with exactly two outcomes.** HISTORY shows the same card fields plus OUTCOME, which is exactly `TP` or `SL` - nothing else. Pending cards resolve automatically from locally stored candles and the local store rejects any other outcome value.
+
+**Data providers.** SETTINGS > DATA PROVIDERS selects the market-data provider used when buffers need history: Deriv (default, public WebSocket, no key), Alpha Vantage, Finnhub, Binance (crypto only) and Twelve Data. API keys are saved to a local owner-only `provider-keys.json` (or read from `ALPHA_VANTAGE_KEY`, `FINNHUB_KEY`, `TWELVE_DATA_KEY`) and can be tested from the tab. Symbols an external provider cannot cover are refused with a clear message rather than silently substituted. The same tab exposes six persisted confluence controls: strict score, search score, ATR stop/target multiples, outcome horizon and minimum win-rate analog samples.
+
+**More strategies.** ICHIMOKU, STOCH_RSI, MOMENTUM (ROC + ADX), RSI_REVERSAL and CCI_REVERSION now join SUPERTREND, EMA_PULLBACK, DIVERGENCE, DONCHIAN, SQUEEZE, MACD and KELTNER in the registry; every one of them votes inside the confluence.
+
+**Backend scanner agent.** `neezy_backend/scanner.py` provides `ConfluenceAnalyzer` for headless use - `scan()` for the strict pass and `full_analysis()` for the strict + search pipeline that the ANALYSIS button drives.
+
 ## Features
 
 - Multi-market watchlist and live signal table with selectable timeframes.
@@ -239,6 +255,9 @@ neezy_app/             Tkinter application and installed CLI entry point
 neezy_backend/         validated settings, stream events/client, analysis, persistence
   trend.py             Supertrend, Donchian, Keltner, Williams %R, CCI, Stoch RSI
   divergence.py        pivot detection, RSI/MACD divergence, correlation divergence
+  confluence.py        multi-factor confluence engine, win-rate replay, TP/SL resolver
+  providers.py         Deriv/Alpha Vantage/Finnhub/Binance/Twelve Data candle fetchers
+  scanner.py           watchlist confluence scanner agent (strict + search passes)
   strategies.py        named strategy registry, consensus voting
   context.py           one market snapshot shared by CLI and AI prompts
   database.py          local SQLite store (candles, signals, snapshots, AI usage, memory)

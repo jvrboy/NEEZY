@@ -8,7 +8,7 @@ import os
 import sys
 import tempfile
 import zipfile
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -272,3 +272,127 @@ class SignalHistoryStore:
             writer.writeheader()
             writer.writerows(rows)
         return len(rows)
+
+
+class ConfluenceHistoryStore:
+    """Card history: one JSONL record per confluence signal the app produced.
+
+    Card cards show INSTRUMENT, BUY/SELL, ENTRY, SL, TP and WIN RATE; the only
+    allowed outcome is exactly ``TP`` or ``SL`` (never a third state). Until a
+    record resolves the ``outcome`` key holds ``None``.
+    """
+
+    REQUIRED = (
+        "timestamp",
+        "symbol",
+        "instrument",
+        "timeframe",
+        "direction",
+        "entry",
+        "stop_loss",
+        "take_profit",
+        "win_rate",
+    )
+
+    def __init__(
+        self,
+        path: Path | None = None,
+        *,
+        max_bytes: int = 2_000_000,
+        keep_records: int = 5000,
+    ) -> None:
+        if max_bytes < 1 or keep_records < 1:
+            raise ValueError("max_bytes and keep_records must be positive")
+        self.path = path or get_data_dir() / "confluence-history.jsonl"
+        self.max_bytes = max_bytes
+        self.keep_records = keep_records
+
+    def append(self, record: Mapping[str, Any]) -> dict[str, Any]:
+        entry = dict(record)
+        entry.setdefault("outcome", None)
+        entry.setdefault("score", 0.0)
+        entry.setdefault("mode", "strict")
+        missing = [key for key in self.REQUIRED if key not in entry]
+        if missing:
+            raise ValueError(f"history record missing fields: {', '.join(missing)}")
+        if entry["outcome"] not in (None, "TP", "SL"):
+            raise ValueError("outcome must be TP, SL, or None")
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with self.path.open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        try:
+            if self.path.stat().st_size > self.max_bytes:
+                self.compact()
+        except OSError:
+            pass
+        return entry
+
+    def read(self, limit: int = 1000) -> list[dict[str, Any]]:
+        if limit < 0:
+            raise ValueError("limit must not be negative")
+        try:
+            lines = self.path.read_text(encoding="utf-8").splitlines()
+        except FileNotFoundError:
+            return []
+        except (OSError, UnicodeError):
+            return []
+        records = []
+        for line in lines[-limit:] if limit else []:
+            try:
+                record = json.loads(line)
+            except (json.JSONDecodeError, TypeError):
+                continue
+            if isinstance(record, dict) and all(key in record for key in self.REQUIRED):
+                records.append(record)
+        return records
+
+    def update_outcomes(self, resolutions: Mapping[tuple[str, str], str]) -> int:
+        """Persist resolved outcomes for (symbol, timestamp) keys atomically.
+
+        Returns the number of records that changed. Only ``TP`` and ``SL`` are
+        accepted outcomes; ``None`` keeps a record open for the next render.
+        """
+        if any(value not in ("TP", "SL") for value in resolutions.values()):
+            raise ValueError("resolved outcome must be exactly TP or SL")
+        records = self.read(limit=100_000)
+        changed = 0
+        for record in records:
+            key = (record["symbol"], record["timestamp"])
+            outcome = resolutions.get(key)
+            if outcome and record.get("outcome") != outcome:
+                record["outcome"] = outcome
+                changed += 1
+        if not changed:
+            return 0
+        records = records[-self.keep_records :]
+        self._rewrite(records)
+        return changed
+
+    def clear(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text("", encoding="utf-8")
+
+    def _rewrite(self, records: list[dict[str, Any]]) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        fd, temporary = tempfile.mkstemp(
+            prefix=f".{self.path.name}.", dir=self.path.parent, text=True
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as stream:
+                for record in records:
+                    stream.write(json.dumps(record, ensure_ascii=False) + "\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, self.path)
+        except Exception:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
+            raise
+
+    def compact(self, keep: int | None = None) -> int:
+        """Atomically rewrite the file with only the newest valid records."""
+        records = self.read(limit=keep or self.keep_records)
+        self._rewrite(records)
+        return len(records)
