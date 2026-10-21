@@ -59,6 +59,7 @@ jobs:
   android-apk:
     name: Android APK
     runs-on: ubuntu-24.04
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
 
@@ -66,15 +67,33 @@ jobs:
         with:
           python-version: "3.12"
 
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # Buildozer runs directly on the runner. The ArtemSBulgakov/buildozer-action
+      # Docker image was dropped: its image build fails on an unavailable
+      # openjdk-r PPA for Ubuntu "resolute".
+      - name: Install Buildozer system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            git zip unzip autoconf libtool pkg-config zlib1g-dev \
+            libncurses-dev libncursesw5-dev libtinfo6 cmake \
+            libffi-dev libssl-dev build-essential ccache
+
+      - name: Install Buildozer
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "Cython==0.29.36" "buildozer==1.6.0" virtualenv
+
       - name: Stage the Android source tree
         run: python packaging/android/stage.py
 
       - name: Build APK with Buildozer
-        uses: ArtemSBulgakov/buildozer-action@v1
-        with:
-          workdir: build/android-stage
-          buildozer_version: 1.6.0
-          command: buildozer android debug
+        working-directory: build/android-stage
+        run: buildozer -v android debug
 
       - name: Locate APK
         id: apk
