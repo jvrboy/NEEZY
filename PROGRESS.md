@@ -1,37 +1,42 @@
-# PROGRESS.md
+# NEEZY Upgrades — Work Log
 
-## Budget & Allocation
+Branch: `freebuff/a68ed870d878701bd171af3b`, pushed to `main` as `eb008da` (v1.6.0).
 
-- **Token / Context Budget**: Managed autonomously per turn/session. (~10% Audit, ~5% Planning, ~75% Implementation, ~10% Reserve).
-- **Reserve Limit**: 10% reserve maintained for final verification, docs, and clean submit.
+## Verification summary
+- `python -m unittest discover -s tests` → 367 tests OK (2 environment skips).
+- `ruff check` + `ruff format --check` → clean (ruff 0.17.1).
+- `python -m compileall neezy_app neezy_backend forex_signals.py` → clean.
+- `python local_ci.py` → ✅ all three gates passed.
+- Fake-tk smoke build of `neezy_app.ui.App()` with all new tabs → OK.
+- Headless import check of new backend modules → OK.
 
-## Batch Execution Checklist
+## Audited and fixed during the work
+- `neezy_backend/storage.py`: damaged `SignalHistoryStore.export_csv` / `clear`
+  methods restored after an improper class insertion; `Mapping` import added.
+- `neezy_backend/config.py`: missing `SYMBOLS` import restored (crash in
+  `watchlist_extra` validation); strategy frozenset synced with the engine
+  registry (test_platform gate).
+- `neezy_backend/strategies.py`: broken one-line import repaired.
+- Lint: 38 ruff findings fixed (unsorted imports, E501 long lines, unused
+  variables, RUF012 mutable class attributes in tests, B007, RUF059).
 
-- [x] **Phase 0 & 1: Audit & Baseline Setup**
-  - Git backup tag `pre-upgrade-backup` created.
-  - Comprehensive codebase audit completed (`AUDIT.md`).
-  - Budget & progress tracking established (`PROGRESS.md`).
+## New backend modules
+- `neezy_backend/providers.py` — Alpha Vantage / Finnhub / Binance / Twelve
+  Data candle fetchers + local `provider-keys.json` key store.
+- `neezy_backend/confluence.py` — weighted multi-factor vote, ATR-driven
+  SL/TP, analog-replay win rate, strict/search passes, TP/SL resolver.
+- `neezy_backend/scanner.py` — `ConfluenceAnalyzer` watchlist agent.
 
-- [x] **Phase 2: Execution Planning & Architecture Blueprint**
-  - Decision record (`DECISIONS.md`) and Master Plan (`PLAN.md`) created.
+## UI changes (`neezy_app/ui.py`)
+- SIGNALS: card strip (INSTRUMENT, BUY/SELL, ENTRY, SL, TP, WIN RATE) +
+  always-on ANALYSIS button (strict pass → search pass; persists cards).
+- HISTORY: same cards + outcome badge limited to exactly TP or SL.
+- SETTINGS > DATA PROVIDERS: provider selector, key save/test, candle count,
+  six persisted confluence controls.
 
-- [x] **Batch 1: Safety Net, Quality & Local CI Script**
-  - Added `local_ci.py` verification runner for syntax check, linter, and pytest.
-
-- [x] **Batch 2: Local Security, Hardening & Data Integrity**
-  - Implemented `sanitize_path` traversal sandboxing and `create_local_backup`/`restore_local_backup` zip utilities in `neezy_backend/storage.py`.
-
-- [x] **Batch 3: Backend Tool Registry & Capabilities Infrastructure**
-  - Built typed `ToolRegistry` with schema generation, permission tiers (`READ_ONLY`, `WRITE`, `DESTRUCTIVE`), and dry-run execution in `neezy_backend/tools.py`.
-
-- [x] **Batch 4: Advanced Agent Loop, Planner/Executor & Long-Term Memory**
-  - Implemented `AgentPlanner` multi-step agent loop in `neezy_backend/agent.py` and SQLite FTS5 memory search in `neezy_backend/database.py`.
-
-- [x] **Batch 5: Local Evals, Fine-Tuning/Few-Shot Data Pipeline & Prompts**
-  - Built local benchmark task runner in `evals/run_evals.py` and benchmark tasks in `evals/tasks.json`.
-
-- [x] **Batch 6 & 7: Enterprise Design System & Modern App Shell**
-  - Verified dark/light design system tokens, workspace views, and UI smoke tests in `tests/test_ui_smoke.py`.
-
-- [x] **Batch 8: Documentation & Final Verification**
-  - Created `docs/ARCHITECTURE.md`, `docs/AGENT.md`, `docs/UI.md`, `docs/LOCAL_SECURITY.md`, `CHANGELOG.md`, `PLAN.md`, and updated `README.md`.
+Trade-offs worth knowing:
+- Provider requests use only the standard library (urllib); no new deps.
+- Search mode floors signals at the `confluence_search_score` (default 30) and
+  falls back to the last-bar EMA/momentum side when no directional factor
+  exists — that is the "always provides signals" requirement.
+- History outcome resolution is conservative: stop fills first inside a candle.
