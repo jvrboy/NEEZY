@@ -33,6 +33,8 @@ from .brain import train_model as train_brain_model
 from .catalog import instrument, instruments
 from .context import chat_messages, format_context, market_snapshot
 from .database import LocalDatabase
+from .datasets import dataset_summary
+from .insights import insight_line, knowledge_brief
 from .divergence import detect_divergences, rank_correlation_divergences
 from .indicators import analyze
 from .knowledge import (
@@ -129,6 +131,45 @@ def _table(out: TextIO, headers: Sequence[str], rows: Sequence[Sequence[Any]]) -
 
 def _without_series(result: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in result.items() if key != "closes"}
+
+
+def cmd_datasets(args, fetch, out) -> int:
+    """Show the shipped knowledge datasets and what they cover."""
+    payload = dataset_summary()
+    if args.json:
+        print(json.dumps(payload, indent=2), file=out)
+        return 0
+    print("Shipped knowledge datasets:", file=out)
+    for name, info in sorted(payload.get("datasets", {}).items()):
+        keys = ", ".join(info.get("keys", [])[:6])
+        print(f"  {name}  {info.get('bytes', 0)} bytes  [{keys}]", file=out)
+    print(
+        f"\nLearned weights cover {payload.get('weighted_symbols', 0)} "
+        "symbols (out-of-sample backtests on past candles; not a forecast).",
+        file=out,
+    )
+    brief = knowledge_brief()
+    print("\nIndicators:", ", ".join(brief.get("indicators", [])), file=out)
+    print("Patterns:", ", ".join(brief.get("patterns", [])), file=out)
+    print("Strategies:", ", ".join(brief.get("strategies", [])), file=out)
+    if args.symbol:
+        from .datasets import weight_for
+
+        for symbol in args.symbol:
+            record = weight_for(symbol)
+            if record is None:
+                print(f"\n{symbol}: no learned weight.", file=out)
+                continue
+            print(
+                f"\n{symbol}: edge weight {record.get('edge_weight'):+.2f}, "
+                f"verdict {record.get('verdict')}, confidence "
+                f"{record.get('confidence', 0):.0%}",
+                file=out,
+            )
+            line = insight_line(symbol)
+            if line:
+                print(f"  {line}", file=out)
+    return 0
 
 
 def cmd_markets(args, fetch, out) -> int:
@@ -1418,6 +1459,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("symbols", nargs="*", type=_symbol)
     p.add_argument("--file", help="knowledge file (default: bundled copy)")
     p.set_defaults(handler=cmd_knowledge)
+
+    p = sub.add_parser(
+        "datasets",
+        help="show the shipped knowledge datasets and learned weights",
+    )
+    p.add_argument("symbol", nargs="*", type=str, help="optional symbols to look up")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(handler=cmd_datasets)
 
     p = common(sub.add_parser("risk", help="position size calculator"), timeframe=False)
     p.add_argument("symbol", type=_symbol)
