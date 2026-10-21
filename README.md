@@ -261,6 +261,26 @@ forex_signals.py       backward-compatible launcher
 pyproject.toml         package/build metadata and developer tool configuration
 ```
 
+## Shipped knowledge datasets (v1.4)
+
+The package `neezy_backend/data` folder ships versioned JSON knowledge datasets that the UI, CLI, and offline assistant consult:
+
+| File | Contents |
+| --- | --- |
+| `knowledge.json` | Train-then-validate study records per symbol (written by `study.py`). |
+| `deriv_symbols.json` | Deriv symbol catalogue used by the market list. |
+| `market_knowledge.json` | Curated reference: indicator definitions, candle patterns, risk rules, Deriv public API notes. |
+| `strategy_playbook.json` | Per-strategy reference: signal, best/weak regime, key metrics, consensus rule. |
+| `model_weights.json` | Per-symbol edge weights and confidence derived from the out-of-sample study records. |
+
+`neezy_backend/datasets.py` loads them (cached, path-traversal safe); `neezy_backend/insights.py` blends them into one-line learned context. New surfaces:
+
+- **INSIGHTS page** in the desktop UI: read-only digest of datasets, indicators, patterns, strategies, and per-symbol edge weights.
+- **`neezy-cli datasets`**: list the shipped datasets and look up learned weights per symbol (`neezy-cli datasets frxEURUSD`).
+- **Offline chat**: the no-provider fallback answer now appends the symbol's learned edge-weight line, caveated as not a forecast.
+
+The weights are derived from backtests over historical candles with a charged spread; they are out-of-sample for that window only and are not forecasts.
+
 ## Development checks
 
 ```bash
