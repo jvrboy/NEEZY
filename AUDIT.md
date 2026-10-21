@@ -1,104 +1,112 @@
-# NEEZY Repository Audit
+# NEEZY Repository Audit — 2026-10-22 autonomous run
 
-Refreshed on branch `neezy-update-2026-10` against the working tree. Earlier
-versions of this file described the 2,326-line `ui.py` and 372 tests; both are
-out of date.
+Fresh, verified audit for the 500-update engineering run. Every "verified"
+claim below was reproduced in this run (test suite, ruff 0.17.1, compileall,
+CI logs via the GitHub API). Older findings were re-checked against
+`9a17b52` (v1.6.0) and closed or carried forward.
 
-## Snapshot
+## Verified snapshot
 
-| Item | Value |
-|------|-------|
-| Tests | `python -m unittest discover -s tests`: 438 run, 2 skipped, all OK |
-| Lint | `ruff check` on `neezy_app neezy_backend tests forex_signals.py local_ci.py`: 24 errors, all in files this branch did not touch (`neezy_app/glass.py` 12, `neezy_backend/quant.py` 10, `neezy_backend/exporters.py` 2) |
-| Format | `ruff format --check`: 3 files would change (`glass.py`, `exporters.py`, `quant.py`), all pre-existing |
-| Desktop window | `neezy_app/ui.py` is 784 lines: `App(tk.Tk)` shell, theme, widget helpers, settings apply, close. Screens live in 16 mixins under `neezy_app/ui_panels/` |
-| Backend | `neezy_backend/`: 52 Python files, about 16,000 lines |
+| Check | Result |
+|-------|--------|
+| `python -m unittest discover -s tests` | **533 tests, 1 failure** (43.9 s) |
+| `ruff check .` | **43 errors** (19 kaggle notebook, 14 `neezy_app/glass.py`, 8 `neezy_backend/quant.py`, 2 `neezy_backend/exporters.py`) |
+| `ruff format --check .` | 4 files would be reformatted |
+| `python -m compileall` | clean |
+| GitHub Actions "Python CI" on `main` | **failing** at the Lint step (last 10 runs red) |
+| "Release builds" workflow | green (EXE + APK) |
+| Unused imports/vars (F401/F811/F841) | none |
 
-The split moved 144 methods without changing their bodies. A check of the
-parsed AST of each method against `HEAD` found no changes and no missing
-methods. `NAV` and `RESEARCH_CONTROLS` moved to `neezy_app/ui_panels/constants.py`
-and are still importable from `neezy_app.ui`.
+## CRITICAL
 
-## Architecture
+1. **CI is red on main** (verified from workflow logs). The lint gate sees 24
+   errors in `glass.py`, `quant.py`, `exporters.py`; the format gate fails on
+   the same files. Every push has been failing quality assurance. Fix first.
 
-```
-Deriv public WebSocket ──► neezy_backend.stream / DerivStreamClient
-                                   │
-                    indicators, patterns, strategies, confluence, alerts
-                                   │
-        ┌──────────────────────────┴───────────────────────────┐
-  SQLite (neezy.sqlite3, WAL)                       neezy_app.ui (Tkinter)
-  candles, signals, history                  shell + ui_panels/* mixins
-                                                       │
-                                  AI providers (BYOK) · local GGUF models
-                                  MCP server · Telegram · MT5 bridge (gated)
-```
+## HIGH
 
-Panel modules: `market` (watchlist, chart, polling), `signals`, `insights`
-(research, brain, strategies), `chat`, `tools_page`, `alerts`, `history`,
-`database`, `settings`, `ai_settings`, `local_models`, `data_providers`, `mcp`,
-`telegram`, `remote`, `integrations` (MT5 and webhook settings).
+2. **Test failure: `tests/test_enterprise_ui.py::test_every_nav_entry_has_glyph_and_title`.**
+   `NAV` (constants.py) contains `ORDERS` but `PAGE_TITLES`
+   (enterprise.py) has no `ORDERS` entry, so the ORDERS page renders with a
+   fallback title. Regression from the ORDERS-page commit.
 
-Thread rule that still holds: network and model work runs in worker threads and
-hands results back through `App.after`. Widgets are only touched on the main
-thread. The chat test in `tests/test_ui_smoke.py` checks this for the AI
-fallback path.
+3. **Interactive menu reads real stdin when mocked** — `neezy_backend/menu.py`
+   `run_menu(..., input_fn=input)` binds the builtin at import time, so
+   `mock.patch("builtins.input")` in `tests/test_ui_style.py` never applies.
+   In CI the test passes only because stdin hits EOF immediately; in an
+   interactive-stdin environment the suite hangs in a prompt loop. Correct
+   fix: resolve the default inside the function body (`input_fn=None`).
 
-## Status of earlier findings
+4. **Plain-text MT5 password in `settings.json`** (carried forward, Decision 6
+   known gap). Additionally `SettingsStore.save` does **not** `chmod 0o600`
+   the file, unlike every other secret store in the codebase
+   (`ai.py`, `telegram.py`, `providers.py`, `mcp.py` all do). Minimum fix now:
+   owner-only permissions; full fix (OS keychain) is a roadmap item.
 
-1. **Test environment mismatch.** Resolved. Tests run from a venv with the
-   package installed. On Debian/PEP 668 systems use a venv; `pip install -e`
-   into the system Python is blocked.
+## MEDIUM
 
-2. **No agent tool permission model.** Resolved. `neezy_backend/tools.py` has
-   `ToolPermission` tiers. `WRITE` and `DESTRUCTIVE` tools raise
-   `PermissionError` unless `confirm=True`. `dry_run` is always allowed.
+5. **Documentation drift.** `PLAN.md` marks Batch 5 (`evals/` harness) and
+   Batch 8 docs as "Completed", but no `evals/` directory exists in the tree
+   and `docs/AGENT.md` itself says so; `DECISIONS.md` Decision 5 promises a
+   `neezy_backend/prompts/` package that does not exist. Progress documents
+   overstate reality — dangerous for future autonomous runs.
 
-3. **UI monolith.** Resolved for structure. `ui.py` went from 4,929 lines to
-   784, and screens are in separate mixin modules. The methods are unchanged, so
-   the split does not by itself fix any UI-thread issues. Heavy work (analysis,
-   backtests, model training) still runs in threads; that path was not re-audited
-   in this pass.
+6. **Mobile port tab drift.** `neezy_mobile/screens.py` TAB_CLASSES has 9
+   tabs; desktop `NAV` has 10 (mobile lacks ORDERS and a tools/settings gap
+   varies). Docstring claims parity with desktop NAV.
 
-4. **Live order path could report success while disconnected.** Resolved.
-   `place_order` refuses when MT5 is not connected. `preview_order` never
-   contacts the terminal. `neezy-cli mt5 order` requires `--confirm` unless
-   `--dry-run`. The terminal menu requires typing `SEND`. No agent or MCP tool
-   calls `place_order`.
+7. **Duplicated path-jail implementations.** `storage.py::sanitize_path` and
+   `sandbox.py::resolve_within` implement overlapping traversal protection
+   with different semantics (`allow_absolute` escape hatch vs strict). Two
+   security-critical code paths can drift apart.
 
-5. **Simulated market data mixed with live data.** Resolved. With the bridge
-   disconnected, `get_account_info`, `get_quote`, `fetch_candles`, and
-   `get_positions` return an error, not sample numbers. CLI `mt5 account`,
-   `quote`, and `candles` refuse to print simulated output. Mock output in
-   agent tools is labelled `[SIMULATED]`.
+8. **Thread-safety of heavy UI work not re-verified since the ui.py split**
+   (carried forward). The `App.after` rule is tested only for the AI fallback
+   path, not for backtests/training/scanner threads.
 
-6. **MCP server sprawl.** Partly addressed. Six third-party MT5 and Windows
-   desktop MCP servers are listed in `neezy_backend/mcp_catalog.py` for reference
-   only. Nothing is installed or started. Two have a read-only mode
-   (`desktop-win32`, `desktop-winremote`); the other four do not.
+9. **Kaggle notebook lint debt** — 19 findings (E501, BLE001 blind except,
+   B007 unused loop var, RUF005) in `kaggle/NEEZY_on_Kaggle.ipynb`; outside
+   the CI lint path but degrades `ruff check .` for contributors.
 
-## Open items
+## LOW
 
-- **Plain-text MT5 password.** `settings.json` stores the MT5 password in plain
-  text. Moving it to the OS keychain is future work (see `DECISIONS.md`,
-  Decision 6). Ariadng's MCP config passes the password on the command line,
-  which is visible to other local processes.
-- **Thread safety of heavy work.** Analysis, backtest, and training threads have
-  not been re-checked for shared state since the split.
-- **Pre-existing lint debt.** The 24 ruff errors and 3 unformatted files are in
-  `glass.py`, `quant.py`, and `exporters.py`. They were not touched.
-- **Test resource warnings.** Six `unclosed database` ResourceWarnings appear in
-  the baseline too. They are test-only and do not fail the run.
-- **Windows verification.** `packaging/windows/neezy_entry.py` and the
-  PowerShell and cmd CLI paths have not been run on Windows from this environment.
-- **Phase 4 ("ide") undefined.** Needs a decision from the owner.
+10. **Test resource warnings.** Several `ResourceWarning: unclosed database`
+    warnings from tests that don't close `Store()` handles (cosmetic, but
+    noisy and can mask real leaks).
 
-## Checklist
+11. **`SignalHistoryStore` default filename** is `signal-history.jsonl`; the
+    storage module docstring says `signals-history.jsonl` (naming drift).
 
-- [x] Git backup tag `pre-upgrade-backup`.
-- [x] Full test suite passing (438 tests).
-- [x] Unified local CI script (`local_ci.py`) runs syntax, ruff lint/format, and unittest gates.
-- [x] Split `neezy_app/ui.py` into panel mixins.
-- [x] Sandboxed path validation helper in `neezy_backend/storage.py`.
-- [ ] Move the MT5 password out of `settings.json`.
-- [ ] Re-audit background threads in the UI.
+12. **Windows-only paths unverified from Linux** (carried forward): the
+    PyInstaller entry, PowerShell/cmd menu behavior, MT5 on Windows.
+
+13. **`local_ci.py` and CI lint paths diverge** — `local_ci.py` lints the
+    whole tree (incl. kaggle), CI lints only `neezy_app neezy_backend tests
+    forex_signals.py`; `tests/test_kaggle_notebook.py` exists so notebooks
+    are partially covered.
+
+## Positive findings (no action)
+
+- No `TODO`/`FIXME`/`XXX` markers anywhere; no `eval`/`exec`/`shell=True`;
+  no `pickle` of untrusted data (local_llm uses a weights-only unpickler).
+- Atomic writes (`_atomic_json_write` with fsync + `os.replace`) for
+  settings/history; SQLite in WAL mode; bounded queues in the event bus.
+- Strict OHLC validation at the websocket boundary; closed-candle-only
+  strategies; conservative outcome resolution (stop fills first).
+- Permission tiers on all agent tools; MT5 live orders gated behind typed
+  confirmations; CLI refuses simulated data on read commands.
+- No secrets committed; secret stores are owner-only files with 0o600
+  (except settings.json, item 4).
+- Tests cover the full stack offline, including fake-tk UI smoke builds.
+
+## Fix order (Phase 2)
+
+1. Items 1–4 (CI red → green, failing test, menu default binding, settings
+   permissions).
+2. Items 5–6 (documentation truth, mobile parity).
+3. Items 7, 9–13 (dedupe path jails, notebook lint, warnings, naming,
+   CI/local lint parity, thread re-audit groundwork) — folded into the
+   roadmap where they become larger works.
+
+The remaining engineering work is structured as exactly 500 numbered updates
+in `ROADMAP.md` (Phase 3), ordered foundations-first.
