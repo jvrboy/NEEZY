@@ -9,8 +9,9 @@ palette the enterprise layer has active.
 
 from __future__ import annotations
 
+import math
 import tkinter as tk
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 
 FRAME_MS = 16
@@ -169,16 +170,15 @@ class GlassPanel(tk.Canvas):
 
     def _draw_static(self) -> None:
         w, h = int(self["width"]), int(self["height"])
+        self.delete("body", "sheen")
         self._rounded(1, 1, w - 2, h - 2)
-        self.itemconfigure(self.find_withtag("polygon")[0] if self.find_withtag("polygon") else "", fill=self._fill)
+        polygon_items = self.find_withtag("polygon")
+        for item in polygon_items:
+            self.itemconfigure(item, fill=self._fill, outline=self._border, width=1)
         self.create_line(
             self._radius, 3, w - self._radius, 3,
             fill=_with_alpha(self._highlight, 0.55), width=1, capstyle="round",
         )
-        self._rounded(1, 1, w - 2, h - 2)
-        polygon_items = self.find_withtag("polygon")
-        for item in polygon_items:
-            self.itemconfigure(item, outline=self._border, width=1)
 
     def _animate_sheen(self) -> None:
         if not self.winfo_exists():
