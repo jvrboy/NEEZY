@@ -79,8 +79,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            git zip unzip autoconf libtool pkg-config zlib1g-dev \
-            libncurses-dev libncursesw5-dev libtinfo6 cmake \
+            git zip unzip autoconf automake libtool libltdl-dev pkg-config \
+            zlib1g-dev libncurses-dev libncursesw5-dev libtinfo6 cmake \
             libffi-dev libssl-dev build-essential ccache
 
       - name: Install Buildozer
