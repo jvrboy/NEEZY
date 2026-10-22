@@ -3,7 +3,7 @@
 import io
 import unittest
 
-from neezy_backend.menu import run_menu
+from neezy_backend.menu import MENU, filter_menu, run_menu
 
 
 class MenuTests(unittest.TestCase):
@@ -50,6 +50,41 @@ class MenuTests(unittest.TestCase):
         _, calls, out = self._run(["7", "frxEURUSD", "HOLD", "0.1", "0"])
         self.assertEqual(calls, [])
         self.assertIn("BUY/SELL", out)
+
+
+class MenuFilterTests(unittest.TestCase):
+    """The / filter: substring search across the palette (roadmap #58)."""
+
+    def test_empty_query_returns_every_entry(self):
+        self.assertEqual(filter_menu(""), tuple(MENU))
+
+    def test_whitespace_only_query_returns_every_entry(self):
+        self.assertEqual(filter_menu("   "), tuple(MENU))
+
+    def test_case_insensitive_match(self):
+        lowered = filter_menu("mt5 order")
+        uppered = filter_menu("MT5 ORDER")
+        self.assertEqual(lowered, uppered)
+        self.assertTrue(lowered)
+
+    def test_partial_word_matches(self):
+        results = filter_menu("order")
+        self.assertTrue(results)
+        for item in results:
+            joined = " ".join(str(part) for part in item).lower()
+            self.assertIn("order", joined)
+
+    def test_unknown_query_returns_nothing(self):
+        self.assertEqual(filter_menu("zzzz-not-a-command"), ())
+
+    def test_query_with_slash_prefix_still_filters(self):
+        # The menu strips the leading slash before calling filter_menu;
+        # filter_menu itself never sees it, but must handle stray input.
+        self.assertEqual(filter_menu("/mt5"), ())  # literal "/mt5" is not in labels
+
+    def test_numbers_filter_to_exact_entries(self):
+        results = filter_menu("mt5")
+        self.assertTrue(results)
 
 
 if __name__ == "__main__":

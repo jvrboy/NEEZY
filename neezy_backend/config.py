@@ -6,24 +6,15 @@ from dataclasses import asdict, dataclass, replace
 from typing import Any
 
 from neezy_backend.markets import SYMBOLS, TIMEFRAMES
+from neezy_backend.strategies import (
+    SINGLE_MARKET_STRATEGIES as _SINGLE_MARKET_STRATEGIES,
+)
 
 THEMES = frozenset({"Liquid dark", "Midnight blue", "High contrast"})
-STRATEGIES = frozenset(
-    {
-        "SUPERTREND",
-        "EMA_PULLBACK",
-        "DIVERGENCE",
-        "DONCHIAN",
-        "SQUEEZE",
-        "MACD",
-        "KELTNER",
-        "ICHIMOKU",
-        "STOCH_RSI",
-        "MOMENTUM",
-        "RSI_REVERSAL",
-        "CCI_REVERSION",
-    }
-)
+# Derived from the engine registry in strategies.py (single-market strategies
+# only: the `strategy` setting never selects a pair strategy) so config
+# validation, CLI choices, and context can never drift from the engine.
+STRATEGIES = frozenset(_SINGLE_MARKET_STRATEGIES)
 AI_PROVIDERS = frozenset({"gemini", "grok", "openrouter", "ollama"})
 # External market-data providers used by the confluence engine.
 MARKET_DATA_PROVIDERS = frozenset(

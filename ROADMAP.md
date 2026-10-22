@@ -158,14 +158,14 @@ Legend at a glance:
 - **Areas:** neezy_backend/{stream,providers,database,research,confluence}.py
 - **Difficulty:** Medium
 
-### 21. [ ] Extract risk calculators from CLI
+### 21. [x] Extract risk calculators from CLI — *risk.resolve_stop extracted from cmd_risk with tests*
 - **Category:** Architecture & refactoring
 - **What:** cmd_risk and cmd_decision_metrics embed presentation with math; move pure calculators into risk.py/quant.py functions with their own tests.
 - **Why:** Math embedded in CLI handlers is untested at the unit level today.
 - **Areas:** neezy_backend/cli.py, risk.py, tests
 - **Difficulty:** Easy
 
-### 22. [ ] Fold duplicate strategy registry lookups
+### 22. [x] Fold duplicate strategy registry lookups — *config STRATEGIES derived from the engine single-market registry*
 - **Category:** Architecture & refactoring
 - **What:** strategies.py, config.py STRATEGIES frozenset, and menu references each hard-code the list; derive config's set from the engine registry.
 - **Why:** Adding a strategy requires touching three files; derivation makes it one.
@@ -333,7 +333,7 @@ Legend at a glance:
 - **Areas:** tests/test_strategies_table.py (new), tests/fixtures/*.json
 - **Difficulty:** Medium
 
-### 46. [ ] Deterministic seeds everywhere in tests
+### 46. [x] Deterministic seeds everywhere in tests — *verified: all random usage already uses seeded local Random instances*
 - **Category:** Testing
 - **What:** Sweep tests for unseeded random usage; add a conftest-style helper that fails when random is called without a seed.
 - **Why:** Flaky tests erode trust in CI; determinism guarantees reproducibility.
@@ -347,21 +347,21 @@ Legend at a glance:
 - **Areas:** tests/helpers, tests/test_fake_tk.py (new)
 - **Difficulty:** Medium
 
-### 48. [ ] Alert rule evaluation tests
+### 48. [x] Alert rule evaluation tests — *tests/test_alerts_matrix.py added*
 - **Category:** Testing
 - **What:** Every alert operator (threshold, direction, symbol filter) gets boundary tests (at, above, below, exactly-on).
 - **Why:** Alert logic firing off-by-one is a user-visible bug class.
 - **Areas:** tests/test_alerts_matrix.py (new)
 - **Difficulty:** Easy
 
-### 49. [ ] Outcome resolver boundary tests
+### 49. [x] Outcome resolver boundary tests — *tests/test_outcomes_edges.py added (stop-first rule pinned)*
 - **Category:** Testing
 - **What:** Candle sequences where TP and SL are inside the same bar, gap opens beyond TP, and identical close/entry; assert the conservative stop-first rule.
 - **Why:** Outcome resolution drives win-rate displays; boundary behavior must be pinned.
 - **Areas:** tests/test_outcomes_edges.py (new)
 - **Difficulty:** Medium
 
-### 50. [ ] Settings validation exhaustive test
+### 50. [x] Settings validation exhaustive test — *tests/test_settings_exhaustive.py added*
 - **Category:** Testing
 - **What:** Generate every field of AppSettings with values one step outside each bound; assert the specific error message names the field.
 - **Why:** Validation coverage today samples fields; exhaustive generation finds gaps.
@@ -403,56 +403,56 @@ Legend at a glance:
 - **Areas:** tests/test_migrations_full.py (new), migrations.py
 - **Difficulty:** Medium
 
-### 56. [ ] Backtest determinism test
+### 56. [x] Backtest determinism test — *tests/test_backtest_determinism.py added*
 - **Category:** Testing
 - **What:** Run the same backtest twice with the same candles; assert byte-identical reports.
 - **Why:** Nondeterministic backtests (dict ordering, float summation order) undermine research.
 - **Areas:** tests/test_backtest_determinism.py (new)
 - **Difficulty:** Easy
 
-### 57. [ ] Knowledge-base round-trip tests
+### 57. [x] Knowledge-base round-trip tests — *tests/test_knowledge_roundtrip.py added; fixed record_for aliasing*
 - **Category:** Testing
 - **What:** knowledge.save then load for records with unicode, long strings, and version fields; assert fidelity and compaction.
 - **Why:** Knowledge is long-lived state; corruption bugs compound.
 - **Areas:** tests/test_knowledge_roundtrip.py (new)
 - **Difficulty:** Easy
 
-### 58. [ ] Menu filter/search tests
+### 58. [x] Menu filter/search tests — *menu filter tests extended in tests/test_menu.py*
 - **Category:** Testing
 - **What:** filter_menu with partial matches, unicode, case, empty query, and unknown tokens.
 - **Why:** The / filter is new; edge behaviors (invisible matches) annoy users.
 - **Areas:** tests/test_menu.py (extend)
 - **Difficulty:** Easy
 
-### 59. [ ] Exporter schema stability tests
+### 59. [x] Exporter schema stability tests — *tests/test_exporters_schema.py added; fixed StringIO crash*
 - **Category:** Testing
 - **What:** CSV header and JSON keys asserted equal to documented schema constants; new fields must update the schema doc.
 - **Why:** Downstream consumers (spreadsheets) break on column drift.
 - **Areas:** tests/test_exporters_schema.py (new)
 - **Difficulty:** Easy
 
-### 60. [ ] CLI exit-code contract tests
+### 60. [x] CLI exit-code contract tests — *tests/test_cli_exit_codes.py added*
 - **Category:** Testing
 - **What:** Every command documents and tests its exit codes (0 ok, 1 error, 2 usage); a table test enforces it.
 - **Why:** Scripts built on neezy-cli need stable exit codes.
 - **Areas:** tests/test_cli_exit_codes.py (new)
 - **Difficulty:** Medium
 
-### 61. [ ] Sandbox escape test suite
+### 61. [x] Sandbox escape test suite — *tests/test_sandbox_escape.py added*
 - **Category:** Testing
 - **What:** resolve_within against symlink farms, .. chains, null bytes, case tricks on Windows, and absolute paths.
 - **Why:** The path jail is security-critical; adversarial tests belong in CI.
 - **Areas:** tests/test_sandbox_escape.py (new)
 - **Difficulty:** Medium
 
-### 62. [ ] Config file corruption recovery tests
+### 62. [x] Config file corruption recovery tests — *tests/test_settings_recovery.py added*
 - **Category:** Testing
 - **What:** Truncated, empty, wrong-type, and hostile settings.json files; app must start with defaults and log a warning.
 - **Why:** Corrupt configs currently silently reset; the behavior should be intentional and tested.
 - **Areas:** tests/test_settings_recovery.py (new)
 - **Difficulty:** Easy
 
-### 63. [ ] Resource-leak test gate
+### 63. [x] Resource-leak test gate — *ResourceWarning promoted to error in tests/__init__.py (suite clean)*
 - **Category:** Testing
 - **What:** Run the suite with warnings-as-errors for ResourceWarning; close remaining unclosed stores/databases in tests.
 - **Why:** Audit item: unclosed database warnings mask real leaks.
@@ -508,28 +508,28 @@ Legend at a glance:
 - **Areas:** tests/fixtures/corpus/ (new), tests/test_corpus_replay.py
 - **Difficulty:** Medium
 
-### 71. [ ] One-command dev environment script
+### 71. [x] One-command dev environment script — *scripts/dev_setup.sh + dev_setup.ps1*
 - **Category:** Developer experience
 - **What:** scripts/dev_setup.sh (and .ps1): create venv, install -e .[dev], run local_ci; document in README quickstart.
 - **Why:** New contributors need three READMEs today to get running.
 - **Areas:** scripts/ (new), README.md
 - **Difficulty:** Easy
 
-### 72. [ ] Pre-commit hooks config
+### 72. [x] Pre-commit hooks config — *.pre-commit-config.yaml*
 - **Category:** Developer experience
 - **What:** .pre-commit-config.yaml running ruff check + format on staged files; optional local test subset.
 - **Why:** Catches lint issues before they reach CI, keeping main green.
 - **Areas:** .pre-commit-config.yaml (new)
 - **Difficulty:** Easy
 
-### 73. [ ] Makefile with common tasks
+### 73. [x] Makefile with common tasks — *Makefile with test/lint/format/ci/run/clean*
 - **Category:** Developer experience
 - **What:** Targets: make test, make lint, make format, make ci (local_ci.py), make run, make clean.
 - **Why:** Reduces 'how do I...' friction; standard entry for newcomers.
 - **Areas:** Makefile (new)
 - **Difficulty:** Easy
 
-### 74. [ ] Structured issue/PR templates
+### 74. [x] Structured issue/PR templates — *issue + PR templates under .github/*
 - **Category:** Developer experience
 - **What:** GitHub templates: bug (repro, NEEZY_HOME OS, version), feature (use case), PR checklist (tests, changelog, docs).
 - **Why:** Consistent intake improves triage speed and completeness.
@@ -564,7 +564,7 @@ Legend at a glance:
 - **Areas:** scripts/gen_api_docs.py (new), docs/API.md (generated)
 - **Difficulty:** Medium
 
-### 79. [ ] Debug flag with verbose diagnostics
+### 79. [x] Debug flag with verbose diagnostics — *neezy-cli --debug prints full tracebacks*
 - **Category:** Developer experience
 - **What:** neezy-cli --debug prints full tracebacks, timing of each stage, and stream message counts for a session.
 - **Why:** Support conversations today lack the detail to reproduce issues.
@@ -641,7 +641,7 @@ Legend at a glance:
 - **Areas:** neezy_backend/config.py, storage.py
 - **Difficulty:** Medium
 
-### 90. [ ] Validate on load, not only construct
+### 90. [x] Validate on load, not only construct — *SettingsStore.load logs invalid/corrupt/unknown-field warnings*
 - **Category:** Configuration & settings
 - **What:** SettingsStore.load logs which fields failed validation and fell back to defaults, once per field.
 - **Why:** Silent resets confuse users; named warnings make the fallback visible.

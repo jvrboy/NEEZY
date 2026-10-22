@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import json
+import logging
 import os
 import sys
 import tempfile
@@ -144,6 +145,8 @@ def _atomic_json_write(path: Path, data: dict[str, Any]) -> None:
 class SettingsStore:
     """Read/write user settings without risking a partially-written config."""
 
+    logger = logging.getLogger("neezy.settings")
+
     def __init__(self, path: Path | None = None) -> None:
         self.path = path or get_data_dir() / "settings.json"
 
@@ -152,12 +155,25 @@ class SettingsStore:
             data = json.loads(self.path.read_text(encoding="utf-8"))
             if not isinstance(data, dict):
                 raise TypeError("Settings file must contain a JSON object")
-            return AppSettings.from_dict(data)
+            loaded = AppSettings.from_dict(data)
         except FileNotFoundError:
             return AppSettings()
-        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as error:
             # A corrupt/old config must never prevent the app from starting.
+            self.logger.warning(
+                "settings file %s could not be fully applied (%s); "
+                "falling back to defaults",
+                self.path,
+                error,
+            )
             return AppSettings()
+        unknown = sorted(set(data) - set(AppSettings.__dataclass_fields__))
+        if unknown:
+            self.logger.warning(
+                "settings file has unknown fields (kept for forward compatibility): %s",
+                ", ".join(unknown),
+            )
+        return loaded
 
     def save(self, settings: AppSettings) -> None:
         """Persist settings, then tighten permissions (holds the MT5 password)."""

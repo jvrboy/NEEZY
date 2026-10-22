@@ -34,7 +34,7 @@ def _row(record: Mapping[str, Any]) -> dict[str, Any]:
 
 def signals_to_csv(signals: Sequence[Mapping[str, Any]]) -> str:
     """Render signal records as a CSV sheet with a stable header row."""
-    buffer = io.StringIO(newlines="")
+    buffer = io.StringIO(newline="")
     writer = csv.DictWriter(
         buffer, fieldnames=list(SIGNAL_CSV_FIELDS), extrasaction="ignore"
     )

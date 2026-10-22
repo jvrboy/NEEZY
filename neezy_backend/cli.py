@@ -12,6 +12,7 @@ import json
 import math
 import os
 import sys
+import traceback
 from collections.abc import Callable, Sequence
 from dataclasses import asdict
 from pathlib import Path
@@ -57,7 +58,7 @@ from .markets import (
 from .patterns import price_action_summary
 from .regime import market_regime
 from .research import DEFAULT_RESEARCH_SYMBOLS, training_run
-from .risk import atr_levels, position_size
+from .risk import position_size, resolve_stop
 from .storage import SignalHistoryStore
 from .strategies import (
     STRATEGIES,
@@ -585,13 +586,15 @@ def cmd_knowledge(args, fetch, out) -> int:
 
 
 def cmd_risk(args, fetch, out) -> int:
-    entry, stop = args.entry, args.stop
-    if stop is None:
-        if args.atr is None or args.direction is None:
-            raise SystemExit("risk: provide --stop, or both --direction and --atr")
-        stop, _target = atr_levels(
-            args.direction, entry, args.atr, args.stop_atr, args.reward_risk
-        )
+    entry = args.entry
+    stop, _target = resolve_stop(
+        args.direction,
+        entry,
+        args.atr,
+        stop=args.stop,
+        stop_atr=args.stop_atr,
+        reward_risk=args.reward_risk,
+    )
     plan = position_size(
         symbol=args.symbol,
         balance=args.balance,
@@ -1622,6 +1625,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--version", action="version", version=f"%(prog)s {__version__}"
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="print full tracebacks and diagnostics for this command",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     def common(p, *, timeframe=True, count=None):
@@ -2062,7 +2070,10 @@ def main(
     try:
         return args.handler(args, fetch or _default_fetch, out)
     except (OSError, RuntimeError, ValueError) as error:
-        sys.stderr.write(f"neezy-cli: {error}\n")
+        if getattr(args, "debug", False):
+            traceback.print_exc()
+        else:
+            sys.stderr.write(f"neezy-cli: {error}\n")
         return 2
 
 

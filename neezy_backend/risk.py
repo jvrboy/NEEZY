@@ -108,3 +108,35 @@ def position_size(
         units=round(lots * STANDARD_LOT_UNITS),
         reward_to_risk=reward_to_risk,
     )
+
+
+def resolve_stop(
+    direction: str | None,
+    entry: float,
+    atr_value: float | None,
+    *,
+    stop: float | None = None,
+    stop_atr: float = 1.5,
+    reward_risk: float = 2.0,
+) -> tuple[float, float]:
+    """Return a validated ``(stop, target)`` pair from explicit or ATR levels.
+
+    Either an explicit ``stop`` is used (direction inferred from which side of
+    entry it sits, exactly like :func:`position_size`), or the stop/target are
+    derived from ``direction`` and ``atr_value`` via :func:`atr_levels`.
+    Raises ``ValueError`` when neither path is possible.
+    """
+    if stop is not None:
+        entry, stop = _positive("entry", entry), _positive("stop", stop)
+        if entry == stop:
+            raise ValueError("stop must differ from entry")
+        distance = abs(entry - stop)
+        side = 1 if stop < entry else -1
+        return stop, entry + distance * reward_risk * side
+    if direction is None or atr_value is None:
+        raise ValueError(
+            "provide an explicit stop, or both a direction and an ATR value"
+        )
+    return atr_levels(
+        direction, entry, atr_value, stop_multiple=stop_atr, reward_to_risk=reward_risk
+    )

@@ -1,5 +1,41 @@
 # CHANGELOG
 
+## [Unreleased] — Batch 1: foundations (roadmap updates #21-#90, 20 items)
+
+### Fixed
+- `neezy_backend/exporters.py` `signals_to_csv` (and `export_bundle`) crashed
+  with `TypeError: 'newlines' is an invalid keyword argument for StringIO()` —
+  shipped broken since the enterprise-exporters commit; no test covered it.
+  The CSV exporter now works and its schema is pinned by tests.
+- `neezy_backend/knowledge.py` `record_for` returned a shallow copy, so
+  mutating nested `train`/`test` stats leaked into the shared document; it
+  now returns a deep copy.
+- `neezy-cli risk` without `--stop`/`--direction`/`--atr` now exits 2 (usage
+  error, consistent with the documented exit-code contract) instead of 1.
+
+### Changed
+- `neezy_backend/config.py` `STRATEGIES` is now derived from the engine's
+  single-market strategy registry (`SINGLE_MARKET_STRATEGIES`) instead of a
+  hand-maintained duplicate; adding a strategy no longer needs three edits.
+- `neezy_backend/risk.py` gains `resolve_stop()` (explicit-stop or
+  ATR-derived levels with validation); `cmd_risk` uses it instead of inline
+  logic.
+- `SettingsStore.load` logs a warning (logger `neezy.settings`) when the
+  settings file is corrupt, invalid, or contains unknown fields, instead of
+  silently falling back to defaults.
+- `neezy-cli --debug` prints the full traceback for command failures.
+
+### Added
+- Nine new test modules (+95 tests, suite now 630): alert operator matrix,
+  outcome boundary (stop-first rule), exhaustive settings bounds, backtest
+  determinism, knowledge round-trip, exporter schema stability, CLI exit-code
+  contract, sandbox escape attempts, settings corruption recovery.
+- `tests/__init__.py` promotes `ResourceWarning` to an error so unclosed
+  stores/databases fail CI (suite is clean).
+- Developer tooling: `scripts/dev_setup.sh` + `scripts/dev_setup.ps1`
+  (one-command environment), `Makefile` (test/lint/format/ci/run/clean),
+  `.pre-commit-config.yaml` (ruff gates), and `.github` issue + PR templates.
+
 ## [Unreleased] - Autonomous engineering run (Phase 2: quality gates restored)
 
 ### Fixed

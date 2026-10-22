@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from copy import deepcopy
 from dataclasses import fields
 from datetime import datetime, timezone
 from pathlib import Path
@@ -118,10 +119,14 @@ def save_knowledge(
 def record_for(
     symbol: str, document: Mapping[str, Any] | None = None
 ) -> dict[str, Any] | None:
-    """The learned record for one Deriv symbol, or None when never studied."""
+    """The learned record for one Deriv symbol, or None when never studied.
+
+    The returned record is a deep copy: mutating nested ``train``/``test``
+    stats can never leak back into the shared document.
+    """
     base = document if document is not None else load_knowledge()
     record = base.get("symbols", {}).get(symbol)
-    return dict(record) if record is not None else None
+    return deepcopy(record) if record is not None else None
 
 
 def summary(document: Mapping[str, Any] | None = None) -> dict[str, Any]:
