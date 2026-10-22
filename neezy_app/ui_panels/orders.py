@@ -21,6 +21,7 @@ from neezy_backend.mt5_orders import (
     parse_order_form,
     send_live_order,
 )
+from neezy_backend.risk import atr_levels, position_size
 
 
 class OrdersMixin:
@@ -29,6 +30,7 @@ class OrdersMixin:
     def _orders_page(self):
         page = self.pages["ORDERS"]
         self._order_busy = False
+        self._orders_sent_session = 0
         self._label(page, "MT5 orders", 16).pack(anchor="w", pady=(5, 4))
         self._label(
             page,
@@ -60,8 +62,12 @@ class OrdersMixin:
         self._field(form, "Volume (lots)", self.order_vars["volume"])
         self._field(form, "Stop loss price (blank = none)", self.order_vars["sl"])
         self._field(form, "Take profit price (blank = none)", self.order_vars["tp"])
+        self._action_button(form, "Auto-size from live ATR", self._order_auto_size)
         self._action_button(form, "Preview (not sent)", self._order_preview)
         self._action_button(form, "Place live order…", self._order_place)
+        self._action_button(
+            form, "Refresh MT5 positions", self._order_refresh_positions
+        )
         self.order_status = self._label(
             form,
             "Nothing sent. Live orders need the MT5 bridge enabled and a "
@@ -73,7 +79,7 @@ class OrdersMixin:
         )
         self.order_status.pack(anchor="w", padx=16, pady=(12, 14))
 
-        self._label(output, "LAST ORDER", 9, self.CYAN).pack(
+        self._label(output, "ORDER EXECUTION & OPEN POSITIONS", 9, self.CYAN).pack(
             anchor="w", padx=16, pady=(14, 8)
         )
         self.order_out = self._output(output, height=18)
@@ -89,6 +95,59 @@ class OrdersMixin:
             width=12,
             state="readonly",
         ).pack(side="right")
+
+    def _order_auto_size(self):
+        symbol = self.order_vars["symbol"].get()
+        side = self.order_vars["side"].get()
+        candles = self.candles.get(symbol, [])
+        res = self.results.get(symbol)
+        if not candles or not res or not res.get("atr"):
+            self._order_show(
+                f"No live ATR available yet for {symbol}; stream candles first.",
+                self.RED,
+            )
+            return
+        entry = candles[-1][4]
+        sl, tp = atr_levels(
+            side,
+            entry,
+            res["atr"],
+            self.settings.confluence_atr_stop_mult,
+            self.settings.default_reward_to_risk,
+        )
+        plan = position_size(
+            symbol=symbol,
+            balance=self.settings.account_balance_default,
+            risk_percent=self.settings.risk_percent_for_symbol(symbol),
+            entry=entry,
+            stop=sl,
+            reward_to_risk=self.settings.default_reward_to_risk,
+            pip_value_per_lot=self.settings.default_pip_value_per_lot,
+        )
+        capped_lots = min(plan.lots, self.settings.max_lot_size_cap)
+        self.order_vars["volume"].set(f"{max(0.01, capped_lots):.2f}")
+        self.order_vars["sl"].set(self._fmt(symbol, sl))
+        self.order_vars["tp"].set(self._fmt(symbol, tp))
+        self._order_show(
+            f"Auto-sized {symbol} {side}: {capped_lots:.2f} lots · "
+            f"SL {self._fmt(symbol, sl)} · TP {self._fmt(symbol, tp)}",
+            self.GREEN,
+        )
+
+    def _order_refresh_positions(self):
+        bridge = get_global_mt5_bridge()
+        positions = bridge.get_positions()
+        if not positions:
+            self._order_show("No open MT5 positions reported.", self.MUTED)
+            return
+        lines = [f"OPEN MT5 POSITIONS ({len(positions)})", ""]
+        for p in positions:
+            lines.append(
+                f"#{p.get('ticket')}  {p.get('symbol')}  {p.get('type')}  "
+                f"{p.get('volume')} lots @ {p.get('price_open')}  "
+                f"P/L {p.get('profit')}"
+            )
+        self._order_show("\n".join(lines), self.GREEN)
 
     def _order_read(self):
         """Validate the ticket and preview it locally. Returns None on any error."""
@@ -116,6 +175,26 @@ class OrdersMixin:
         order["mt5_symbol"] = preview["mt5_symbol"]
         return order
 
+    def _check_order_safety_gates(self, order: dict, cfg) -> str | None:
+        if cfg.order_dry_run_mode:
+            return (
+                "Dry-run / paper lock is active in SETTINGS → RISK & SAFETY. "
+                "Disable 'Hard dry-run / paper lock' to send live orders."
+            )
+        if cfg.require_stop_loss_on_live_orders and order["sl"] <= 0:
+            return (
+                "Stop-Loss is required on live orders "
+                "(SETTINGS → RISK & SAFETY → Require Stop-Loss)."
+            )
+        if order["volume"] > cfg.max_lot_size_cap:
+            return (
+                f"Volume {order['volume']} exceeds max lot cap "
+                f"({cfg.max_lot_size_cap:g} lots)."
+            )
+        if self._orders_sent_session >= cfg.daily_max_trades:
+            return f"Daily live order cap ({cfg.daily_max_trades}) reached."
+        return None
+
     def _order_preview(self):
         order = self._order_read()
         if order is None:
@@ -134,7 +213,12 @@ class OrdersMixin:
             return
         from neezy_backend.storage import SettingsStore
 
-        if not SettingsStore().load().mt5_enabled:
+        saved = SettingsStore().load()
+        safety_error = self._check_order_safety_gates(order, saved)
+        if safety_error is not None:
+            self._order_show(f"Order blocked by safety gate: {safety_error}", self.RED)
+            return
+        if not saved.mt5_enabled:
             self._order_show(
                 "The MT5 bridge is off. Turn on 'Enable MetaTrader 5 local bridge' "
                 "in SETTINGS → MT5 BRIDGE, save, then try again.",
@@ -145,20 +229,39 @@ class OrdersMixin:
         self._order_show("Checking the MT5 terminal…", self.MUTED)
         bridge = get_global_mt5_bridge()
         threading.Thread(
-            target=self._order_check_worker, args=(bridge, order), daemon=True
+            target=self._order_check_worker, args=(bridge, order, saved), daemon=True
         ).start()
 
-    def _order_check_worker(self, bridge, order):
+    def _order_check_worker(self, bridge, order, saved):
         gate = check_live_terminal(bridge)
-        self.after(0, lambda: self._order_confirm(bridge, order, gate))
+        self.after(0, lambda: self._order_confirm(bridge, order, gate, saved))
 
-    def _order_confirm(self, bridge, order, gate):
+    def _order_confirm(self, bridge, order, gate, saved=None):
         if not gate["ok"]:
             self._order_done(f"Order not sent: {gate['reason']}", self.RED)
             return
+        cfg = saved or self.settings
+        open_pos = bridge.get_positions()
+        if len(open_pos) >= cfg.max_open_positions:
+            cap = cfg.max_open_positions
+            self._order_done(
+                f"Order not sent: max open positions ({cap}) reached.",
+                self.RED,
+            )
+            return
+        checklist_block = ""
+        if cfg.pre_trade_checklist_enabled and cfg.pre_trade_checklist_items.strip():
+            items = [
+                f"✓ {item.strip()}"
+                for item in cfg.pre_trade_checklist_items.split(";")
+                if item.strip()
+            ]
+            if items:
+                checklist_block = "\n\nPre-trade checklist:\n" + "\n".join(items)
         question = (
             "Send this LIVE order to MetaTrader 5?\n\n"
             + "\n".join(confirmation_lines(order, gate))
+            + checklist_block
             + "\n\nThis uses real money on your broker account."
         )
         if not messagebox.askyesno(
@@ -186,6 +289,7 @@ class OrdersMixin:
 
     def _order_result(self, result):
         if result.get("success"):
+            self._orders_sent_session += 1
             self._order_done(
                 f"Order placed. Ticket {result.get('ticket')} at "
                 f"{result.get('price')}.",

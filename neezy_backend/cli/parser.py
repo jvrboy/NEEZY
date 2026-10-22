@@ -39,6 +39,7 @@ from .mcp import cmd_mcp
 from .menu_bridge import cmd_menu
 from .mt5 import cmd_mt5
 from .research import cmd_brain, cmd_datasets, cmd_knowledge, cmd_research, cmd_study
+from .settings_cmd import cmd_config
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -478,5 +479,34 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("symbol", help="market symbol e.g. frxEURUSD")
     p.add_argument("--balance", type=float, default=10000.0)
     p.add_argument("--risk", type=float, default=1.0)
+
+    p = sub.add_parser("config", help="inspect, update, diff, or profile AppSettings")
+    p.set_defaults(handler=cmd_config)
+    cfg_actions = p.add_subparsers(dest="action", required=True)
+    a = cfg_actions.add_parser("list", help="list all settings and current values")
+    a.add_argument("--filter", help="substring filter on setting names")
+    a.add_argument("--json", action="store_true")
+    a = cfg_actions.add_parser("get", help="show one setting value")
+    a.add_argument("key", help="AppSettings field name")
+    a.add_argument("--json", action="store_true")
+    a = cfg_actions.add_parser("set", help="validate and save one setting value")
+    a.add_argument("key", help="AppSettings field name")
+    a.add_argument("value", help="new value")
+    a.add_argument("--json", action="store_true")
+    a = cfg_actions.add_parser("diff", help="show settings that differ from defaults")
+    a.add_argument("--json", action="store_true")
+    a = cfg_actions.add_parser("profiles", help="list built-in preset profiles")
+    a.add_argument("--json", action="store_true")
+    a = cfg_actions.add_parser("profile", help="apply a built-in preset profile")
+    a.add_argument("name", help="profile name e.g. scalper, swing, conservative")
+    a.add_argument("--json", action="store_true")
+    a = cfg_actions.add_parser("reset", help="reset all settings to factory defaults")
+    a.add_argument("--json", action="store_true")
+    a = cfg_actions.add_parser("export", help="export settings JSON to path")
+    a.add_argument("path", help="output JSON path")
+    a.add_argument("--json", action="store_true")
+    a = cfg_actions.add_parser("import", help="import settings JSON from path")
+    a.add_argument("path", help="input JSON path")
+    a.add_argument("--json", action="store_true")
 
     return parser

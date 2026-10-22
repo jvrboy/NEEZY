@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 import time
 from typing import Any
 
@@ -76,6 +77,7 @@ class MT5Bridge:
         self.symbol_map_str = symbol_map
         self.mock = mock or (mt5 is None)
         self.connected = False
+        self._lock = threading.RLock()
         self._mappings = self._parse_symbol_map(symbol_map)
 
     def _parse_symbol_map(self, map_str: str) -> dict[str, str]:
@@ -438,6 +440,32 @@ class MT5Bridge:
             )
         return rows
 
+    def _resolve_filling_mode(self, mt5_sym: str, filling_mode: str = "Auto") -> Any:
+        if mt5 is None:
+            return 1
+        fok = getattr(mt5, "ORDER_FILLING_FOK", 0)
+        ioc = getattr(mt5, "ORDER_FILLING_IOC", 1)
+        ret = getattr(mt5, "ORDER_FILLING_RETURN", 2)
+        choice = (filling_mode or "Auto").strip().upper()
+        if choice == "FOK":
+            return fok
+        if choice == "IOC":
+            return ioc
+        if choice == "RETURN":
+            return ret
+        sym_info_fn = getattr(mt5, "symbol_info", None)
+        if callable(sym_info_fn):
+            info = sym_info_fn(mt5_sym)
+            raw_mask = getattr(info, "filling_mode", 0) if info else 0
+            mask = raw_mask if isinstance(raw_mask, int) else 0
+            if mask & 2:
+                return ioc
+            if mask & 1:
+                return fok
+            if mask & 4:
+                return ret
+        return ioc
+
     def place_order(
         self,
         symbol: str,
@@ -447,98 +475,103 @@ class MT5Bridge:
         sl: float = 0.0,
         tp: float = 0.0,
         comment: str = "NEEZY Trade",
+        *,
+        deviation: int = 20,
+        filling_mode: str = "Auto",
     ) -> dict[str, Any]:
         """Place or send an order to MT5 terminal."""
-        mt5_sym = self.map_symbol(symbol)
-        order_type_clean = order_type.strip().upper()
+        with self._lock:
+            mt5_sym = self.map_symbol(symbol)
+            order_type_clean = order_type.strip().upper()
 
-        if order_type_clean not in ("BUY", "SELL"):
-            return {"success": False, "error": f"Unknown order type {order_type!r}"}
-        if volume <= 0:
-            return {"success": False, "error": "Volume must be greater than zero"}
-        if not self.connected:
-            return {
-                "success": False,
-                "error": "MT5 bridge is not connected; order not sent",
-                "mock": self.mock,
+            if order_type_clean not in ("BUY", "SELL"):
+                return {"success": False, "error": f"Unknown order type {order_type!r}"}
+            if volume <= 0:
+                return {"success": False, "error": "Volume must be greater than zero"}
+            if not self.connected:
+                return {
+                    "success": False,
+                    "error": "MT5 bridge is not connected; order not sent",
+                    "mock": self.mock,
+                }
+
+            if self.mock:
+                ticket = int(time.time() * 1000) % 1000000000
+                fill_price = (
+                    price
+                    if price > 0
+                    else (1.0850 if order_type_clean == "BUY" else 1.0848)
+                )
+                return {
+                    "success": True,
+                    "ticket": ticket,
+                    "symbol": symbol,
+                    "mt5_symbol": mt5_sym,
+                    "order_type": order_type_clean,
+                    "volume": volume,
+                    "price": fill_price,
+                    "sl": sl,
+                    "tp": tp,
+                    "magic": self.magic,
+                    "comment": comment,
+                    "mock": True,
+                    "message": "Order placed successfully (Mock)",
+                }
+
+            mt5_type = (
+                mt5.ORDER_TYPE_BUY if order_type_clean == "BUY" else mt5.ORDER_TYPE_SELL
+            )
+            if price <= 0:
+                tick = mt5.symbol_info_tick(mt5_sym)
+                if tick is None:
+                    return {
+                        "success": False,
+                        "error": f"Failed to get price tick for {mt5_sym}",
+                    }
+                price = tick.ask if order_type_clean == "BUY" else tick.bid
+
+            request = {
+                "action": mt5.TRADE_ACTION_DEAL,
+                "symbol": mt5_sym,
+                "volume": float(volume),
+                "type": mt5_type,
+                "price": float(price),
+                "deviation": max(0, int(deviation)),
+                "sl": float(sl),
+                "tp": float(tp),
+                "magic": int(self.magic),
+                "comment": comment,
+                "type_time": mt5.ORDER_TIME_GTC,
+                "type_filling": self._resolve_filling_mode(mt5_sym, filling_mode),
             }
 
-        if self.mock:
-            ticket = int(time.time() * 1000) % 1000000000
-            fill_price = (
-                price
-                if price > 0
-                else (1.0850 if order_type_clean == "BUY" else 1.0848)
-            )
+            result = mt5.order_send(request)
+            if result is None:
+                return {"success": False, "error": "Order send returned None"}
+            rdict = result._asdict()
+            if rdict.get("retcode") != mt5.TRADE_RETCODE_DONE:
+                return {
+                    "success": False,
+                    "error": (
+                        f"Order failed with retcode {rdict.get('retcode')}: "
+                        f"{rdict.get('comment')}"
+                    ),
+                }
             return {
                 "success": True,
-                "ticket": ticket,
+                "ticket": rdict.get("order"),
                 "symbol": symbol,
                 "mt5_symbol": mt5_sym,
                 "order_type": order_type_clean,
                 "volume": volume,
-                "price": fill_price,
+                "price": rdict.get("price"),
                 "sl": sl,
                 "tp": tp,
                 "magic": self.magic,
                 "comment": comment,
-                "mock": True,
-                "message": "Order placed successfully (Mock)",
+                "mock": False,
+                "message": "Order placed successfully",
             }
-
-        mt5_type = (
-            mt5.ORDER_TYPE_BUY if order_type_clean == "BUY" else mt5.ORDER_TYPE_SELL
-        )
-        if price <= 0:
-            tick = mt5.symbol_info_tick(mt5_sym)
-            if tick is None:
-                return {
-                    "success": False,
-                    "error": f"Failed to get price tick for {mt5_sym}",
-                }
-            price = tick.ask if order_type_clean == "BUY" else tick.bid
-
-        request = {
-            "action": mt5.TRADE_ACTION_DEAL,
-            "symbol": mt5_sym,
-            "volume": float(volume),
-            "type": mt5_type,
-            "price": float(price),
-            "sl": float(sl),
-            "tp": float(tp),
-            "magic": int(self.magic),
-            "comment": comment,
-            "type_time": mt5.ORDER_TIME_GTC,
-            "type_filling": mt5.ORDER_FILLING_IOC,
-        }
-
-        result = mt5.order_send(request)
-        if result is None:
-            return {"success": False, "error": "Order send returned None"}
-        rdict = result._asdict()
-        if rdict.get("retcode") != mt5.TRADE_RETCODE_DONE:
-            return {
-                "success": False,
-                "error": (
-                    f"Order failed with retcode {rdict.get('retcode')}: "
-                    f"{rdict.get('comment')}"
-                ),
-            }
-        return {
-            "success": True,
-            "ticket": rdict.get("order"),
-            "symbol": symbol,
-            "mt5_symbol": mt5_sym,
-            "order_type": order_type_clean,
-            "volume": volume,
-            "price": rdict.get("price"),
-            "sl": sl,
-            "tp": tp,
-            "magic": self.magic,
-            "comment": comment,
-            "mock": False,
-            "message": "Order placed successfully",
-        }
 
     def preview_order(
         self,

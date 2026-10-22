@@ -22,8 +22,40 @@ class FakeWidget:
     """Permissive stand-in: every widget method is a no-op."""
 
     def __init__(self, *args, **kwargs):
+        self.master = args[0] if args else None
         self.options = dict(kwargs)
         self.calls = []
+        self._children = []
+        self._fake_tabs = []
+        self._fake_selected = None
+        self.bound = {}
+        if args and hasattr(args[0], "_children"):
+            args[0]._children.append(self)
+
+    def add(self, child, **kwargs):
+        self.calls.append(("add", (child,), kwargs))
+        self._fake_tabs.append(child)
+        if self._fake_selected is None:
+            self._fake_selected = child
+
+    def select(self, tab_id=None):
+        self.calls.append(("select", (tab_id,), {}))
+        if tab_id is not None:
+            self._fake_selected = tab_id
+        return self._fake_selected
+
+    def index(self, tab_id):
+        if tab_id in self._fake_tabs:
+            return self._fake_tabs.index(tab_id)
+        return 0
+
+    def bind(self, sequence, func=None, add=None):
+        self.calls.append(("bind", (sequence, func, add), {}))
+        if callable(func):
+            self.bound[sequence] = func
+        return "bind_id"
+
+    bind_all = bind
 
     def __getattr__(self, name):
         if name.startswith("_"):
@@ -32,7 +64,13 @@ class FakeWidget:
         def method(*args, **kwargs):
             self.calls.append((name, args, kwargs))
             if name == "winfo_children":
-                return []
+                return list(self._children)
+            if name in ("winfo_width", "winfo_reqwidth"):
+                return 900
+            if name in ("winfo_height", "winfo_reqheight"):
+                return 520
+            if name == "winfo_exists":
+                return 1
             if name == "curselection":
                 return ()
             if name == "get":
@@ -42,7 +80,11 @@ class FakeWidget:
         return method
 
     def cget(self, key):
-        return self.options.get(key, "#000000")
+        if key in self.options:
+            return self.options[key]
+        return "" if key == "text" else "#000000"
+
+    __getitem__ = cget
 
     def configure(self, *args, **kwargs):
         for arg in args:
@@ -94,6 +136,7 @@ class FakeTk(FakeWidget):
 
     def destroy(self):
         self.destroyed = True
+        self._children.clear()
 
 
 class FakeStyle(FakeWidget):
@@ -113,6 +156,9 @@ def install_fake_tkinter() -> None:
     tk.Text = FakeWidget
     tk.Canvas = FakeWidget
     tk.Spinbox = FakeWidget
+    tk.Toplevel = FakeTk
+    tk.Widget = FakeWidget
+    tk.Misc = FakeWidget
     tk.StringVar = FakeStringVar
     tk.IntVar = FakeIntVar
     tk.DoubleVar = FakeDoubleVar
@@ -123,6 +169,7 @@ def install_fake_tkinter() -> None:
     ttk.Notebook = FakeWidget
     ttk.Combobox = FakeWidget
     ttk.Treeview = FakeWidget
+    ttk.Scrollbar = FakeWidget
     ttk.Style = FakeStyle
     tk.ttk = ttk
 
@@ -134,6 +181,7 @@ def install_fake_tkinter() -> None:
     messagebox.showerror = lambda *_args, **_kwargs: None
     messagebox.showinfo = lambda *_args, **_kwargs: None
     messagebox.showwarning = lambda *_args, **_kwargs: None
+    messagebox.askyesno = lambda *_args, **_kwargs: False
     tk.filedialog = filedialog
     tk.messagebox = messagebox
 

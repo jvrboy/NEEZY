@@ -16,13 +16,13 @@ class LocalModelsMixin:
     def _local_model_settings_tab(self, notebook):
         _tab, left, right = self._settings_tab(notebook, "LOCAL MODELS")
         self._label(left, "OFFLINE GENERATIVE MODEL", 9, self.CYAN).pack(
-            anchor="w", padx=16, pady=(14, 6)
+            anchor="w", padx=16, pady=(12, 4)
         )
         self._check_row(
             left, "Use selected local model for CHAT", self.local_llm_enabled_var
         )
         self._label(left, "Registered model", 10, self.MUTED).pack(
-            anchor="w", padx=16, pady=(6, 3)
+            anchor="w", padx=16, pady=(5, 2)
         )
         self.local_model_combo = ttk.Combobox(
             left,
@@ -30,7 +30,7 @@ class LocalModelsMixin:
             state="readonly",
             values=(),
         )
-        self.local_model_combo.pack(fill="x", padx=16, pady=(0, 6))
+        self.local_model_combo.pack(fill="x", padx=16, pady=(0, 4))
         self.local_model_combo.bind(
             "<<ComboboxSelected>>", lambda _: self._settings_changed()
         )
@@ -46,6 +46,30 @@ class LocalModelsMixin:
         )
         self._spin_row(
             left,
+            "GPU offload layers (-1 = all, 0 = CPU)",
+            self.extra_vars["local_llm_gpu_layers"],
+            -1,
+            128,
+            1,
+        )
+        self._spin_row(
+            left,
+            "Top-p sampling cutoff",
+            self.extra_vars["local_llm_top_p"],
+            0.1,
+            1.0,
+            0.05,
+        )
+        self._spin_row(
+            left,
+            "Repetition penalty",
+            self.extra_vars["local_llm_repeat_penalty"],
+            1.0,
+            2.0,
+            0.05,
+        )
+        self._spin_row(
+            left,
             "Transformers CPU RAM budget (MB)",
             self.local_llm_memory_var,
             256,
@@ -57,20 +81,14 @@ class LocalModelsMixin:
             "Enable Transformers CPU/SSD offload (requires accelerate)",
             self.local_llm_disk_offload_var,
         )
-        self._label(
+        self._check_row(
             left,
-            "GGUF uses llama.cpp file-backed mmap and CPU-only inference. "
-            "Transformers disk offload is best-effort; it does not guarantee "
-            "that only one layer is in RAM. KV cache and runtime overhead also "
-            "use memory. SafeTensors weights alone are not an inference engine.",
-            9,
-            self.MUTED,
-            justify="left",
-            wraplength=330,
-        ).pack(anchor="w", padx=16, pady=(8, 10))
+            "Verify SHA-256 checksum before loading weights",
+            self.extra_vars["local_llm_verify_sha256"],
+        )
 
         self._label(right, "IMPORT MODEL FILES", 9, self.CYAN).pack(
-            anchor="w", padx=16, pady=(14, 6)
+            anchor="w", padx=16, pady=(12, 4)
         )
         button_row = tk.Frame(right, bg=self.PANEL)
         button_row.pack(fill="x", padx=16, pady=(0, 8))
@@ -98,6 +116,22 @@ class LocalModelsMixin:
             padx=10,
             pady=5,
         ).pack(anchor="w", padx=16, pady=(0, 8))
+        self._spin_row(
+            right,
+            "Keep-alive timeout (minutes)",
+            self.extra_vars["local_llm_keep_alive_minutes"],
+            0,
+            120,
+            5,
+        )
+        self._spin_row(
+            right,
+            "Deterministic generation seed (-1 = random)",
+            self.extra_vars["local_llm_seed"],
+            -1,
+            2147483647,
+            1,
+        )
         self.local_model_status = self._label(
             right,
             "Model registry ready.",
@@ -106,7 +140,7 @@ class LocalModelsMixin:
             justify="left",
             wraplength=330,
         )
-        self.local_model_status.pack(anchor="w", padx=16, pady=(0, 4))
+        self.local_model_status.pack(anchor="w", padx=16, pady=(6, 4))
         self.local_model_runtime_label = self._label(
             right,
             "Checking optional local runtimes…",
@@ -120,8 +154,7 @@ class LocalModelsMixin:
             right,
             "Models are registered by path; NEEZY does not copy or download "
             "weights. Pick trusted model files only. Transformers runs with "
-            "trust_remote_code disabled and local_files_only enabled. Local "
-            "models can still produce incorrect or unsafe text.",
+            "trust_remote_code disabled and local_files_only enabled.",
             9,
             self.MUTED,
             justify="left",

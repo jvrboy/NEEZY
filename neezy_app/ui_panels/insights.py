@@ -229,11 +229,20 @@ class InsightsMixin:
                 f"{item['opportunity']:>5.1f}"
             )
         closes = {s: [row[4] for row in c[:-1]] for s, c in self.candles.items()}
-        pairs = strongest_pairs(correlation_matrix(closes, window=100), limit=6)
-        lines.append("\nSTRONGEST CORRELATIONS")
-        lines.extend(
-            f"  {SYMBOLS[a]} / {SYMBOLS[b]}  {value:+.2f}" for a, b, value in pairs
-        )
+        win = self.settings.correlation_window
+        base_win = self.settings.correlation_baseline
+        short_mat = correlation_matrix(closes, window=win)
+        base_mat = correlation_matrix(closes, window=base_win)
+        pairs = strongest_pairs(short_mat, limit=6)
+        lines.append(f"\nSTRONGEST CORRELATIONS (w={win} vs base={base_win})")
+        for a, b, value in pairs:
+            base_val = (base_mat.get(a) or {}).get(b)
+            delta = (
+                f" (Δ {value - base_val:+.2f})"
+                if isinstance(base_val, (int, float))
+                else ""
+            )
+            lines.append(f"  {SYMBOLS[a]} / {SYMBOLS[b]}  {value:+.2f}{delta}")
         lines.append("\nRank 0-100 blends score, ADX, and RSI room.")
         self._write(self.rank_out, "\n".join(lines))
 
@@ -307,16 +316,19 @@ class InsightsMixin:
             )
             return
         self._brain_training = True
+        arch = self.settings.ml_model_architecture
         self.brain_status_label.config(
-            text=(
-                f"Training a chronological research model on {len(candles)} "
-                "saved candles…"
-            ),
+            text=(f"Training {arch} research model on {len(candles)} saved candles…"),
             fg=self.MUTED,
         )
 
         def work():
             try:
+                model_type_map = {
+                    "v1": "neezy_mlp_v1",
+                    "ensemble": "neezy_mlp_ensemble_v1",
+                    "sequence": "neezy_seq_mlp_v1",
+                }
                 trained = train_brain_model(
                     candles,
                     symbol=symbol,
@@ -326,13 +338,16 @@ class InsightsMixin:
                     min_samples=self.settings.ml_min_samples,
                     epochs=self.settings.ml_epochs,
                     seed=self.settings.ml_seed,
+                    model_type=model_type_map.get(arch, "neezy_mlp_v1"),
+                    members=self.settings.ml_ensemble_members,
+                    window=self.settings.ml_sequence_window,
                 )
                 self.db.set_value(f"brain:model:{symbol}:{timeframe}", trained["model"])
                 report = trained["report"]
                 metrics = report["test"]
                 accuracy = metrics.get("balanced_accuracy")
                 message = (
-                    f"{symbol} {timeframe}: {report['labeled_examples']} "
+                    f"{symbol} {timeframe} ({arch}): {report['labeled_examples']} "
                     "labeled examples · "
                     f"{metrics['samples']} untouched test samples · balanced accuracy "
                     f"{accuracy:.1%}"

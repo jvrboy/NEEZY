@@ -3,10 +3,15 @@
 __version__ = "1.5.0"
 
 from .ai import PROVIDERS, AIClient, AIError, AIKeyStore, free_models
-from .alerts import AlertEngine, AlertRule, AlertRuleStore
+from .alerts import AlertEngine, AlertRule, AlertRuleStore, is_quiet_hours_now
 from .analytics import correlation_matrix, rank_opportunities
 from .backtest import BacktestConfig, run_backtest
-from .config import AppSettings
+from .config import (
+    SETTINGS_PROFILES,
+    AppSettings,
+    apply_env_overrides,
+    apply_profile,
+)
 from .context import format_context, market_snapshot
 from .database import LocalDatabase
 from .divergence import (
@@ -36,6 +41,7 @@ from .trend import donchian, keltner, supertrend, trend_summary
 
 __all__ = [
     "PROVIDERS",
+    "SETTINGS_PROFILES",
     "STRATEGIES",
     "AIClient",
     "AIError",
@@ -53,6 +59,8 @@ __all__ = [
     "StreamEvent",
     "adx",
     "analyze",
+    "apply_env_overrides",
+    "apply_profile",
     "atr",
     "atr_levels",
     "bollinger",
@@ -68,6 +76,7 @@ __all__ = [
     "format_context",
     "free_models",
     "get_data_dir",
+    "is_quiet_hours_now",
     "keltner",
     "macd_histogram_series",
     "market_snapshot",

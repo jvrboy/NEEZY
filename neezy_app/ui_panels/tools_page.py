@@ -42,14 +42,18 @@ class ToolsPageMixin:
             anchor="w", padx=16, pady=(14, 8)
         )
         self.risk_vars = {
-            "balance": tk.StringVar(value="10000"),
-            "risk": tk.StringVar(value="1.0"),
-            "stop_atr": tk.StringVar(value="1.5"),
-            "reward": tk.StringVar(value="2.0"),
-            "pip_value": tk.StringVar(value="10"),
+            "balance": tk.StringVar(value=f"{self.settings.account_balance_default:g}"),
+            "risk": tk.StringVar(value=f"{self.settings.default_risk_percent:g}"),
+            "stop_atr": tk.StringVar(
+                value=f"{self.settings.confluence_atr_stop_mult:g}"
+            ),
+            "reward": tk.StringVar(value=f"{self.settings.default_reward_to_risk:g}"),
+            "pip_value": tk.StringVar(
+                value=f"{self.settings.default_pip_value_per_lot:g}"
+            ),
         }
         for key, label in [
-            ("balance", "Account balance"),
+            ("balance", f"Account balance ({self.settings.account_currency})"),
             ("risk", "Risk per trade (%)"),
             ("stop_atr", "Stop distance (x ATR)"),
             ("reward", "Reward : risk"),
@@ -63,9 +67,11 @@ class ToolsPageMixin:
             anchor="w", padx=16, pady=(14, 8)
         )
         self.test_vars = {
-            "min_score": tk.StringVar(value="2"),
-            "stop_atr": tk.StringVar(value="1.5"),
-            "reward": tk.StringVar(value="2.0"),
+            "min_score": tk.StringVar(value=str(self.settings.alert_min_score)),
+            "stop_atr": tk.StringVar(
+                value=f"{self.settings.confluence_atr_stop_mult:g}"
+            ),
+            "reward": tk.StringVar(value=f"{self.settings.default_reward_to_risk:g}"),
             "count": tk.StringVar(value="2000"),
         }
         for key, label in [
@@ -110,10 +116,11 @@ class ToolsPageMixin:
                 result["atr"],
                 self._float_var(self.risk_vars, "stop_atr", "Stop multiple"),
             )
+            risk_pct = self._float_var(self.risk_vars, "risk", "Risk")
             plan = position_size(
                 symbol=symbol,
                 balance=self._float_var(self.risk_vars, "balance", "Balance"),
-                risk_percent=self._float_var(self.risk_vars, "risk", "Risk"),
+                risk_percent=risk_pct,
                 entry=entry,
                 stop=stop,
                 reward_to_risk=self._float_var(self.risk_vars, "reward", "Reward"),
@@ -126,6 +133,14 @@ class ToolsPageMixin:
             return
         f = lambda price: self._fmt(symbol, price)  # noqa: E731
         bias = "" if result["signal"] != "NEUTRAL" else " (neutral bias, long shown)"
+        guardrail = ""
+        if risk_pct > self.settings.max_drawdown_limit:
+            lim = self.settings.max_drawdown_limit
+            guardrail = f"\n⚠ Exceeds max drawdown limit ({lim:g}%)!"
+        elif risk_pct > self.settings.daily_max_loss_percent:
+            lim = self.settings.daily_max_loss_percent
+            guardrail = f"\n⚠ Exceeds daily max loss cap ({lim:g}%)!"
+        cur = self.settings.account_currency
         self._write(
             self.risk_out,
             f"{SYMBOLS[symbol]} · {plan.direction}{bias}\n\n"
@@ -134,8 +149,8 @@ class ToolsPageMixin:
             f"Target  {f(plan.target)}  ({plan.target_pips:.1f} pips)\n\n"
             f"Size    {plan.lots:.2f} lots\n"
             f"Units   {plan.units:,}\n"
-            f"Risk    {plan.risk_amount:,.2f}\n"
-            f"Reward  {plan.reward_amount:,.2f}\n\n"
+            f"Risk    {plan.risk_amount:,.2f} {cur}\n"
+            f"Reward  {plan.reward_amount:,.2f} {cur}{guardrail}\n\n"
             "Planning aid only; verify with your broker.",
         )
 
@@ -199,6 +214,11 @@ class ToolsPageMixin:
             f"  {t.direction:<4} {t.reason:<15} {t.r_multiple:+.2f}R"
             for t in result.trades[-6:]
         )
+        spread = self.settings.backtest_default_spread_pips
+        spread_line = ""
+        if spread > 0:
+            net_r = stats["total_r"] - stats["trades"] * (spread * 0.05)
+            spread_line = f"Net ({spread:g}p)  {net_r:+.2f} R\n"
         self._write(
             self.test_out,
             f"{SYMBOLS[symbol]} · {timeframe} · {stats['candles_tested']} candles\n\n"
@@ -206,6 +226,7 @@ class ToolsPageMixin:
             f"({stats['long_trades']}L/{stats['short_trades']}S)\n"
             f"Win rate      {stats['win_rate']:.1f}%\n"
             f"Total         {stats['total_r']:+.2f} R\n"
+            f"{spread_line}"
             f"Expectancy    {stats['expectancy_r']:+.3f} R\n"
             f"Profit factor {'inf' if pf == float('inf') else f'{pf:.2f}'}\n"
             f"Max drawdown  {stats['max_drawdown_r']:.2f} R\n"

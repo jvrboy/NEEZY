@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 import threading
+import time
 import tkinter as tk
 from datetime import datetime
 from tkinter import ttk
@@ -257,10 +258,22 @@ class SignalsMixin:
         candles_map = {}
         errors = {}
         seconds = TIMEFRAMES.get(timeframe, 300)
+        fallback = self.settings.fallback_data_provider
+        attempts = [provider]
+        if fallback != "none" and fallback not in attempts:
+            attempts.append(fallback)
+        now = time.monotonic()
+        ttl = float(self.settings.provider_cache_ttl_seconds)
         for symbol in symbols:
             buffer = list(self.candles.get(symbol, []))
             if len(buffer) < 90:
-                for attempt in (provider, "deriv"):
+                for attempt in attempts:
+                    cache_key = (attempt, symbol, timeframe)
+                    if self.settings.provider_cache_enabled:
+                        cached = self._provider_candle_cache.get(cache_key)
+                        if cached and (now - cached[0]) < ttl:
+                            buffer = list(cached[1])
+                            break
                     try:
                         if attempt == "deriv":
                             buffer = fetch_candles(
@@ -280,6 +293,8 @@ class SignalsMixin:
                         errors.setdefault(symbol, str(error))
                         continue
                     if buffer:
+                        if self.settings.provider_cache_enabled:
+                            self._provider_candle_cache[cache_key] = (now, list(buffer))
                         errors.pop(symbol, None)
                         break
             if len(buffer) >= 90:
@@ -304,12 +319,14 @@ class SignalsMixin:
         self._analysis_running = False
         if self.analysis_button.winfo_exists():
             self.analysis_button.config(state="normal")
-        self.analysis_status.config(
-            text=message + " · search mode fills gaps so ANALYSIS always "
-            "produces signals",
-            fg=self.GREEN,
+        suffix = (
+            " · strict confluence filter active"
+            if self.settings.confluence_require_strict_only
+            else " · search mode fills gaps so ANALYSIS always produces signals"
         )
+        self.analysis_status.config(text=message + suffix, fg=self.GREEN)
         self._render_signal_cards(signals)
+        self._render_history()
         buys = sum(1 for signal in signals if signal.direction > 0)
         sells = len(signals) - buys
         average = (

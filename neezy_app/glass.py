@@ -151,13 +151,13 @@ class GlassPanel(tk.Canvas):
         sheen: bool = True,
         **kwargs: Any,
     ) -> None:
+        kwargs.setdefault("bg", fill)
+        kwargs.setdefault("highlightthickness", 0)
+        kwargs.setdefault("bd", 0)
         super().__init__(
             master,
             width=width,
             height=height,
-            bg=fill,
-            highlightthickness=0,
-            bd=0,
             **kwargs,
         )
         self._radius = max(2, radius)
@@ -272,13 +272,13 @@ class GlassButton(tk.Canvas):
         font: tuple[str, int, str] | None = None,
         **kwargs: Any,
     ) -> None:
+        kwargs.setdefault("bg", fill)
+        kwargs.setdefault("highlightthickness", 0)
+        kwargs.setdefault("bd", 0)
         super().__init__(
             master,
             width=width,
             height=height,
-            bg=fill,
-            highlightthickness=0,
-            bd=0,
             **kwargs,
         )
         self._command = command
@@ -395,13 +395,15 @@ class PulseDot(tk.Canvas):
         period_ms: int = 1600,
         **kwargs: Any,
     ) -> None:
+        kwargs.setdefault(
+            "bg", master["bg"] if isinstance(master, tk.Widget) else "#000000"
+        )
+        kwargs.setdefault("highlightthickness", 0)
+        kwargs.setdefault("bd", 0)
         super().__init__(
             master,
             width=size,
             height=size,
-            bg=master["bg"] if isinstance(master, tk.Widget) else "#000000",
-            highlightthickness=0,
-            bd=0,
             **kwargs,
         )
         self._color = color
@@ -453,13 +455,13 @@ class GlassSparkline(tk.Canvas):
         base: str = "#0d1117",
         **kwargs: Any,
     ) -> None:
+        kwargs.setdefault("bg", base)
+        kwargs.setdefault("highlightthickness", 0)
+        kwargs.setdefault("bd", 0)
         super().__init__(
             master,
             width=width,
             height=height,
-            bg=base,
-            highlightthickness=0,
-            bd=0,
             **kwargs,
         )
         self._w = width
@@ -524,13 +526,13 @@ class GradientSheen(tk.Canvas):
         colors: tuple[str, ...] = ("#38bdf8", "#a78bfa", "#34d399"),
         **kwargs: Any,
     ) -> None:
+        kwargs.setdefault("bg", "#000000")
+        kwargs.setdefault("highlightthickness", 0)
+        kwargs.setdefault("bd", 0)
         super().__init__(
             master,
             width=width,
             height=height,
-            bg="#000000",
-            highlightthickness=0,
-            bd=0,
             **kwargs,
         )
         self._w = width

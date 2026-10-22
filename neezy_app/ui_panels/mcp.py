@@ -15,14 +15,40 @@ class McpMixin:
     def _mcp_settings_tab(self, notebook):
         _tab, left, right = self._settings_tab(notebook, "MCP SERVER")
         self._label(left, "LOCAL MODEL CONTEXT PROTOCOL", 9, self.CYAN).pack(
-            anchor="w", padx=16, pady=(14, 6)
+            anchor="w", padx=16, pady=(12, 4)
         )
         self._check_row(left, "Enable local MCP server", self.mcp_enabled_var)
         self._spin_row(left, "MCP port", self.mcp_port_var, 1024, 65535, 1)
+        self._spin_row(
+            left,
+            "Max requests per minute",
+            self.extra_vars["mcp_rate_limit_rpm"],
+            5,
+            600,
+            5,
+        )
+        self._spin_row(
+            left,
+            "Tool timeout (seconds)",
+            self.extra_vars["mcp_tool_timeout_seconds"],
+            2.0,
+            120.0,
+            1.0,
+        )
         self._check_row(
             left,
             "Allow write tools on the local MCP server",
             self.mcp_writes_var,
+        )
+        self._check_row(
+            left,
+            "Enforce loopback Origin check (anti-DNS-rebinding)",
+            self.extra_vars["mcp_strict_origin_check"],
+        )
+        self._check_row(
+            left,
+            "Audit-log every MCP tool invocation locally",
+            self.extra_vars["mcp_audit_log_enabled"],
         )
         self._check_row(
             left,
@@ -32,19 +58,9 @@ class McpMixin:
         self._entry_row(
             left, "cloudflared executable or path", self.mcp_tunnel_executable_var
         )
-        self._label(
-            left,
-            "The default MCP server binds to 127.0.0.1 and requires a bearer "
-            "token. The optional public tunnel uses a separate token and a "
-            "market-only, read-only tool allow-list; it cannot change settings, "
-            "alerts, memory, or models.",
-            9,
-            self.MUTED,
-            justify="left",
-            wraplength=330,
-        ).pack(anchor="w", padx=16, pady=(8, 10))
+
         self._label(right, "CONNECT A LOCAL MCP CLIENT", 9, self.CYAN).pack(
-            anchor="w", padx=16, pady=(14, 6)
+            anchor="w", padx=16, pady=(12, 4)
         )
         self._label(right, "MCP server URL", 10, self.MUTED).pack(
             anchor="w", padx=16, pady=(4, 3)
@@ -59,7 +75,7 @@ class McpMixin:
         )
         url_entry.pack(fill="x", padx=16, pady=(0, 4), ipady=4)
         url_row = tk.Frame(right, bg=self.PANEL)
-        url_row.pack(fill="x", padx=16, pady=(0, 8))
+        url_row.pack(fill="x", padx=16, pady=(0, 6))
         tk.Button(
             url_row,
             text="Copy URL",
@@ -84,7 +100,7 @@ class McpMixin:
         )
         token_entry.pack(fill="x", padx=16, pady=(0, 4), ipady=4)
         token_row = tk.Frame(right, bg=self.PANEL)
-        token_row.pack(fill="x", padx=16, pady=(0, 8))
+        token_row.pack(fill="x", padx=16, pady=(0, 6))
         tk.Button(
             token_row,
             text="Copy token",
@@ -110,7 +126,7 @@ class McpMixin:
         self.mcp_status = self._label(right, "MCP server is disabled.", 9, self.MUTED)
         self.mcp_status.pack(anchor="w", padx=16, pady=(0, 6))
         self._label(right, "PUBLIC MCP TUNNEL · READ-ONLY", 9, self.CYAN).pack(
-            anchor="w", padx=16, pady=(12, 5)
+            anchor="w", padx=16, pady=(8, 4)
         )
         self._label(right, "Remote MCP URL", 10, self.MUTED).pack(
             anchor="w", padx=16, pady=(4, 3)
@@ -178,19 +194,6 @@ class McpMixin:
             wraplength=330,
         )
         self.mcp_tunnel_status.pack(anchor="w", padx=16, pady=(0, 6))
-        self._label(
-            right,
-            "The tunnel sends traffic through Cloudflare and creates an ephemeral "
-            "HTTPS URL. Anyone with the public token can read the exposed market "
-            "tools; do not paste it into an untrusted agent. The public endpoint "
-            "never offers write tools, even if local MCP writes are enabled. "
-            "Disable the toggle or rotate the token to revoke access. This uses "
-            "cloudflared already installed on your device; NEEZY does not download it.",
-            9,
-            self.MUTED,
-            justify="left",
-            wraplength=330,
-        ).pack(anchor="w", padx=16, pady=(0, 10))
 
     def _copy_public_mcp_url(self):
         url = self.mcp_public_url_var.get().strip()
@@ -292,7 +295,7 @@ class McpMixin:
                     port=0,
                     write_enabled=False,
                     name="NEEZY Public Market Tools",
-                    requests_per_minute=60,
+                    requests_per_minute=self.settings.mcp_rate_limit_rpm,
                 )
                 self.mcp_public_server.start()
             executable = self.mcp_tunnel_executable_var.get().strip()
@@ -372,6 +375,7 @@ class McpMixin:
                 host="127.0.0.1",
                 port=port,
                 write_enabled=lambda: self.settings.mcp_allow_writes,
+                requests_per_minute=self.settings.mcp_rate_limit_rpm,
             )
             self.mcp_server.start()
             self._mcp_server_port = port

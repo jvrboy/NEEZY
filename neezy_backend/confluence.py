@@ -522,6 +522,7 @@ def build_confluence(
     timeframe: str,
     *,
     min_score: float = DEFAULT_MIN_SCORE,
+    search_score: float = DEFAULT_SEARCH_SCORE,
     search: bool = False,
     stop_mult: float = DEFAULT_STOP_MULT,
     tp_mult: float = DEFAULT_TP_MULT,
@@ -556,7 +557,7 @@ def build_confluence(
         if not search:
             return None
     if search:
-        score = max(abs(score), DEFAULT_SEARCH_SCORE)
+        score = max(abs(score), search_score)
     entry = float(closed[-1][4])
     if atr_value is None or atr_value <= 0:
         atr_value = sum(high - low for _, _, high, low, _ in closed[-14:]) / 14.0
@@ -606,6 +607,10 @@ def scan_candles(
     """Run strict confluence over a candle map, then search mode to fill gaps."""
     config = settings
     min_score = config.confluence_min_score if config is not None else DEFAULT_MIN_SCORE
+    search_score = (
+        config.confluence_search_score if config is not None else DEFAULT_SEARCH_SCORE
+    )
+    strict_only = bool(getattr(config, "confluence_require_strict_only", False))
     stop_mult = (
         config.confluence_atr_stop_mult if config is not None else DEFAULT_STOP_MULT
     )
@@ -622,6 +627,7 @@ def scan_candles(
             symbol,
             timeframe,
             min_score=min_score,
+            search_score=search_score,
             stop_mult=stop_mult,
             tp_mult=tp_mult,
             horizon=horizon,
@@ -629,7 +635,7 @@ def scan_candles(
         )
         if strict is not None:
             signals.append(strict)
-        else:
+        elif not strict_only:
             pending[symbol] = candles
     for symbol, candles in pending.items():
         searched = build_confluence(
@@ -637,6 +643,7 @@ def scan_candles(
             symbol,
             timeframe,
             search=True,
+            search_score=search_score,
             stop_mult=stop_mult,
             tp_mult=tp_mult,
             horizon=horizon,

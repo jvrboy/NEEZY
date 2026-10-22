@@ -8,8 +8,10 @@ import tkinter as tk
 from neezy_backend.ai import (
     PROVIDERS,
 )
+from neezy_backend.config import FALLBACK_DATA_PROVIDERS
 from neezy_backend.markets import (
     SYMBOLS,
+    TIMEFRAMES,
 )
 from neezy_backend.providers import (
     PROVIDERS as MARKET_PROVIDERS,
@@ -28,7 +30,7 @@ class DataProvidersMixin:
     def _data_provider_settings_tab(self, notebook):
         _tab, left, right = self._settings_tab(notebook, "DATA PROVIDERS")
         self._label(left, "CONFLUENCE ENGINE", 9, self.CYAN).pack(
-            anchor="w", padx=16, pady=(14, 6)
+            anchor="w", padx=16, pady=(12, 4)
         )
         self._spin_row(
             left, "Strict confluence score", self.conf_min_score_var, 0, 100, 5
@@ -41,6 +43,22 @@ class DataProvidersMixin:
             100,
             5,
         )
+        self._check_row(
+            left,
+            "Strict setups only (suppress search-mode fallback cards)",
+            self.extra_vars["confluence_require_strict_only"],
+        )
+        self._check_row(
+            left,
+            "Require higher-timeframe trend confirmation",
+            self.extra_vars["confluence_mtf_confirmation"],
+        )
+        self._combo_row(
+            left,
+            "Higher confirmation timeframe",
+            self.extra_vars["confluence_higher_timeframe"],
+            list(TIMEFRAMES),
+        )
         self._spin_row(left, "ATR stop multiple", self.conf_stop_var, 0.5, 6.0, 0.1)
         self._spin_row(left, "ATR target multiple", self.conf_tp_var, 0.5, 10.0, 0.1)
         self._spin_row(left, "Outcome horizon (bars)", self.conf_horizon_var, 3, 120, 1)
@@ -52,21 +70,20 @@ class DataProvidersMixin:
             100,
             1,
         )
-        self._label(
-            left,
-            "Signals below the strict score are still shown by the ANALYSIS "
-            "button in relaxed search mode, so the scan always yields cards.",
-            9,
-            self.MUTED,
-            wraplength=300,
-        ).pack(anchor="w", padx=16, pady=12)
+
         self._label(right, "MARKET DATA PROVIDERS", 9, self.CYAN).pack(
-            anchor="w", padx=16, pady=(14, 6)
+            anchor="w", padx=16, pady=(12, 4)
         )
         options = [f"{spec.label} ({spec.key})" for spec in MARKET_PROVIDERS.values()]
         current = resolve_provider(self.settings.market_data_provider)
         self.data_provider_var.set(f"{current.label} ({current.key})")
         self._combo_row(right, "Active provider", self.data_provider_var, options)
+        self._combo_row(
+            right,
+            "Fallback provider on outage",
+            self.extra_vars["fallback_data_provider"],
+            sorted(FALLBACK_DATA_PROVIDERS),
+        )
         self._spin_row(
             right,
             "Fetched candles per market",
@@ -74,6 +91,19 @@ class DataProvidersMixin:
             60,
             1000,
             20,
+        )
+        self._check_row(
+            right,
+            "Cache provider candle responses briefly",
+            self.extra_vars["provider_cache_enabled"],
+        )
+        self._spin_row(
+            right,
+            "Provider cache TTL (seconds)",
+            self.extra_vars["provider_cache_ttl_seconds"],
+            5,
+            900,
+            5,
         )
         self._entry_row(
             right,
@@ -105,7 +135,7 @@ class DataProvidersMixin:
         self.provider_status_label = self._label(
             right, "", 9, self.MUTED, wraplength=300
         )
-        self.provider_status_label.pack(anchor="w", padx=16, pady=8)
+        self.provider_status_label.pack(anchor="w", padx=16, pady=6)
         self._provider_status(
             "Deriv is the default provider and needs no key. Alpha Vantage, "
             "Finnhub and Twelve Data require one; Binance covers crypto only.",
@@ -142,12 +172,13 @@ class DataProvidersMixin:
     def _test_provider(self):
         if getattr(self, "_provider_test_running", False):
             return
-        self._provider_test_running = True
         provider = self._data_provider_key()
         issue = provider_key_issues(provider, self.provider_keys)
         if issue:
+            self._provider_test_running = False
             self._provider_status(issue, self.RED)
             return
+        self._provider_test_running = True
         symbol = next(iter(self.watch_symbols), "frxEURUSD")
         timeframe = self.tf.get()
         spec = resolve_provider(provider)

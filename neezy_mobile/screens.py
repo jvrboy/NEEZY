@@ -438,8 +438,9 @@ class ToolsTab(BaseTab):
         self.market = spinner(
             list(self.choices), self.key_for.get("frxEURUSD", next(iter(self.choices)))
         )
-        self.balance = field("10000", "10000", numeric=True)
-        self.risk = field("1", "1", numeric=True)
+        s = self.svc.settings
+        self.balance = field("10000", f"{s.account_balance_default:g}", numeric=True)
+        self.risk = field("1", f"{s.default_risk_percent:g}", numeric=True)
         self.entry = field("e.g. 1.10000", numeric=True)
         self.stop = field("e.g. 1.09800", numeric=True)
         self.size_result = label("Enter balance, risk %, entry and stop.", MUTED, 13)
@@ -447,8 +448,8 @@ class ToolsTab(BaseTab):
         self.direction = spinner(["BUY", "SELL"], "BUY")
         self.atr_entry = field("Entry price", numeric=True)
         self.atr_value = field("ATR value", numeric=True)
-        self.atr_mult = field("1.5", "1.5", numeric=True)
-        self.atr_rr = field("2.0", "2.0", numeric=True)
+        self.atr_mult = field("1.5", f"{s.confluence_atr_stop_mult:g}", numeric=True)
+        self.atr_rr = field("2.0", f"{s.default_reward_to_risk:g}", numeric=True)
         self.levels_result = label("ATR stop and target appear here.", MUTED, 13)
 
         self.scroll, self.list_box = scroll_list(spacing=10)
@@ -523,26 +524,54 @@ class SettingsTab(BaseTab):
         self._form(self.svc.settings)
 
     def _form(self, settings: AppSettings) -> None:
+        from neezy_backend.config import SETTINGS_PROFILES, STRATEGIES
+
         self.list_box.clear_widgets()
+        self.profile = spinner(
+            ["(keep current)", *sorted(SETTINGS_PROFILES)], "(keep current)"
+        )
         self.timeframe = spinner(list(TIMEFRAMES), settings.default_timeframe)
-        self.history_candles = field(str(settings.history_candles), numeric=True)
-        self.min_score = field(str(settings.confluence_min_score), numeric=True)
-        self.fetch_timeout = field(str(settings.ml_fetch_timeout), numeric=True)
+        self.strategy = spinner(list(STRATEGIES), settings.strategy)
+        self.history_candles = field(
+            "60-1000", str(settings.history_candles), numeric=True
+        )
+        self.min_score = field(
+            "0-100", str(settings.confluence_min_score), numeric=True
+        )
+        self.risk_pct = field(
+            "0.1-100", str(settings.default_risk_percent), numeric=True
+        )
+        self.reward_rr = field(
+            "0.5-20", str(settings.default_reward_to_risk), numeric=True
+        )
+        self.alert_min = field("1-4", str(settings.alert_min_score), numeric=True)
+        self.quiet_start = field("HH:MM", settings.quiet_hours_start)
+        self.quiet_end = field("HH:MM", settings.quiet_hours_end)
+        self.fetch_timeout = field(
+            "1-120", str(settings.ml_fetch_timeout), numeric=True
+        )
         self.endpoint = field("empty = default Deriv endpoint", settings.deriv_endpoint)
         self.extra = field("e.g. R_100,frxAUDUSD", settings.watchlist_extra)
         self.status = label("", MUTED, 12)
         for widget in (
+            labelled("Preset profile", self.profile),
             labelled("Default timeframe", self.timeframe),
+            labelled("Active strategy", self.strategy),
             labelled("History candles", self.history_candles),
             labelled("Min confluence", self.min_score),
+            labelled("Risk per trade (%)", self.risk_pct),
+            labelled("Reward : risk", self.reward_rr),
+            labelled("Min alert score (1-4)", self.alert_min),
+            labelled("Quiet hours start", self.quiet_start),
+            labelled("Quiet hours end", self.quiet_end),
             labelled("Fetch timeout (s)", self.fetch_timeout),
             labelled("Deriv endpoint", self.endpoint),
             labelled("Extra markets", self.extra),
             button("SAVE SETTINGS", self.save),
             self.status,
             label(
-                "Desktop-only in this build: MT5, local GGUF/transformer models, "
-                "MCP server, Telegram and hosted AI providers.",
+                "Desktop-only in this build: MT5 bridge, local GGUF/transformer "
+                "models, MCP server, Telegram and hosted AI key pools.",
                 MUTED,
                 12,
             ),
@@ -551,10 +580,19 @@ class SettingsTab(BaseTab):
 
     def save(self, *_: Any) -> None:
         try:
-            updated = self.svc.settings.updated(
+            base = self.svc.settings
+            if self.profile.text and self.profile.text != "(keep current)":
+                base = base.apply_profile(self.profile.text)
+            updated = base.updated(
                 default_timeframe=self.timeframe.text,
+                strategy=self.strategy.text,
                 history_candles=int(self.history_candles.text),
                 confluence_min_score=float(self.min_score.text),
+                default_risk_percent=float(self.risk_pct.text),
+                default_reward_to_risk=float(self.reward_rr.text),
+                alert_min_score=int(float(self.alert_min.text)),
+                quiet_hours_start=self.quiet_start.text.strip(),
+                quiet_hours_end=self.quiet_end.text.strip(),
                 ml_fetch_timeout=float(self.fetch_timeout.text),
                 deriv_endpoint=self.endpoint.text.strip(),
                 watchlist_extra=self.extra.text.strip(),
@@ -564,6 +602,7 @@ class SettingsTab(BaseTab):
             self.status.text = f"Not saved: {error}"
             return
         self.svc.save_settings(updated)
+        self._form(updated)
         self.status.text = "Saved."
 
 
@@ -722,9 +761,75 @@ class InsightsTab(BaseTab):
         return card
 
 
-class ChatTab(PlaceholderTab):
+class ChatTab(BaseTab):
     name = "CHAT"
-    text = "AI chat is not in the Android build yet. Use the desktop app for now."
+
+    def build(self) -> None:
+        from neezy_backend.analytics import rank_opportunities
+
+        self._rank = rank_opportunities
+        self.prompt = field("Ask about active setups, trend, RSI, or risk…")
+        self.scroll, self.list_box = scroll_list()
+        self.view.add_widget(
+            row(self.prompt, button("Ask", self.ask, size_hint_x=0.28, height=44))
+        )
+        self.view.add_widget(self.scroll)
+        self._append(
+            "NEEZY Copilot",
+            "Ask about top setups, trend, RSI, or any watched market using live data.",
+            MUTED,
+        )
+
+    def _append(self, author: str, body: str, colour: Any = TEXT) -> None:
+        card = Card()
+        card.add_widget(
+            label(author, CYAN if author != "YOU" else MUTED, 12, bold=True)
+        )
+        card.add_widget(label(body, colour, 13))
+        self.list_box.add_widget(card)
+
+    def ask(self, *_: Any) -> None:
+        q = self.prompt.text.strip()
+        if not q:
+            return
+        self.prompt.text = ""
+        self._append("YOU", q, TEXT)
+        low = q.lower()
+        results = getattr(self.svc, "results", {}) or {}
+        if any(w in low for w in ("best", "top", "rank", "strongest")):
+            ranked = self._rank(results)[:3]
+            reply = (
+                "Strongest current setups: "
+                + "; ".join(
+                    f"{display_name(i['symbol'])} {i['signal']} "
+                    f"({i['opportunity']:.0f})"
+                    for i in ranked
+                )
+                if ranked
+                else "No directional setup ready yet — stream candles in SYMBOLS first."
+            )
+            self._append("NEEZY", reply, TEXT)
+            return
+        chosen = self.svc.selected
+        for sym in self.svc.watch_symbols():
+            if sym.lower() in low or display_name(sym).lower() in low:
+                chosen = sym
+                break
+        res = results.get(chosen)
+        if not res:
+            self._append(
+                "NEEZY",
+                f"{display_name(chosen)} is still collecting closed candles.",
+                MUTED,
+            )
+            return
+        self._append(
+            "NEEZY",
+            f"{display_name(chosen)}: {res['signal']} (score {res['score']:+d}/4, "
+            f"{res['trend'].lower()} trend, RSI {res['rsi']:.1f}, "
+            f"ATR {res['atr_pct']:.2f}%). Educational summary only.",
+            TEXT,
+        )
 
 
 TAB_CLASSES = (
