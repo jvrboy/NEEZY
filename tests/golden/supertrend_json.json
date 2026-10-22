@@ -1,0 +1,36 @@
+{
+  "symbol": "frxEURUSD",
+  "timeframe": "5m",
+  "period": 10,
+  "multiplier": 3.0,
+  "trend": {
+    "direction": 1,
+    "label": "uptrend",
+    "line": 1.1671686457390071,
+    "distance_pct": 0.1887,
+    "bars_since_flip": 290,
+    "atr": 0.0007467297353495236,
+    "period": 10,
+    "multiplier": 3.0
+  },
+  "signal": {
+    "strategy": "SUPERTREND",
+    "label": "BUY",
+    "direction": 1,
+    "confidence": 99.6,
+    "summary": "Price is in a Supertrend uptrend",
+    "reasons": [
+      "Supertrend 10/3 reads up",
+      "290 bar(s) since the last flip",
+      "price is +0.19% from the line"
+    ],
+    "metrics": {
+      "line": 1.16716865,
+      "distance_pct": 0.189,
+      "bars_since_flip": 290,
+      "atr": 0.0007467297353495236,
+      "period": 10,
+      "multiplier": 3.0
+    }
+  }
+}

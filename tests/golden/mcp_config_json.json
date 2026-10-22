@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "desktop-win32": {
+      "command": "win32-mcp-server",
+      "args": [],
+      "env": {
+        "WIN32_MCP_SECURITY_PROFILE": "read_only"
+      }
+    }
+  }
+}

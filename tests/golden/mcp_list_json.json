@@ -1,0 +1,38 @@
+[
+  {
+    "id": "mt5-qoyyuum",
+    "risk": "trading",
+    "license": "MIT (pyproject classifier; no LICENSE file in repo root)",
+    "repo": "https://github.com/Qoyyuum/mcp-metatrader5-server"
+  },
+  {
+    "id": "mt5-ariadng",
+    "risk": "trading",
+    "license": "MIT",
+    "repo": "https://github.com/ariadng/metatrader-mcp-server"
+  },
+  {
+    "id": "mt5-amirkhonov",
+    "risk": "trading",
+    "license": "MIT",
+    "repo": "https://github.com/amirkhonov/metatrader5-mcp"
+  },
+  {
+    "id": "desktop-windows-mcp",
+    "risk": "desktop-control",
+    "license": "MIT",
+    "repo": "https://github.com/CursorTouch/Windows-MCP"
+  },
+  {
+    "id": "desktop-win32",
+    "risk": "desktop-control",
+    "license": "MIT",
+    "repo": "https://github.com/RandyNorthrup/win32-mcp-server"
+  },
+  {
+    "id": "desktop-winremote",
+    "risk": "desktop-control",
+    "license": "MIT",
+    "repo": "https://github.com/dddabtc/winremote-mcp"
+  }
+]

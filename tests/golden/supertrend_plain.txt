@@ -1,0 +1,10 @@
+FIELD            VALUE                           
+---------------  --------------------------------
+market           EUR/USD                         
+timeframe        5m                              
+direction        uptrend                         
+line             1.1671686457390071              
+distance         0.1887%                         
+bars since flip  290                             
+strategy         BUY (100%)                      
+summary          Price is in a Supertrend uptrend

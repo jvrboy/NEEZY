@@ -1,0 +1,93 @@
+SYMBOL     MARKET                     PIP   
+---------  -------------------------  ------
+frxXAGUSD  Silver/USD                 0.0001
+frxXAUUSD  Gold/USD                   0.01  
+frxXPDUSD  Palladium/USD              0.01  
+frxXPTUSD  Platinum/USD               0.01  
+cryBTCUSD  BTC/USD                    0.001 
+cryETHUSD  ETH/USD                    1e-05 
+frxAUDJPY  AUD/JPY                    0.01  
+frxAUDUSD  AUD/USD                    0.0001
+frxEURAUD  EUR/AUD                    0.0001
+frxEURCAD  EUR/CAD                    0.0001
+frxEURCHF  EUR/CHF                    0.0001
+frxEURGBP  EUR/GBP                    0.0001
+frxEURJPY  EUR/JPY                    0.01  
+frxEURUSD  EUR/USD                    0.0001
+frxGBPAUD  GBP/AUD                    0.0001
+frxGBPJPY  GBP/JPY                    0.01  
+frxGBPUSD  GBP/USD                    0.0001
+frxUSDCAD  USD/CAD                    0.0001
+frxUSDCHF  USD/CHF                    0.0001
+frxUSDJPY  USD/JPY                    0.01  
+frxAUDCAD  AUD/CAD                    0.0001
+frxAUDCHF  AUD/CHF                    0.0001
+frxAUDNZD  AUD/NZD                    0.0001
+frxEURNZD  EUR/NZD                    0.0001
+frxGBPCAD  GBP/CAD                    0.0001
+frxGBPCHF  GBP/CHF                    0.0001
+frxGBPNZD  GBP/NZD                    0.0001
+frxNZDJPY  NZD/JPY                    0.01  
+frxNZDUSD  NZD/USD                    0.0001
+frxUSDMXN  USD/MXN                    0.0001
+frxUSDPLN  USD/PLN                    0.0001
+OTC_DJI    Wall Street 30             0.01  
+OTC_NDX    US Tech 100                0.01  
+OTC_SPC    US 500                     0.01  
+OTC_AS51   Australia 200              0.01  
+OTC_HSI    Hong Kong 50               0.01  
+OTC_N225   Japan 225                  0.01  
+OTC_AEX    Netherlands 25             0.01  
+OTC_FCHI   France 40                  0.01  
+OTC_FTSE   UK 100                     0.01  
+OTC_GDAXI  Germany 40                 0.01  
+OTC_SSMI   Swiss 20                   0.01  
+OTC_SX5E   Euro 50                    0.01  
+WLDXAU     Gold Basket                0.001 
+BOOM1000   Boom 1000 Index            0.001 
+BOOM150N   Boom 150 Index             1e-05 
+BOOM300N   Boom 300 Index             0.001 
+BOOM50     Boom 50 Index              0.001 
+BOOM500    Boom 500 Index             0.001 
+BOOM600    Boom 600 Index             0.001 
+BOOM900    Boom 900 Index             0.001 
+CRASH1000  Crash 1000 Index           0.001 
+CRASH150N  Crash 150 Index            1e-05 
+CRASH300N  Crash 300 Index            0.001 
+CRASH50    Crash 50 Index             0.001 
+CRASH500   Crash 500 Index            0.001 
+CRASH600   Crash 600 Index            0.001 
+CRASH900   Crash 900 Index            0.001 
+WLDAUD     AUD Basket                 0.001 
+WLDEUR     EUR Basket                 0.001 
+WLDGBP     GBP Basket                 0.001 
+WLDUSD     USD Basket                 0.001 
+JD10       Jump 10 Index              0.01  
+JD100      Jump 100 Index             0.01  
+JD25       Jump 25 Index              0.01  
+JD50       Jump 50 Index              0.01  
+JD75       Jump 75 Index              0.01  
+RDBEAR     Bear Market Index          0.0001
+RDBULL     Bull Market Index          0.0001
+1HZ100V    Volatility 100 (1s) Index  0.01  
+1HZ10V     Volatility 10 (1s) Index   0.01  
+1HZ15V     Volatility 15 (1s) Index   0.001 
+1HZ25V     Volatility 25 (1s) Index   0.01  
+1HZ30V     Volatility 30 (1s) Index   0.001 
+1HZ50V     Volatility 50 (1s) Index   0.01  
+1HZ75V     Volatility 75 (1s) Index   0.01  
+1HZ90V     Volatility 90 (1s) Index   0.001 
+R_10       Volatility 10 Index        0.001 
+R_100      Volatility 100 Index       0.01  
+R_25       Volatility 25 Index        0.001 
+R_50       Volatility 50 Index        0.0001
+R_75       Volatility 75 Index        0.0001
+RB100      Range Break 100 Index      0.1   
+RB200      Range Break 200 Index      0.1   
+stpRNG     Step Index 100             0.1   
+stpRNG2    Step Index 200             0.1   
+stpRNG3    Step Index 300             0.1   
+stpRNG4    Step Index 400             0.1   
+stpRNG5    Step Index 500             0.1   
+
+Timeframes: 1m, 5m, 15m, 30m, 1h, 4h, 1d

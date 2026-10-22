@@ -1,0 +1,13 @@
+{
+  "direction": "BUY",
+  "entry": 1.1,
+  "stop": 1.095,
+  "target": 1.1100000000000003,
+  "stop_pips": 50.00000000000115,
+  "target_pips": 100.0000000000023,
+  "risk_amount": 100.0000000000023,
+  "reward_amount": 200.0000000000046,
+  "lots": 0.2,
+  "units": 20000,
+  "reward_to_risk": 2.0
+}

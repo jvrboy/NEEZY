@@ -1,0 +1,225 @@
+{
+  "symbol": "frxEURUSD",
+  "timeframe": "5m",
+  "strategies": [
+    {
+      "strategy": "KELTNER",
+      "label": "BUY",
+      "direction": 1,
+      "confidence": 100.0,
+      "summary": "Close outside the Keltner channel with an 20-bar EMA rising",
+      "reasons": [
+        "channel position 125%",
+        "EMA 20 slope positive"
+      ],
+      "metrics": {
+        "upper": 1.1686247890858006,
+        "lower": 1.1656376132856394,
+        "position": 1.251
+      }
+    },
+    {
+      "strategy": "ICHIMOKU",
+      "label": "BUY",
+      "direction": 1,
+      "confidence": 100.0,
+      "summary": "Price above the Kumo cloud",
+      "reasons": [
+        "close 1.16938 vs cloud 1.14546-1.15858",
+        "conversion above base line"
+      ],
+      "metrics": {
+        "tenkan": 1.16807683,
+        "kijun": 1.16642132,
+        "cloud_top": 1.15857653,
+        "cloud_bottom": 1.14546006,
+        "inside_cloud": false
+      }
+    },
+    {
+      "strategy": "SUPERTREND",
+      "label": "BUY",
+      "direction": 1,
+      "confidence": 99.6,
+      "summary": "Price is in a Supertrend uptrend",
+      "reasons": [
+        "Supertrend 10/3 reads up",
+        "290 bar(s) since the last flip",
+        "price is +0.19% from the line"
+      ],
+      "metrics": {
+        "line": 1.16716865,
+        "distance_pct": 0.189,
+        "bars_since_flip": 290,
+        "atr": 0.0007467297353495236,
+        "period": 10,
+        "multiplier": 3.0
+      }
+    },
+    {
+      "strategy": "MOMENTUM",
+      "label": "BUY",
+      "direction": 1,
+      "confidence": 84.3,
+      "summary": "Momentum burst inside a trending market",
+      "reasons": [
+        "ROC +0.266% over 10 bars",
+        "ADX 69.2 confirms a trend"
+      ],
+      "metrics": {
+        "roc": 0.26572550880253065,
+        "adx": 69.23901982647052,
+        "plus_di": 37.38772313321398,
+        "minus_di": 7.686491117778545
+      }
+    },
+    {
+      "strategy": "DIVERGENCE",
+      "label": "SELL",
+      "direction": -1,
+      "confidence": 41.7,
+      "summary": "Bearish RSI divergence",
+      "reasons": [
+        "RSI divergence bearish",
+        "confirmed 2 bar(s) ago",
+        "strength 3%"
+      ],
+      "metrics": {
+        "kind": "bearish",
+        "oscillator": "rsi",
+        "bars_ago": 2,
+        "strength": 0.028,
+        "price_points": [
+          {
+            "index": 293,
+            "price": 1.168913883335515
+          },
+          {
+            "index": 296,
+            "price": 1.1694634089173195
+          }
+        ],
+        "oscillator_points": [
+          {
+            "index": 293,
+            "value": 84.708
+          },
+          {
+            "index": 296,
+            "value": 82.3537
+          }
+        ]
+      }
+    },
+    {
+      "strategy": "MACD",
+      "label": "NEUTRAL",
+      "direction": 0,
+      "confidence": 87.5,
+      "summary": "MACD momentum is not aligned",
+      "reasons": [
+        "histogram +0.000091",
+        "histogram falling"
+      ],
+      "metrics": {
+        "histogram": 9.102602303182614e-05,
+        "previous": 0.00012273524410554037,
+        "fast": 12,
+        "slow": 26,
+        "signal": 9
+      }
+    },
+    {
+      "strategy": "EMA_PULLBACK",
+      "label": "NEUTRAL",
+      "direction": 0,
+      "confidence": 66.3,
+      "summary": "Trend is aligned but no pullback trigger yet",
+      "reasons": [
+        "EMA 9/21 stacked bullishly",
+        "price above EMA 50",
+        "close reclaimed the fast EMA"
+      ],
+      "metrics": {
+        "ema_fast": 1.16853453,
+        "ema_slow": 1.1670125,
+        "ema_trend": 1.16373447,
+        "pullback_touched": false,
+        "reclaimed": true
+      }
+    },
+    {
+      "strategy": "DONCHIAN",
+      "label": "NEUTRAL",
+      "direction": 0,
+      "confidence": 0.0,
+      "summary": "Inside the 20-bar channel",
+      "reasons": [],
+      "metrics": {
+        "upper": 1.1697893236189016,
+        "lower": 1.163432841595292
+      }
+    },
+    {
+      "strategy": "SQUEEZE",
+      "label": "NEUTRAL",
+      "direction": 0,
+      "confidence": 0.0,
+      "summary": "Volatility is not compressed",
+      "reasons": [],
+      "metrics": {
+        "squeeze": false,
+        "percentile": 0.667,
+        "bandwidth": 0.005787115652213132
+      }
+    },
+    {
+      "strategy": "STOCH_RSI",
+      "label": "NEUTRAL",
+      "direction": 0,
+      "confidence": 0.0,
+      "summary": "Stochastic RSI at 78.0, no band exit",
+      "reasons": [],
+      "metrics": {
+        "stoch_rsi": 78.02875550139277,
+        "previous": 76.6989093819035
+      }
+    },
+    {
+      "strategy": "RSI_REVERSAL",
+      "label": "NEUTRAL",
+      "direction": 0,
+      "confidence": 0.0,
+      "summary": "RSI 81.0 inside neutral ground",
+      "reasons": [],
+      "metrics": {
+        "rsi": 81.03699393929908,
+        "previous": 81.02040027520539
+      }
+    },
+    {
+      "strategy": "CCI_REVERSION",
+      "label": "NEUTRAL",
+      "direction": 0,
+      "confidence": 0.0,
+      "summary": "CCI 111.3 not at an extreme",
+      "reasons": [],
+      "metrics": {
+        "cci": 111.28319350671099,
+        "previous": 130.06370747626772
+      }
+    }
+  ],
+  "consensus": {
+    "label": "BUY",
+    "direction": 1,
+    "confidence": 80.4,
+    "votes": {
+      "buy": 4,
+      "sell": 1,
+      "neutral": 7
+    },
+    "buy_weight": 383.9,
+    "sell_weight": 41.7
+  }
+}

@@ -1,0 +1,17 @@
+NAME                    LABEL                   MARKETS  DESCRIPTION                                                        
+----------------------  ----------------------  -------  -------------------------------------------------------------------
+SUPERTREND              Supertrend              single   ATR band trend following with flip detection.                      
+EMA_PULLBACK            EMA pullback            single   Buy/sell the first reclaim of the fast EMA inside an aligned trend.
+DIVERGENCE              RSI/MACD divergence     single   Trade a price swing that the oscillator refuses to confirm.        
+DONCHIAN                Donchian breakout       single   Breakout of the prior N-bar high/low with ATR confirmation.        
+SQUEEZE                 Bollinger squeeze       single   Low-volatility compression, resolved by a band break.              
+MACD                    MACD momentum           single   Histogram sign combined with the direction of momentum.            
+KELTNER                 Keltner channel         single   Channel breakout with EMA agreement.                               
+ICHIMOKU                Ichimoku cloud          single   Kumo cloud position with Tenkan/Kijun alignment.                   
+STOCH_RSI               Stochastic RSI          single   Band-exit timing from the stochastic of RSI.                       
+MOMENTUM                ROC momentum burst      single   Rate-of-change burst confirmed by ADX trend strength.              
+RSI_REVERSAL            RSI band reversal       single   Mean reversion after RSI leaves an extreme with band touch.        
+CCI_REVERSION           CCI mean reversion      single   Fade normalized CCI extremes back toward the statistical mean.     
+CORRELATION_DIVERGENCE  Correlation divergence  pair     Cross-market decoupling between a pair of markets.                 
+
+Run 'neezy-cli strategies EURUSD -t 15m' to score them all.

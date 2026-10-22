@@ -1,0 +1,6 @@
+mt5-qoyyuum          [trading] MT5 data plus order_send, positions, history, and symbol tools.
+mt5-ariadng          [trading] MT5 candles, quotes, positions, and market/pending order tools.
+mt5-amirkhonov       [trading] MT5 connection, symbols, rates, ticks, orders, and history tools.
+desktop-windows-mcp  [desktop-control] Screenshots, clicks, typing, PowerShell, files, registry, processes.
+desktop-win32        [desktop-control] Windows automation with allow-lists, dry-run, and timeouts.
+desktop-winremote    [desktop-control] Remote Windows control over stdio or streamable HTTP.

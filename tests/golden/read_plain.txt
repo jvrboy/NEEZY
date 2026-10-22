@@ -1,0 +1,12 @@
+EUR/USD  ·  5m
+price 1.16938   engine BUY (+2/4)   regime Trending
+Supertrend uptrend · line 1.1671686457390071 · 290 bars since flip
+RSI 81.04   ATR 0.064%   MACD hist +0.000091
+Divergences: bearish RSI (2b, 3%)
+
+SUPERTREND: BUY (100% confidence) - Price is in a Supertrend uptrend
+  · Supertrend 10/3 reads up
+  · 290 bar(s) since the last flip
+  · price is +0.19% from the line
+
+Consensus across strategies: BUY (100%) votes {'buy': 1, 'sell': 0, 'neutral': 0}

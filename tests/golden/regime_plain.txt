@@ -1,0 +1,8 @@
+EUR/USD · 5m
+Regime       trend_up
+Volatility   normal
+Trend up: ADX 67.2, up directional movement.
+ADX          67.2  +DI 36.2  -DI 8.0
+Bandwidth    0.00579  (71th percentile)
+
+Educational summary only — not financial advice.

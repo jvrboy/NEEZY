@@ -1,0 +1,80 @@
+[
+  {
+    "name": "SUPERTREND",
+    "label": "Supertrend",
+    "description": "ATR band trend following with flip detection.",
+    "pair": false
+  },
+  {
+    "name": "EMA_PULLBACK",
+    "label": "EMA pullback",
+    "description": "Buy/sell the first reclaim of the fast EMA inside an aligned trend.",
+    "pair": false
+  },
+  {
+    "name": "DIVERGENCE",
+    "label": "RSI/MACD divergence",
+    "description": "Trade a price swing that the oscillator refuses to confirm.",
+    "pair": false
+  },
+  {
+    "name": "DONCHIAN",
+    "label": "Donchian breakout",
+    "description": "Breakout of the prior N-bar high/low with ATR confirmation.",
+    "pair": false
+  },
+  {
+    "name": "SQUEEZE",
+    "label": "Bollinger squeeze",
+    "description": "Low-volatility compression, resolved by a band break.",
+    "pair": false
+  },
+  {
+    "name": "MACD",
+    "label": "MACD momentum",
+    "description": "Histogram sign combined with the direction of momentum.",
+    "pair": false
+  },
+  {
+    "name": "KELTNER",
+    "label": "Keltner channel",
+    "description": "Channel breakout with EMA agreement.",
+    "pair": false
+  },
+  {
+    "name": "ICHIMOKU",
+    "label": "Ichimoku cloud",
+    "description": "Kumo cloud position with Tenkan/Kijun alignment.",
+    "pair": false
+  },
+  {
+    "name": "STOCH_RSI",
+    "label": "Stochastic RSI",
+    "description": "Band-exit timing from the stochastic of RSI.",
+    "pair": false
+  },
+  {
+    "name": "MOMENTUM",
+    "label": "ROC momentum burst",
+    "description": "Rate-of-change burst confirmed by ADX trend strength.",
+    "pair": false
+  },
+  {
+    "name": "RSI_REVERSAL",
+    "label": "RSI band reversal",
+    "description": "Mean reversion after RSI leaves an extreme with band touch.",
+    "pair": false
+  },
+  {
+    "name": "CCI_REVERSION",
+    "label": "CCI mean reversion",
+    "description": "Fade normalized CCI extremes back toward the statistical mean.",
+    "pair": false
+  },
+  {
+    "name": "CORRELATION_DIVERGENCE",
+    "label": "Correlation divergence",
+    "description": "Cross-market decoupling between a pair of markets.",
+    "pair": true
+  }
+]

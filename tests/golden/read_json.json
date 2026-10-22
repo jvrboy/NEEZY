@@ -1,0 +1,136 @@
+{
+  "symbol": "frxEURUSD",
+  "name": "EUR/USD",
+  "timeframe": "5m",
+  "price": 1.1693755918755915,
+  "price_display": "1.16938",
+  "signal": "BUY",
+  "score": 2,
+  "trend": "Bullish",
+  "regime": "Trending",
+  "rsi": 81.03699393929908,
+  "atr": 0.0007480694895087611,
+  "atr_pct": 0.06397170376276738,
+  "macd_histogram": 9.102602303182614e-05,
+  "ema9": 1.1685345330064,
+  "ema21": 1.167012500381883,
+  "ema50": 1.1637344707905353,
+  "bollinger": {
+    "upper": 1.1702986775557085,
+    "middle": 1.1669221209202627,
+    "lower": 1.163545564284817,
+    "percent_b": 0.8633096109766363,
+    "bandwidth": 0.005787115652213275
+  },
+  "adx": {
+    "adx": 67.24595022419058,
+    "plus_di": 36.163089664991176,
+    "minus_di": 8.023817120931657
+  },
+  "stochastic": {
+    "k": 91.09819850595974,
+    "d": 91.69473965573304
+  },
+  "supertrend": {
+    "direction": 1,
+    "label": "uptrend",
+    "line": 1.1671686457390071,
+    "distance_pct": 0.1887,
+    "bars_since_flip": 290,
+    "atr": 0.0007467297353495236,
+    "period": 10,
+    "multiplier": 3.0
+  },
+  "divergences": [
+    {
+      "kind": "bearish",
+      "oscillator": "rsi",
+      "bars_ago": 2,
+      "strength": 0.028,
+      "price_points": [
+        {
+          "index": 293,
+          "price": 1.168913883335515
+        },
+        {
+          "index": 296,
+          "price": 1.1694634089173195
+        }
+      ],
+      "oscillator_points": [
+        {
+          "index": 293,
+          "value": 84.708
+        },
+        {
+          "index": 296,
+          "value": 82.3537
+        }
+      ]
+    }
+  ],
+  "price_action": {
+    "patterns": [
+      {
+        "name": "Doji",
+        "bias": "Neutral"
+      }
+    ],
+    "pivots": {
+      "r2": 1.1698474727846662,
+      "r1": 1.1696115323301286,
+      "pivot": 1.1693649859735349,
+      "s1": 1.1691290455189973,
+      "s2": 1.1688824991624036
+    },
+    "levels": {
+      "support": [
+        1.1651415931164055,
+        1.163432841595292,
+        1.1579733764059743
+      ],
+      "resistance": []
+    }
+  },
+  "strategy": {
+    "strategy": "SUPERTREND",
+    "label": "BUY",
+    "direction": 1,
+    "confidence": 99.6,
+    "summary": "Price is in a Supertrend uptrend",
+    "reasons": [
+      "Supertrend 10/3 reads up",
+      "290 bar(s) since the last flip",
+      "price is +0.19% from the line"
+    ],
+    "metrics": {
+      "line": 1.16716865,
+      "distance_pct": 0.189,
+      "bars_since_flip": 290,
+      "atr": 0.0007467297353495236,
+      "period": 10,
+      "multiplier": 3.0
+    }
+  },
+  "consensus": {
+    "label": "BUY",
+    "direction": 1,
+    "confidence": 100.0,
+    "votes": {
+      "buy": 1,
+      "sell": 0,
+      "neutral": 0
+    },
+    "buy_weight": 99.6,
+    "sell_weight": 0
+  },
+  "why": [
+    "EMA 9 above EMA 21",
+    "Price above EMA 50",
+    "RSI 81.0 overbought",
+    "MACD momentum positive"
+  ],
+  "candles": 299,
+  "learned": null,
+  "brain": null
+}

@@ -1,0 +1,16 @@
+STRATEGY       CALL     CONFIDENCE  SUMMARY                                                    
+-------------  -------  ----------  -----------------------------------------------------------
+KELTNER        BUY      100%        Close outside the Keltner channel with an 20-bar EMA rising
+ICHIMOKU       BUY      100%        Price above the Kumo cloud                                 
+SUPERTREND     BUY      100%        Price is in a Supertrend uptrend                           
+MOMENTUM       BUY      84%         Momentum burst inside a trending market                    
+DIVERGENCE     SELL     42%         Bearish RSI divergence                                     
+MACD           NEUTRAL  88%         MACD momentum is not aligned                               
+EMA_PULLBACK   NEUTRAL  66%         Trend is aligned but no pullback trigger yet               
+DONCHIAN       NEUTRAL  0%          Inside the 20-bar channel                                  
+SQUEEZE        NEUTRAL  0%          Volatility is not compressed                               
+STOCH_RSI      NEUTRAL  0%          Stochastic RSI at 78.0, no band exit                       
+RSI_REVERSAL   NEUTRAL  0%          RSI 81.0 inside neutral ground                             
+CCI_REVERSION  NEUTRAL  0%          CCI 111.3 not at an extreme                                
+
+Consensus: BUY (80%) - votes {'buy': 4, 'sell': 1, 'neutral': 7}

@@ -1,0 +1,14 @@
+{
+  "symbol": "frxEURUSD",
+  "timeframe": "5m",
+  "regime": "trend_up",
+  "summary": "Trend up: ADX 67.2, up directional movement.",
+  "adx": 67.25,
+  "plus_di": 36.16,
+  "minus_di": 8.02,
+  "bandwidth": 0.00579,
+  "bandwidth_percentile": 71.0,
+  "atr_ratio": 1.005,
+  "volatility": "normal",
+  "candles_used": 299
+}

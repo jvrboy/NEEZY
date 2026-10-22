@@ -1,0 +1,13 @@
+MARKET                PRICE    BIAS     SCORE  RSI   ADX   REGIME    RANK
+--------------------  -------  -------  -----  ----  ----  --------  ----
+USD/CHF               1.15416  BUY      +2     79.5  61.3  Trending  59.4
+EUR/USD               1.16938  BUY      +2     81.0  67.2  Trending  59.1
+NZD/USD               1.16206  BUY      +2     83.2  60.6  Trending  58.6
+EUR/JPY               157.205  NEUTRAL  +1     64.9  62.5  Trending  50.7
+GBP/USD               1.16882  NEUTRAL  +0     65.6  64.7  Trending  35.7
+USD/JPY               159.854  NEUTRAL  +0     76.7  74.9  Trending  35.7
+AUD/USD               1.17218  NEUTRAL  +0     76.5  70.9  Trending  35.7
+USD/CAD               1.15641  NEUTRAL  +0     77.8  62.2  Trending  35.7
+EUR/GBP               1.17151  NEUTRAL  +0     74.1  58.9  Trending  35.7
+GBP/JPY               160.293  NEUTRAL  +0     81.7  57.0  Trending  35.7
+Volatility 100 Index  1056.60  NEUTRAL  +0     77.6  69.8  Trending  35.7

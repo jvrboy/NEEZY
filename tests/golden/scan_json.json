@@ -1,0 +1,481 @@
+{
+  "timeframe": "5m",
+  "ranked": [
+    {
+      "symbol": "frxUSDCHF",
+      "signal": "BUY",
+      "score": 2,
+      "regime": "Trending",
+      "opportunity": 59.4
+    },
+    {
+      "symbol": "frxEURUSD",
+      "signal": "BUY",
+      "score": 2,
+      "regime": "Trending",
+      "opportunity": 59.1
+    },
+    {
+      "symbol": "frxNZDUSD",
+      "signal": "BUY",
+      "score": 2,
+      "regime": "Trending",
+      "opportunity": 58.6
+    },
+    {
+      "symbol": "frxEURJPY",
+      "signal": "NEUTRAL",
+      "score": 1,
+      "regime": "Trending",
+      "opportunity": 50.7
+    },
+    {
+      "symbol": "frxGBPUSD",
+      "signal": "NEUTRAL",
+      "score": 0,
+      "regime": "Trending",
+      "opportunity": 35.7
+    },
+    {
+      "symbol": "frxUSDJPY",
+      "signal": "NEUTRAL",
+      "score": 0,
+      "regime": "Trending",
+      "opportunity": 35.7
+    },
+    {
+      "symbol": "frxAUDUSD",
+      "signal": "NEUTRAL",
+      "score": 0,
+      "regime": "Trending",
+      "opportunity": 35.7
+    },
+    {
+      "symbol": "frxUSDCAD",
+      "signal": "NEUTRAL",
+      "score": 0,
+      "regime": "Trending",
+      "opportunity": 35.7
+    },
+    {
+      "symbol": "frxEURGBP",
+      "signal": "NEUTRAL",
+      "score": 0,
+      "regime": "Trending",
+      "opportunity": 35.7
+    },
+    {
+      "symbol": "frxGBPJPY",
+      "signal": "NEUTRAL",
+      "score": 0,
+      "regime": "Trending",
+      "opportunity": 35.7
+    },
+    {
+      "symbol": "R_100",
+      "signal": "NEUTRAL",
+      "score": 0,
+      "regime": "Trending",
+      "opportunity": 35.7
+    }
+  ],
+  "results": {
+    "frxEURUSD": {
+      "signal": "BUY",
+      "score": 2,
+      "rsi": 81.03699393929908,
+      "atr": 0.0007480694895087611,
+      "atr_pct": 0.06397170376276738,
+      "macd_histogram": 9.102602303182614e-05,
+      "trend": "Bullish",
+      "why": [
+        "EMA 9 above EMA 21",
+        "Price above EMA 50",
+        "RSI 81.0 overbought",
+        "MACD momentum positive"
+      ],
+      "ema9": 1.1685345330064,
+      "ema21": 1.167012500381883,
+      "ema50": 1.1637344707905353,
+      "bollinger": {
+        "upper": 1.1702986775557085,
+        "middle": 1.1669221209202627,
+        "lower": 1.163545564284817,
+        "percent_b": 0.8633096109766363,
+        "bandwidth": 0.005787115652213275
+      },
+      "stochastic": {
+        "k": 91.09819850595974,
+        "d": 91.69473965573304
+      },
+      "adx": {
+        "adx": 67.24595022419058,
+        "plus_di": 36.163089664991176,
+        "minus_di": 8.023817120931657
+      },
+      "regime": "Trending",
+      "closed_candles": 299
+    },
+    "frxGBPUSD": {
+      "signal": "NEUTRAL",
+      "score": 0,
+      "rsi": 65.62404499332114,
+      "atr": 0.0007084326640676535,
+      "atr_pct": 0.06061093070956303,
+      "macd_histogram": -0.00022491166109897976,
+      "trend": "Bullish",
+      "why": [
+        "EMA 9 above EMA 21",
+        "Price above EMA 50",
+        "RSI 65.6 overbought",
+        "MACD momentum negative"
+      ],
+      "ema9": 1.1687880259040293,
+      "ema21": 1.167968830061339,
+      "ema50": 1.1649917315348155,
+      "bollinger": {
+        "upper": 1.170445461105474,
+        "middle": 1.1681384944659605,
+        "lower": 1.165831527826447,
+        "percent_b": 0.6477001680368945,
+        "bandwidth": 0.003949816995917325
+      },
+      "stochastic": {
+        "k": 46.35213492442436,
+        "d": 48.47553997953202
+      },
+      "adx": {
+        "adx": 64.66380191271512,
+        "plus_di": 32.89764272074305,
+        "minus_di": 12.901222979732873
+      },
+      "regime": "Trending",
+      "closed_candles": 299
+    },
+    "frxUSDJPY": {
+      "signal": "NEUTRAL",
+      "score": 0,
+      "rsi": 76.65202405872981,
+      "atr": 0.09757139673006887,
+      "atr_pct": 0.06103775584631295,
+      "macd_histogram": -0.010745946791687444,
+      "trend": "Bullish",
+      "why": [
+        "EMA 9 above EMA 21",
+        "Price above EMA 50",
+        "RSI 76.7 overbought",
+        "MACD momentum negative"
+      ],
+      "ema9": 159.72902743711873,
+      "ema21": 159.57404710152755,
+      "ema50": 159.11104670481936,
+      "bollinger": {
+        "upper": 159.8907724215644,
+        "middle": 159.59740304794406,
+        "lower": 159.3040336743237,
+        "percent_b": 0.9376136420136725,
+        "bandwidth": 0.003676367760598471
+      },
+      "stochastic": {
+        "k": 95.63887720489559,
+        "d": 83.15375500722897
+      },
+      "adx": {
+        "adx": 74.8596177057999,
+        "plus_di": 31.955616776562483,
+        "minus_di": 7.660768515007156
+      },
+      "regime": "Trending",
+      "closed_candles": 299
+    },
+    "frxAUDUSD": {
+      "signal": "NEUTRAL",
+      "score": 0,
+      "rsi": 76.52776639873409,
+      "atr": 0.0007101642746812569,
+      "atr_pct": 0.06058478078846111,
+      "macd_histogram": -0.00017918393407751311,
+      "trend": "Bullish",
+      "why": [
+        "EMA 9 above EMA 21",
+        "Price above EMA 50",
+        "RSI 76.5 overbought",
+        "MACD momentum negative"
+      ],
+      "ema9": 1.1715756024224997,
+      "ema21": 1.1705951181074354,
+      "ema50": 1.167091181593764,
+      "bollinger": {
+        "upper": 1.1726107939876267,
+        "middle": 1.1710746742929872,
+        "lower": 1.1695385545983477,
+        "percent_b": 0.860633409930642,
+        "bandwidth": 0.002623435940268995
+      },
+      "stochastic": {
+        "k": 82.11777401087757,
+        "d": 77.86176130605416
+      },
+      "adx": {
+        "adx": 70.86370828932134,
+        "plus_di": 35.64898660905234,
+        "minus_di": 6.829801158751735
+      },
+      "regime": "Trending",
+      "closed_candles": 299
+    },
+    "frxUSDCAD": {
+      "signal": "NEUTRAL",
+      "score": 0,
+      "rsi": 77.76229574035749,
+      "atr": 0.0006792081427105422,
+      "atr_pct": 0.05873398008524619,
+      "macd_histogram": -7.365609140964728e-05,
+      "trend": "Bullish",
+      "why": [
+        "EMA 9 above EMA 21",
+        "Price above EMA 50",
+        "RSI 77.8 overbought",
+        "MACD momentum negative"
+      ],
+      "ema9": 1.155692147443817,
+      "ema21": 1.154538174367814,
+      "ema50": 1.1517162182953988,
+      "bollinger": {
+        "upper": 1.1568049420314623,
+        "middle": 1.1549466046154468,
+        "lower": 1.1530882671994314,
+        "percent_b": 0.8948938562943031,
+        "bandwidth": 0.003218049057141032
+      },
+      "stochastic": {
+        "k": 94.6759808817468,
+        "d": 93.07017524044731
+      },
+      "adx": {
+        "adx": 62.170500773540255,
+        "plus_di": 33.86048514608644,
+        "minus_di": 8.074818535548564
+      },
+      "regime": "Trending",
+      "closed_candles": 299
+    },
+    "frxUSDCHF": {
+      "signal": "BUY",
+      "score": 2,
+      "rsi": 79.47730743843611,
+      "atr": 0.0006984239958871934,
+      "atr_pct": 0.060513364809223036,
+      "macd_histogram": 9.113512849040408e-06,
+      "trend": "Bullish",
+      "why": [
+        "EMA 9 above EMA 21",
+        "Price above EMA 50",
+        "RSI 79.5 overbought",
+        "MACD momentum positive"
+      ],
+      "ema9": 1.1533676806118742,
+      "ema21": 1.1521186964610906,
+      "ema50": 1.1489577374134519,
+      "bollinger": {
+        "upper": 1.1550249171373417,
+        "middle": 1.1520737650188448,
+        "lower": 1.149122612900348,
+        "percent_b": 0.8542855363031191,
+        "bandwidth": 0.005123199934074643
+      },
+      "stochastic": {
+        "k": 98.50553378816642,
+        "d": 95.64675837746131
+      },
+      "adx": {
+        "adx": 61.33488397458874,
+        "plus_di": 35.4944049359742,
+        "minus_di": 8.072732895859778
+      },
+      "regime": "Trending",
+      "closed_candles": 299
+    },
+    "frxNZDUSD": {
+      "signal": "BUY",
+      "score": 2,
+      "rsi": 83.20204174582562,
+      "atr": 0.0008196133455848629,
+      "atr_pct": 0.07053106718449431,
+      "macd_histogram": 0.0002555674058908946,
+      "trend": "Bullish",
+      "why": [
+        "EMA 9 above EMA 21",
+        "Price above EMA 50",
+        "RSI 83.2 overbought",
+        "MACD momentum positive"
+      ],
+      "ema9": 1.159815746251564,
+      "ema21": 1.1585500753886644,
+      "ema50": 1.15604423027179,
+      "bollinger": {
+        "upper": 1.1610400843965312,
+        "middle": 1.1584279087514255,
+        "lower": 1.15581573310632,
+        "percent_b": 1.195230523305801,
+        "bandwidth": 0.004509863109083896
+      },
+      "stochastic": {
+        "k": 97.98894798182431,
+        "d": 93.71429811171033
+      },
+      "adx": {
+        "adx": 60.57280995340811,
+        "plus_di": 43.804984364376104,
+        "minus_di": 5.380939616046729
+      },
+      "regime": "Trending",
+      "closed_candles": 299
+    },
+    "frxEURGBP": {
+      "signal": "NEUTRAL",
+      "score": 0,
+      "rsi": 74.11851251501736,
+      "atr": 0.0007355384536713898,
+      "atr_pct": 0.06278545679171407,
+      "macd_histogram": -0.0001212907016313893,
+      "trend": "Bullish",
+      "why": [
+        "EMA 9 above EMA 21",
+        "Price above EMA 50",
+        "RSI 74.1 overbought",
+        "MACD momentum negative"
+      ],
+      "ema9": 1.170578705633497,
+      "ema21": 1.1697263108831268,
+      "ema50": 1.1666589217981382,
+      "bollinger": {
+        "upper": 1.1716523879851575,
+        "middle": 1.16991736400055,
+        "lower": 1.1681823400159426,
+        "percent_b": 0.959218465718178,
+        "bandwidth": 0.0029660624553421665
+      },
+      "stochastic": {
+        "k": 89.95906946761392,
+        "d": 81.81323376079506
+      },
+      "adx": {
+        "adx": 58.944127108780776,
+        "plus_di": 39.66771202303799,
+        "minus_di": 13.081147309573666
+      },
+      "regime": "Trending",
+      "closed_candles": 299
+    },
+    "frxEURJPY": {
+      "signal": "NEUTRAL",
+      "score": 1,
+      "rsi": 64.90636709411059,
+      "atr": 0.10483133560153028,
+      "atr_pct": 0.06668446300384648,
+      "macd_histogram": -0.01635151818998798,
+      "trend": "Bullish",
+      "why": [
+        "EMA 9 above EMA 21",
+        "Price above EMA 50",
+        "RSI 64.9 neutral",
+        "MACD momentum negative"
+      ],
+      "ema9": 157.14855461680398,
+      "ema21": 157.06671367539235,
+      "ema50": 156.71182346472781,
+      "bollinger": {
+        "upper": 157.24971483423178,
+        "middle": 157.09164210407002,
+        "lower": 156.93356937390826,
+        "percent_b": 0.8586835948604442,
+        "bandwidth": 0.0020124906461547183
+      },
+      "stochastic": {
+        "k": 80.76044511594509,
+        "d": 73.99438465891726
+      },
+      "adx": {
+        "adx": 62.45909474992427,
+        "plus_di": 24.990208139388933,
+        "minus_di": 8.203459355584362
+      },
+      "regime": "Trending",
+      "closed_candles": 299
+    },
+    "frxGBPJPY": {
+      "signal": "NEUTRAL",
+      "score": 0,
+      "rsi": 81.68122360933505,
+      "atr": 0.10106046342450202,
+      "atr_pct": 0.06304744620232515,
+      "macd_histogram": -0.003035830898889924,
+      "trend": "Bullish",
+      "why": [
+        "EMA 9 above EMA 21",
+        "Price above EMA 50",
+        "RSI 81.7 overbought",
+        "MACD momentum negative"
+      ],
+      "ema9": 160.15904226206027,
+      "ema21": 159.97189029450172,
+      "ema50": 159.48941228619265,
+      "bollinger": {
+        "upper": 160.3841012418926,
+        "middle": 159.97520092613874,
+        "lower": 159.56630061038487,
+        "percent_b": 0.8882539693594255,
+        "bandwidth": 0.005112046284507054
+      },
+      "stochastic": {
+        "k": 95.1374456050638,
+        "d": 95.29211377072977
+      },
+      "adx": {
+        "adx": 56.956245088004394,
+        "plus_di": 36.616415111594215,
+        "minus_di": 9.919840799033196
+      },
+      "regime": "Trending",
+      "closed_candles": 299
+    },
+    "R_100": {
+      "signal": "NEUTRAL",
+      "score": 0,
+      "rsi": 77.58404227856828,
+      "atr": 0.6877390375489022,
+      "atr_pct": 0.06508990614946757,
+      "macd_histogram": -0.13814077457506047,
+      "trend": "Bullish",
+      "why": [
+        "EMA 9 above EMA 21",
+        "Price above EMA 50",
+        "RSI 77.6 overbought",
+        "MACD momentum negative"
+      ],
+      "ema9": 1056.0954861198873,
+      "ema21": 1054.8952231793978,
+      "ema50": 1051.412685470496,
+      "bollinger": {
+        "upper": 1057.3239705617164,
+        "middle": 1055.2243295258072,
+        "lower": 1053.124688489898,
+        "percent_b": 0.8272633547518323,
+        "bandwidth": 0.003979515970509651
+      },
+      "stochastic": {
+        "k": 86.17548634012273,
+        "d": 88.8334695377395
+      },
+      "adx": {
+        "adx": 69.81784419929292,
+        "plus_di": 34.33085358885434,
+        "minus_di": 5.998465666239534
+      },
+      "regime": "Trending",
+      "closed_candles": 299
+    }
+  },
+  "errors": {}
+}

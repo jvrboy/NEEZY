@@ -1,0 +1,9 @@
+FIELD      VALUE                   
+---------  ------------------------
+Direction  BUY                     
+Entry      1.10000                 
+Stop       1.09500 (50.0 pips)     
+Target     1.11000 (100.0 pips)    
+Size       0.20 lots (20,000 units)
+Risk       100.00                  
+Reward     200.00                  
