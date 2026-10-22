@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "schema": 1,
   "name": "strategy_playbook",
   "description": "Reference sheet for NEEZY's named strategies: what each rule looks for, its typical regime, and how consensus weights it. Educational reference for the chat assistant and the scan tools.",

@@ -1,0 +1,14 @@
+Backtest · EUR/USD · 5m · 2000 candles
+
+METRIC          VALUE           
+--------------  ----------------
+Trades          155 (155L / 0S) 
+Win rate        87.1%           
+Total           +250.00 R       
+Expectancy      +1.613 R / trade
+Profit factor   13.50           
+Max drawdown    2.00 R          
+Sharpe / trade  1.60            
+Avg bars held   9.3             
+
+Simulated results; past performance does not predict future results.

@@ -1,0 +1,10 @@
+PAIR A   PAIR B                CORRELATION
+-------  --------------------  -----------
+GBP/JPY  Volatility 100 Index  +0.33      
+USD/JPY  GBP/JPY               +0.20      
+USD/CAD  EUR/GBP               +0.20      
+USD/CAD  Volatility 100 Index  -0.20      
+EUR/GBP  EUR/JPY               -0.19      
+GBP/USD  EUR/JPY               +0.19      
+EUR/USD  Volatility 100 Index  -0.16      
+AUD/USD  GBP/JPY               +0.16      

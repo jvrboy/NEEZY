@@ -1,0 +1,5 @@
+Decision Metrics for frxEURUSD (5m):
+  Verdict: STRONG_BUY (80.4% confidence)
+  Consensus: BUY (Votes: {'buy': 4, 'sell': 1, 'neutral': 7})
+  RSI: 81.0 | ADX: 67.2 | ATR: 0.00075
+  Reasons: Strong trend strength (ADX = 67.2)

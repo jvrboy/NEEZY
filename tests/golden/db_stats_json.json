@@ -1,0 +1,16 @@
+{
+  "path": "<NEEZY_HOME>/neezy.sqlite3",
+  "size_bytes": <BYTES>,
+  "size_mb": <MB>,
+  "counts": {
+    "candles": 0,
+    "signals": 0,
+    "snapshots": 0,
+    "ai_calls": 0,
+    "kv": 0,
+    "memory_items": 0
+  },
+  "retention_days": 90,
+  "store_candles": true,
+  "journal_mode": "wal"
+}

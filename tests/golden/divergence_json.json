@@ -1,0 +1,33 @@
+{
+  "symbol": "frxEURUSD",
+  "timeframe": "5m",
+  "lookback": 5,
+  "divergences": [
+    {
+      "kind": "bearish",
+      "oscillator": "rsi",
+      "bars_ago": 2,
+      "strength": 0.028,
+      "price_points": [
+        {
+          "index": 293,
+          "price": 1.168913883335515
+        },
+        {
+          "index": 296,
+          "price": 1.1694634089173195
+        }
+      ],
+      "oscillator_points": [
+        {
+          "index": 293,
+          "value": 84.708
+        },
+        {
+          "index": 296,
+          "value": 82.3537
+        }
+      ]
+    }
+  ]
+}

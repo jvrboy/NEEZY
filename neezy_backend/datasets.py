@@ -8,17 +8,37 @@ first load; ``clear_cache`` forces a reload during tests or hot edits.
 
 Nothing in a dataset is a forecast: entries carry caveats and the weights
 come from backtests over historical candles with a charged spread.
+
+Schema versioning
+-----------------
+Every dataset is a JSON object that declares its layout with a top-level
+``schema_version`` integer, and this module is the reader that enforces it:
+
+* ``SCHEMA_VERSION`` is the layout this build of NEEZY writes and understands.
+* A missing field means version 0: a legacy file from before versioning.
+  Version 0 documents are migrated forward in memory by ``_migrate``. The
+  0 -> 1 migration simply stamps the version -- the v1 layout is the legacy
+  layout plus the ``schema_version`` field, nothing else moved or renamed.
+* A version *higher* than ``SCHEMA_VERSION`` raises ``ValueError`` naming the
+  file, its version and the maximum supported version. A too-new file is
+  never silently misread by an older build.
+* Migration happens in memory only. Shipped files are read-only assets; the
+  loader never rewrites them, so a migrated legacy document lives solely in
+  the returned copy (and the load cache).
 """
 
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from copy import deepcopy
 from functools import cache
 from pathlib import Path
 from typing import Any
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
+
+SCHEMA_VERSION = 1
 
 MARKET_KNOWLEDGE = "market_knowledge.json"
 STRATEGY_PLAYBOOK = "strategy_playbook.json"
@@ -45,14 +65,71 @@ def dataset_path(name: str) -> Path:
     return target
 
 
+def _migrate_0_to_1(document: dict[str, Any]) -> None:
+    """Migration step 0 -> 1: stamp the version on a legacy document.
+
+    Version 0 is every file shipped before the ``schema_version`` field
+    existed. The v1 layout is identical to the legacy layout plus the stamp,
+    so this step is a pure annotation -- no key moves, renames or disappears.
+    """
+    document["schema_version"] = 1
+
+
+# Registered migration steps, keyed by the version they upgrade *from*.
+# Each step must leave ``schema_version`` equal to its target version.
+_MIGRATIONS: dict[int, Callable[[dict[str, Any]], None]] = {
+    0: _migrate_0_to_1,
+}
+
+
+def _document_version(document: dict[str, Any], name: str) -> int:
+    """The declared ``schema_version`` of a loaded document.
+
+    A missing field means version 0 (legacy). Anything that is not a
+    non-negative integer is refused rather than guessed at.
+    """
+    declared = document.get("schema_version", 0)
+    if isinstance(declared, bool) or not isinstance(declared, int):
+        raise ValueError(
+            f"dataset {name} has a non-integer schema_version {declared!r}; "
+            f"expected an integer between 0 and {SCHEMA_VERSION}"
+        )
+    if declared < 0:
+        raise ValueError(
+            f"dataset {name} has a negative schema_version {declared}; "
+            "dataset versions count up from 0"
+        )
+    return declared
+
+
+def _migrate(document: dict[str, Any], version: int) -> dict[str, Any]:
+    """Upgrade ``document`` in memory from ``version`` to ``SCHEMA_VERSION``.
+
+    Applies every registered migration step in order. The caller must have
+    rejected versions above ``SCHEMA_VERSION`` already. The document is
+    migrated in place and returned; the file on disk is never touched.
+    """
+    for step in range(version, SCHEMA_VERSION):
+        _MIGRATIONS[step](document)
+    return document
+
+
 def _read(path: Path) -> dict[str, Any]:
+    """Read a dataset file and return it migrated to the current version."""
     try:
         document = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise ValueError(f"could not read dataset {path.name}: {error}") from error
     if not isinstance(document, dict):
         raise ValueError(f"dataset {path.name} must contain a JSON object")
-    return document
+    version = _document_version(document, path.name)
+    if version > SCHEMA_VERSION:
+        raise ValueError(
+            f"dataset {path.name} declares schema_version {version}, which is "
+            f"newer than this build of NEEZY supports (maximum "
+            f"{SCHEMA_VERSION}); upgrade NEEZY to read it"
+        )
+    return _migrate(document, version)
 
 
 @cache
@@ -61,7 +138,11 @@ def _cached_dataset(path: Path) -> dict[str, Any]:
 
 
 def load_dataset(name: str) -> dict[str, Any]:
-    """Load a cached dataset copy; callers cannot corrupt future reads."""
+    """Load a cached dataset copy; callers cannot corrupt future reads.
+
+    The returned document is always migrated to ``SCHEMA_VERSION`` and
+    carries a ``schema_version`` key; the shipped file is never rewritten.
+    """
     return deepcopy(_cached_dataset(dataset_path(name)))
 
 
@@ -102,7 +183,9 @@ def dataset_summary() -> dict[str, Any]:
     inventory: dict[str, Any] = {}
     for name in list_datasets():
         document = _read(dataset_path(name))
-        keys = sorted(key for key in document if key not in {"schema"})
+        keys = sorted(
+            key for key in document if key not in {"schema", "schema_version"}
+        )
         inventory[name] = {"keys": keys, "bytes": dataset_path(name).stat().st_size}
     weights = model_weights().get("symbols", {})
     return {
@@ -141,7 +224,12 @@ def research_report() -> dict[str, Any]:
     try:
         document = json.loads(json.dumps(load_dataset("ml_research.json")))
     except FileNotFoundError:
-        return {"schema": 1, "symbols": {}, "forex_pairs": {}}
+        return {
+            "schema": 1,
+            "schema_version": SCHEMA_VERSION,
+            "symbols": {},
+            "forex_pairs": {},
+        }
     for record in document.get("symbols", {}).values():
         record.pop("model", None)
     return document

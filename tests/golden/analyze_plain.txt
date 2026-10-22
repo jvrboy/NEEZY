@@ -1,0 +1,19 @@
+EUR/USD · 5m
+BUY  score +2/4  trend Bullish  regime Trending
+
+  · EMA 9 above EMA 21
+  · Price above EMA 50
+  · RSI 81.0 overbought
+  · MACD momentum positive
+
+EMA 9/21/50  1.16853 / 1.16701 / 1.16373
+ATR 14       0.00075 (0.06%)
+Bollinger    1.16355 to 1.17030  %B 0.86
+Stochastic   %K 91.1  %D 91.7
+ADX          67.2  +DI 36.2  -DI 8.0
+Pivots       S2 1.16888  S1 1.16913  P 1.16936  R1 1.16961  R2 1.16985
+Support      1.16514, 1.16343, 1.15797
+Resistance   —
+Patterns     Doji (Neutral)
+
+Educational summary only — not financial advice.

@@ -1,0 +1,33 @@
+{
+  "symbol": "frxEURUSD",
+  "timeframe": "5m",
+  "decision": "STRONG_BUY",
+  "consensus_direction": "BUY",
+  "confidence": 80.4,
+  "strategy_votes": {
+    "buy": 4,
+    "sell": 1,
+    "neutral": 7
+  },
+  "last_price": 1.16867,
+  "atr": 0.00075,
+  "rsi": 81.0,
+  "adx": 67.2,
+  "risk_plan": {
+    "direction": "BUY",
+    "entry": 1.1686740499013206,
+    "stop": 1.1675519456670576,
+    "target": 1.1709182583698468,
+    "stop_pips": 11.22104234263066,
+    "target_pips": 22.44208468526132,
+    "risk_amount": 99.86727684941287,
+    "reward_amount": 199.73455369882575,
+    "lots": 0.89,
+    "units": 89000,
+    "reward_to_risk": 2.0
+  },
+  "drawdown_risk_ok": true,
+  "reasons": [
+    "Strong trend strength (ADX = 67.2)"
+  ]
+}

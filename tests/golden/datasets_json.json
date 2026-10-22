@@ -1,0 +1,244 @@
+{
+  "data_dir": "<REPO>/neezy_backend/data",
+  "datasets": {
+    "backtesting_validation.json": {
+      "keys": [
+        "ai_model_rules",
+        "description",
+        "enrichment",
+        "generated_at",
+        "go_live_checklist",
+        "libraries_and_tools",
+        "methods",
+        "metrics",
+        "name",
+        "overfitting_traps",
+        "pipeline",
+        "principle",
+        "provenance",
+        "python_snippets",
+        "sources",
+        "synthetic_index_specific"
+      ],
+      "bytes": 14566
+    },
+    "correlation_strategies.json": {
+      "keys": [
+        "concepts",
+        "deriv_note",
+        "description",
+        "divergence",
+        "enrichment",
+        "entry_checklist",
+        "generated_at",
+        "name",
+        "negative_correlation",
+        "positive_correlation",
+        "provenance",
+        "python_snippets",
+        "risk_management",
+        "sources",
+        "strategy_table",
+        "summary"
+      ],
+      "bytes": 13284
+    },
+    "decision_rules.json": {
+      "keys": [
+        "description",
+        "generated_at",
+        "global_filters_and_circuit_breakers",
+        "name",
+        "position_sizing_function",
+        "provenance",
+        "regime_classifier",
+        "rules",
+        "sources",
+        "usage_warning"
+      ],
+      "bytes": 9510
+    },
+    "deriv_symbols.json": {
+      "keys": [
+        "captured",
+        "instruments",
+        "note",
+        "source"
+      ],
+      "bytes": 14372
+    },
+    "deriv_synthetic_indices.json": {
+      "keys": [
+        "bottom_line",
+        "common_mistakes",
+        "core_principles",
+        "description",
+        "drift_switch_indices",
+        "enrichment",
+        "generated_at",
+        "index_table",
+        "instrument_family",
+        "name",
+        "not_to_confuse",
+        "other_synthetic_indices",
+        "product_selection",
+        "progression_plan",
+        "provenance",
+        "sources",
+        "strategies",
+        "trading_plan_template",
+        "what_it_is"
+      ],
+      "bytes": 34270
+    },
+    "general_strategies.json": {
+      "keys": [
+        "combining_strategies",
+        "description",
+        "filters_library",
+        "generated_at",
+        "name",
+        "note",
+        "provenance",
+        "sources",
+        "strategies",
+        "strategy_selector",
+        "trade_management_library"
+      ],
+      "bytes": 10051
+    },
+    "knowledge.json": {
+      "keys": [
+        "generated_at",
+        "method",
+        "symbols"
+      ],
+      "bytes": 112276
+    },
+    "knowledge_index.json": {
+      "keys": [
+        "critical_honesty_notes",
+        "description",
+        "evidence_levels",
+        "generated_at",
+        "imported_datasets",
+        "kb_name",
+        "load_order",
+        "name",
+        "provenance",
+        "purpose",
+        "safety_rules",
+        "sources",
+        "version"
+      ],
+      "bytes": 4992
+    },
+    "market_knowledge.json": {
+      "keys": [
+        "deriv_api",
+        "description",
+        "generated_at",
+        "glossary",
+        "indicators",
+        "name",
+        "patterns",
+        "risk_rules",
+        "sources"
+      ],
+      "bytes": 8734
+    },
+    "ml_research.json": {
+      "keys": [
+        "captured_at",
+        "caveats",
+        "endpoint",
+        "forex_pairs",
+        "method",
+        "settings",
+        "symbols",
+        "timeframe"
+      ],
+      "bytes": 84358
+    },
+    "model_weights.json": {
+      "keys": [
+        "confidence_definition",
+        "method",
+        "source",
+        "symbols",
+        "trained_at"
+      ],
+      "bytes": 14593
+    },
+    "psychology_journaling.json": {
+      "keys": [
+        "ai_response_guidance",
+        "biases",
+        "daily_routine",
+        "description",
+        "drawdown_protocol",
+        "enrichment",
+        "generated_at",
+        "healthy_habits",
+        "journal_template",
+        "name",
+        "performance_slicing",
+        "principle",
+        "provenance",
+        "review_routine",
+        "sources",
+        "warning_signs_of_problem_gambling"
+      ],
+      "bytes": 6495
+    },
+    "qa_training_pairs.json": {
+      "keys": [
+        "description",
+        "format",
+        "generated_at",
+        "name",
+        "pairs",
+        "provenance",
+        "sources"
+      ],
+      "bytes": 16803
+    },
+    "risk_management.json": {
+      "keys": [
+        "description",
+        "enrichment",
+        "generated_at",
+        "name",
+        "principle",
+        "provenance",
+        "sources",
+        "topics"
+      ],
+      "bytes": 8831
+    },
+    "strategy_playbook.json": {
+      "keys": [
+        "consensus",
+        "description",
+        "generated_at",
+        "name",
+        "source",
+        "strategies"
+      ],
+      "bytes": 3916
+    },
+    "trading_fundamentals.json": {
+      "keys": [
+        "description",
+        "enrichment",
+        "generated_at",
+        "name",
+        "provenance",
+        "sources",
+        "topics"
+      ],
+      "bytes": 16424
+    }
+  },
+  "weighted_symbols": 89
+}

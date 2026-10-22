@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import AppSettings
+from .sandbox import PathNotAllowedError, resolve_within
 
 
 def get_data_dir() -> Path:
@@ -41,24 +42,30 @@ def sanitize_path(
 ) -> Path:
     """Sanitize and sandbox a file path to prevent directory traversal outside base_dir.
 
+    Thin wrapper over :func:`neezy_backend.sandbox.resolve_within`, which is the
+    single traversal guard for the whole app. Two behavioural additions are
+    kept for backward compatibility:
+
+    - ``expanduser()`` is applied first, so ``~``-relative paths work;
+    - ``allow_absolute=True`` is an explicit escape hatch that returns the
+      resolved path even when it lives outside the sandbox root (null bytes
+      are still rejected). Never enable it for model- or user-supplied paths
+      unless the caller has an independent reason to trust them.
+
     If base_dir is None, get_data_dir() is used as the sandbox boundary.
     """
     root = (base_dir or get_data_dir()).resolve()
     candidate = Path(path).expanduser()
-
-    if not candidate.is_absolute():
-        candidate = root / candidate
-
-    resolved = candidate.resolve()
-
     try:
-        resolved.relative_to(root)
-    except ValueError as err:
-        if not allow_absolute:
-            msg = f"Path traversal blocked: '{path}' is outside sandboxed root '{root}'"
-            raise ValueError(msg) from err
-
-    return resolved
+        return resolve_within(root, candidate)
+    except PathNotAllowedError as err:
+        if "\0" in str(candidate):
+            raise
+        if allow_absolute:
+            anchored = candidate if candidate.is_absolute() else root / candidate
+            return anchored.resolve()
+        msg = f"Path traversal blocked: '{path}' is outside sandboxed root '{root}'"
+        raise ValueError(msg) from err
 
 
 def create_local_backup(
@@ -403,6 +410,37 @@ class ConfluenceHistoryStore:
             if isinstance(record, dict) and all(key in record for key in self.REQUIRED):
                 records.append(record)
         return records
+
+    def append_signal(self, signal: Any) -> dict[str, Any]:
+        """Persist a :class:`ConfluenceSignal` through the typed protocol.
+
+        Roadmap #3: the signal dataclass is the contract between confluence,
+        the UI, and this store; hand-built record dicts are no longer needed
+        on the write path. The import is local to keep storage importable
+        without pulling the strategy stack.
+        """
+        from .confluence import ConfluenceSignal
+
+        if not isinstance(signal, ConfluenceSignal):
+            raise TypeError("append_signal expects a ConfluenceSignal")
+        return self.append(signal.as_history_record())
+
+    def read_signals(self, limit: int = 1000) -> list[Any]:
+        """Read recent records back as typed signals (newest last).
+
+        Corrupt lines are already skipped by :meth:`read`; records that pass
+        the REQUIRED check but still fail typed validation are skipped here
+        as well, mirroring the store's tolerant-read philosophy.
+        """
+        from .confluence import ConfluenceSignal
+
+        signals: list[ConfluenceSignal] = []
+        for record in self.read(limit):
+            try:
+                signals.append(ConfluenceSignal.from_history_record(record))
+            except ValueError:
+                continue
+        return signals
 
     def update_outcomes(self, resolutions: Mapping[tuple[str, str], str]) -> int:
         """Persist resolved outcomes for (symbol, timestamp) keys atomically.

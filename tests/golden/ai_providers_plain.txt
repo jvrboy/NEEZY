@@ -1,0 +1,8 @@
+PROVIDER       MODELS  KEYS  USABLE  BASE URL                                        
+-------------  ------  ----  ------  ------------------------------------------------
+Google Gemini  4       0     0       https://generativelanguage.googleapis.com/v1beta
+Grok (xAI)     3       0     0       https://api.x.ai/v1                             
+OpenRouter     7       0     0       https://openrouter.ai/api/v1                    
+Ollama Cloud   6       0     0       https://ollama.com/v1                           
+
+Free models only; add keys with 'neezy-cli ai keys add PROVIDER'.

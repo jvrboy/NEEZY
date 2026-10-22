@@ -1,0 +1,23 @@
+Shipped knowledge datasets:
+  backtesting_validation.json  14566 bytes  [ai_model_rules, description, enrichment, generated_at, go_live_checklist, libraries_and_tools]
+  correlation_strategies.json  13284 bytes  [concepts, deriv_note, description, divergence, enrichment, entry_checklist]
+  decision_rules.json  9510 bytes  [description, generated_at, global_filters_and_circuit_breakers, name, position_sizing_function, provenance]
+  deriv_symbols.json  14372 bytes  [captured, instruments, note, source]
+  deriv_synthetic_indices.json  34270 bytes  [bottom_line, common_mistakes, core_principles, description, drift_switch_indices, enrichment]
+  general_strategies.json  10051 bytes  [combining_strategies, description, filters_library, generated_at, name, note]
+  knowledge.json  112276 bytes  [generated_at, method, symbols]
+  knowledge_index.json  4992 bytes  [critical_honesty_notes, description, evidence_levels, generated_at, imported_datasets, kb_name]
+  market_knowledge.json  8734 bytes  [deriv_api, description, generated_at, glossary, indicators, name]
+  ml_research.json  84358 bytes  [captured_at, caveats, endpoint, forex_pairs, method, settings]
+  model_weights.json  14593 bytes  [confidence_definition, method, source, symbols, trained_at]
+  psychology_journaling.json  6495 bytes  [ai_response_guidance, biases, daily_routine, description, drawdown_protocol, enrichment]
+  qa_training_pairs.json  16803 bytes  [description, format, generated_at, name, pairs, provenance]
+  risk_management.json  8831 bytes  [description, enrichment, generated_at, name, principle, provenance]
+  strategy_playbook.json  3916 bytes  [consensus, description, generated_at, name, source, strategies]
+  trading_fundamentals.json  16424 bytes  [description, enrichment, generated_at, name, provenance, sources]
+
+Learned weights cover 89 symbols (out-of-sample backtests on past candles; not a forecast).
+
+Indicators: EMA, RSI, MACD, ATR, Bollinger, Supertrend, Stochastic, ADX, Keltner, Donchian, CCI, Williams %R, Stochastic RSI
+Patterns: Bullish engulfing, Bearish engulfing, Hammer, Shooting star, Doji, Inside bar
+Strategies: SUPERTREND, EMA_PULLBACK, DIVERGENCE, DONCHIAN, SQUEEZE, MACD, KELTNER, CORRELATION_DIVERGENCE

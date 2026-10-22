@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "schema": 1,
   "name": "risk_management.json",
   "description": "Position sizing, loss control, drawdown protocols and survival-first risk rules. Rules are educational defaults, not personalized advice.",

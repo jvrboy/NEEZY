@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "schema": 1,
   "name": "trading_fundamentals.json",
   "description": "Core trading vocabulary and concepts: instruments, orders, charts, indicator definitions and market mechanics. Reference material for the offline assistant; educational only.",

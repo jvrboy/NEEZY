@@ -1,0 +1,74 @@
+[
+  {
+    "key": "gemini",
+    "label": "Google Gemini",
+    "base_url": "https://generativelanguage.googleapis.com/v1beta",
+    "api_style": "gemini",
+    "models": [
+      "gemini-2.5-flash",
+      "gemini-2.5-flash-lite",
+      "gemini-2.0-flash",
+      "gemini-2.0-flash-lite"
+    ],
+    "key_url": "https://aistudio.google.com/app/apikey",
+    "key_prefix": "AIza",
+    "notes": "Free tier has per-minute and per-day request limits per key.",
+    "keys": 0,
+    "usable_keys": 0
+  },
+  {
+    "key": "grok",
+    "label": "Grok (xAI)",
+    "base_url": "https://api.x.ai/v1",
+    "api_style": "openai",
+    "models": [
+      "grok-3-mini",
+      "grok-4-fast",
+      "grok-code-fast-1"
+    ],
+    "key_url": "https://console.x.ai",
+    "key_prefix": "xai-",
+    "notes": "xAI's free allowance is credit based; add several keys to rotate.",
+    "keys": 0,
+    "usable_keys": 0
+  },
+  {
+    "key": "openrouter",
+    "label": "OpenRouter",
+    "base_url": "https://openrouter.ai/api/v1",
+    "api_style": "openai",
+    "models": [
+      "deepseek/deepseek-r1:free",
+      "deepseek/deepseek-chat-v3.1:free",
+      "meta-llama/llama-3.3-70b-instruct:free",
+      "qwen/qwen3-235b-a22b:free",
+      "moonshotai/kimi-k2:free",
+      "mistralai/mistral-small-3.2-24b-instruct:free",
+      "z-ai/glm-4.5-air:free"
+    ],
+    "key_url": "https://openrouter.ai/keys",
+    "key_prefix": "sk-or-",
+    "notes": "Free models end in ':free'; daily request caps are per key.",
+    "keys": 0,
+    "usable_keys": 0
+  },
+  {
+    "key": "ollama",
+    "label": "Ollama Cloud",
+    "base_url": "https://ollama.com/v1",
+    "api_style": "openai",
+    "models": [
+      "gpt-oss:20b",
+      "gpt-oss:120b",
+      "qwen3-coder:480b",
+      "deepseek-v3.1:671b",
+      "kimi-k2:1t",
+      "glm-4.6"
+    ],
+    "key_url": "https://ollama.com/settings/keys",
+    "key_prefix": "",
+    "notes": "Uses Ollama's OpenAI-compatible endpoint with a cloud API key.",
+    "keys": 0,
+    "usable_keys": 0
+  }
+]
