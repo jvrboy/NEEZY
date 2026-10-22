@@ -15,7 +15,7 @@ to `main` so progress survives if the run is interrupted.
 | Updates remaining | 449 |
 | Run started | 2026-10-22 (SAST); resumed in a fresh session same day |
 | Baseline at run start | commit `9a17b52`, v1.6.0 |
-| CI on main | batch 4 pushed; verify via list_workflow_runs |
+| CI on main | GREEN on `804d717` (Python CI 3.10/3.11/3.12 all pass; golden JSON float-tolerance fix applied) |
 | Suite size | 869 tests (682 → +187 across batches 4+5) |
 
 ## Batch 5 summary (verified before push)
@@ -30,6 +30,10 @@ to `main` so progress survives if the run is interrupted.
   validation off by default in production.
 - Stream lifecycle race stress tests (#41): 6 tests, fake WebSocketApp,
   no deadlocks, exactly-once `stopped`.
+- CI follow-up: batch 4/5 golden JSON fixtures failed on 3.10/3.11
+  (statistics-correlation ULP drift). Fixed by float-tolerant JSON
+  comparison (`math.isclose` rel 1e-9; strings/structure stay exact).
+  Python CI green on `804d717`.
 
 ## Batch 4 summary (verified before push)
 
