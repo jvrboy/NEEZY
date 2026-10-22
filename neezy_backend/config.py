@@ -359,6 +359,10 @@ class AppSettings:
         return replace(self, **changes)
 
     def to_dict(self) -> dict[str, Any]:
+        # Roadmap #133 audit: exactly one call site (SettingsStore.save) and
+        # 91 scalar fields, so asdict is not on any hot path — a cache would
+        # be premature complexity (and slots make it awkward). Left uncached
+        # deliberately; revisit if a polling consumer appears.
         return asdict(self)
 
     @classmethod

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.request
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -494,6 +495,64 @@ def resolve_provider(name: str) -> ProviderSpec:
 
 
 # ===========================================================================
+# Response cache: short-TTL, per-request-key (roadmap #105)
+# ===========================================================================
+
+
+class ProviderResponseCache:
+    """In-memory TTL cache in front of provider fetches.
+
+    Repeated analysis within the TTL window (default 30 s) is served from
+    memory instead of hammering the provider and its rate limits. Entries are
+    keyed by the exact request tuple; ``invalidate`` clears everything so
+    tests and explicit refreshes can force a live fetch.
+    """
+
+    def __init__(self, ttl_seconds: float = 30.0, max_entries: int = 128) -> None:
+        if ttl_seconds <= 0:
+            raise ValueError("ttl_seconds must be positive")
+        if max_entries < 1:
+            raise ValueError("max_entries must be at least 1")
+        self.ttl_seconds = ttl_seconds
+        self.max_entries = max_entries
+        self._entries: dict[tuple, tuple[float, list[Candle]]] = {}
+        self.hits = 0
+        self.misses = 0
+
+    def get(self, key: tuple) -> list[Candle] | None:
+        entry = self._entries.get(key)
+        if entry is None:
+            self.misses += 1
+            return None
+        stamp, candles = entry
+        if time.monotonic() - stamp > self.ttl_seconds:
+            del self._entries[key]
+            self.misses += 1
+            return None
+        self.hits += 1
+        return list(candles)
+
+    def put(self, key: tuple, candles: list[Candle]) -> None:
+        if len(self._entries) >= self.max_entries:
+            oldest = min(self._entries, key=lambda k: self._entries[k][0])
+            del self._entries[oldest]
+        self._entries[key] = (time.monotonic(), list(candles))
+
+    def invalidate(self) -> None:
+        self._entries.clear()
+
+    def stats(self) -> dict[str, int]:
+        return {
+            "entries": len(self._entries),
+            "hits": self.hits,
+            "misses": self.misses,
+        }
+
+
+_RESPONSE_CACHE = ProviderResponseCache()
+
+
+# ===========================================================================
 # Key store: provider-keys.json (owner-only file) with environment fallback
 # ===========================================================================
 
@@ -573,6 +632,10 @@ def get_candles(
     """
     spec = resolve_provider(provider)
     seconds = TIMEFRAMES[timeframe] if timeframe in TIMEFRAMES else int(timeframe)
+    cache_key = (spec.key, symbol, timeframe, int(count))
+    cached = _RESPONSE_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
     candles: list[Candle]
     if spec.key == "deriv":
         from .stream import fetch_candles
@@ -591,6 +654,9 @@ def get_candles(
         limit = int(count)
         if limit and len(candles) > limit:
             candles = candles[-limit:]
+        if fetcher is None:
+            # Only live fetches are cached; injected test fetchers are not.
+            _RESPONSE_CACHE.put(cache_key, candles)
     return candles
 
 

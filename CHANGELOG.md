@@ -1,5 +1,36 @@
 # CHANGELOG
 
+## [Unreleased] — Batch 3: caching & storage hygiene (roadmap #105-#164, 8 items; total 40/500)
+
+### Added
+- `neezy_backend/providers.py`: `ProviderResponseCache` — a 30 s TTL,
+  bounded-size cache in front of live provider fetches (injected test
+  fetchers bypass it). Repeated analysis inside the window no longer hammers
+  provider rate limits; `invalidate()` and `stats()` included.
+- `LocalDatabase.maintenance()`: one cheap maintenance pass — truncates the
+  WAL (`PRAGMA wal_checkpoint(TRUNCATE)`) and rotates snapshot rows older than
+  the retention window. Safe on a timer or before backups.
+- `tests/test_perf_smoke.py`: generous ceilings that catch order-of-magnitude
+  regressions (indicator analysis 5 k candles < 2 s, bulk insert < 3 s, cache
+  hits) plus `ProviderResponseCache` unit tests (TTL expiry, eviction, copy
+  isolation).
+
+### Changed
+- `LocalDatabase` connection setup now sets `wal_autocheckpoint=1000` and
+  `busy_timeout=10000` so the WAL cannot grow unbounded between prunes.
+- `create_local_backup` prunes the backups directory oldest-first beyond 20
+  archives (`prune_backups`, configurable) — the directory can no longer grow
+  unbounded.
+- `SignalHistoryStore` compacts an oversized history file at construction
+  (bounded to one rewrite of the newest records) instead of only on the next
+  append.
+
+### Verified closed (no change needed)
+- Roadmap #133 (config `to_dict` caching): exactly one call site and 91 scalar
+  fields — caching would be premature; decision documented in code.
+- Roadmap #136 (symbol catalog load-once): already implemented via
+  `lru_cache(maxsize=1)` in `neezy_backend/catalog.py`.
+
 ## [Unreleased] — Batch 2: architecture & tooling (roadmap #8-#87, 12 items; total 32/500)
 
 ### Added

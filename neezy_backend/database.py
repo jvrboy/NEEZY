@@ -140,6 +140,11 @@ class LocalDatabase:
         with self._lock:
             self._connection.execute("PRAGMA journal_mode=WAL")
             self._connection.execute("PRAGMA synchronous=NORMAL")
+            # Roadmap #130: bounded WAL growth and polite contention behavior.
+            # 1000 pages (~4 MB with 4 KB pages) keeps checkpoints cheap while
+            # stopping the WAL file from growing without bound between prunes.
+            self._connection.execute("PRAGMA wal_autocheckpoint=1000")
+            self._connection.execute("PRAGMA busy_timeout=10000")
             self._connection.execute("PRAGMA foreign_keys=ON")
             self._connection.executescript(_SCHEMA)
             try:
@@ -576,6 +581,32 @@ class LocalDatabase:
         with self._lock:
             self._connection.commit()
             self._connection.execute("VACUUM")
+
+    def maintenance(self) -> dict[str, int]:
+        """One cheap, lock-friendly maintenance pass (roadmap #130/#144).
+
+        Truncates the WAL back to the main database file and prunes snapshot
+        rows beyond the retention window in bounded batches. Safe to run on a
+        timer (the background scheduler) or before a backup.
+        """
+        result: dict[str, int] = {}
+        with self._lock:
+            self._connection.commit()
+            cursor = self._connection.execute(
+                "DELETE FROM snapshots WHERE created_at < ?",
+                (
+                    (_now() - timedelta(days=self.retention_days)).isoformat(
+                        timespec="seconds"
+                    ),
+                ),
+            )
+            result["snapshots_removed"] = cursor.rowcount
+            self._connection.commit()
+            checkpoint = self._connection.execute(
+                "PRAGMA wal_checkpoint(TRUNCATE)"
+            ).fetchone()
+            result["wal_checkpoint"] = int(checkpoint[0]) if checkpoint else 0
+        return result
 
     def export_json(self, destination: Path | str) -> dict[str, int]:
         """Write a portable JSON dump; returns the row counts per table."""

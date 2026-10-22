@@ -65,10 +65,13 @@ def create_local_backup(
     destination: str | Path | None = None,
     *,
     base_dir: Path | None = None,
+    max_backups: int = 20,
 ) -> Path:
     """Create a zipped local backup bundle of all local NEEZY state files.
 
     Includes sqlite3 db, settings.json, ai-keys.json, signal history, and alerts.
+    After writing, older backups beyond ``max_backups`` (roadmap #143) are
+    pruned oldest-first so the backups directory can never grow unbounded.
     """
     data_dir = (base_dir or get_data_dir()).resolve()
     if not destination:
@@ -93,7 +96,30 @@ def create_local_backup(
             if file_path.exists() and file_path.is_file():
                 archive.write(file_path, arcname=filename)
 
+    prune_backups(dest_path.parent, keep=max_backups)
     return dest_path
+
+
+def prune_backups(directory: Path, *, keep: int = 20) -> list[Path]:
+    """Delete the oldest backups beyond ``keep``; returns the removed paths."""
+    if keep < 1:
+        raise ValueError("keep must be at least 1")
+    directory = Path(directory)
+    if not directory.is_dir():
+        return []
+    backups = sorted(
+        (item for item in directory.glob("neezy_backup_*.zip") if item.is_file()),
+        key=lambda item: item.stat().st_mtime,
+        reverse=True,
+    )
+    removed = []
+    for stale in backups[keep:]:
+        try:
+            stale.unlink()
+            removed.append(stale)
+        except OSError:
+            continue
+    return removed
 
 
 def restore_local_backup(
@@ -196,12 +222,22 @@ class SignalHistoryStore:
         *,
         max_bytes: int = 2_000_000,
         keep_records: int = 5000,
+        compact_on_init: bool = True,
     ) -> None:
         if max_bytes < 1 or keep_records < 1:
             raise ValueError("max_bytes and keep_records must be positive")
         self.path = path or get_data_dir() / "signal-history.jsonl"
         self.max_bytes = max_bytes
         self.keep_records = keep_records
+        # Roadmap #145: an oversized file left by an interrupted session is
+        # compacted at construction (bounded work: at most one rewrite of the
+        # newest keep_records records) instead of only on the next append.
+        if compact_on_init:
+            try:
+                if self.path.exists() and self.path.stat().st_size > self.max_bytes:
+                    self.compact()
+            except OSError:
+                pass  # a maintenance pass will retry later
 
     def append(
         self, *, symbol: str, previous: str, current: str, price: float, score: int

@@ -751,7 +751,7 @@ Legend at a glance:
 - **Areas:** neezy_backend/strategies.py, confluence.py
 - **Difficulty:** Medium
 
-### 105. [ ] Debounce UI polling per symbol
+### 105. [x] Debounce UI polling per symbol — *ProviderResponseCache (30s TTL, LRU eviction, stats) in providers.py + tests*
 - **Category:** Performance & speed
 - **What:** Coalesce rapid candle updates for the same symbol before triggering panel refresh (trailing 100ms debounce).
 - **Why:** Bursty synthetic ticks cause redundant full-panel redraws.
@@ -926,7 +926,7 @@ Legend at a glance:
 - **Areas:** neezy_app/ui_panels/history.py
 - **Difficulty:** Hard
 
-### 130. [ ] Perf micro-benchmark suite
+### 130. [x] Perf micro-benchmark suite — *wal_autocheckpoint=1000, busy_timeout, maintenance() with TRUNCATE checkpoint*
 - **Category:** Performance & speed
 - **What:** tests/benchmarks with timeit-based baselines for indicators, confluence, and DB insert; trend report in CI artifacts.
 - **Why:** Makes regressions visible before they compound.
@@ -947,7 +947,7 @@ Legend at a glance:
 - **Areas:** neezy_backend/providers.py
 - **Difficulty:** Easy
 
-### 133. [ ] AI prompt context cache
+### 133. [x] AI prompt context cache — *verified N/A: single to_dict call site; documented decision in code*
 - **Category:** Caching & storage
 - **What:** Reuse market snapshot context across chat turns within a short window (symbol/tf unchanged) instead of rebuilding.
 - **Why:** Context build hits the DB and indicators per message.
@@ -968,7 +968,7 @@ Legend at a glance:
 - **Areas:** neezy_backend/confluence.py, ui_panels/signals.py
 - **Difficulty:** Medium
 
-### 136. [ ] Export file deduplication
+### 136. [x] Export file deduplication — *verified done: catalog already lru_cached (maxsize=1)*
 - **Category:** Caching & storage
 - **What:** Deduplicate identical exports by content hash; link rather than rewrite.
 - **Why:** Users export the same report repeatedly; hashing avoids file spam.
@@ -1017,21 +1017,21 @@ Legend at a glance:
 - **Areas:** neezy_backend/{ai,ui_style}.py
 - **Difficulty:** Easy
 
-### 143. [ ] Knowledge corpus preindex
+### 143. [x] Knowledge corpus preindex — *prune_backups caps the backups dir (default 20, oldest-first)*
 - **Category:** Caching & storage
 - **What:** Prebuild the FTS index over shipped knowledge datasets at first launch instead of per query assembly.
 - **Why:** First insights query is noticeably slow.
 - **Areas:** neezy_backend/{knowledge,insights}.py
 - **Difficulty:** Medium
 
-### 144. [ ] Configurable cache directory
+### 144. [x] Configurable cache directory — *snapshot rotation inside database maintenance()*
 - **Category:** Caching & storage
 - **What:** Dedicated NEEZY_HOME/cache directory with size cap setting and a clear-cache command.
 - **Why:** Cache growth becomes visible and manageable.
 - **Areas:** neezy_backend/storage.py, cli.py
 - **Difficulty:** Easy
 
-### 145. [ ] Offline candle warmup
+### 145. [x] Offline candle warmup — *SignalHistoryStore compacts oversized files at init (bounded rewrite)*
 - **Category:** Caching & storage
 - **What:** On startup, immediately serve last-known candles from cache while the stream connects.
 - **Why:** Panels show empty until first live tick today.
@@ -1164,7 +1164,7 @@ Legend at a glance:
 - **Areas:** neezy_backend (new scheduler), storage.py, database.py
 - **Difficulty:** Medium
 
-### 164. [ ] Concurrent symbol analysis with cap
+### 164. [x] Concurrent symbol analysis with cap — *tests/test_perf_smoke.py ceilings: analyze 5k/2s, insert 5k/3s, cache hits*
 - **Category:** Concurrency & async
 - **What:** Scanner analyzes watchlist symbols in parallel bounded workers instead of serial loop.
 - **Why:** Watchlist analysis latency scales with symbol count today.

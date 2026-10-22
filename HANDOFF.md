@@ -9,23 +9,31 @@ to `main` so progress survives if the run is interrupted.
 
 | Item | Value |
 |------|-------|
-| Phase | 4 (batched implementation) |
-| Current batch | Batch 2 COMPLETE (12 updates: #8,11,33,36,51,54,67,68,75,76,85,87) |
-| Next batch | Batch 3 — performance/caching wave 2 picks (provider TTL cache #106, watchlist batching #120, statement reuse #128, AI streaming groundwork, perf smoke #164, etc.) |
-| Updates completed | 32/500 |
-| Updates remaining | 468 |
+| Phase | 4 (batched implementation) — run context ending; see Next steps |
+| Current batch | Batch 3 COMPLETE (8 updates: #105,130,133,136,143,144,145,164) |
+| Updates completed | 40/500 (34 implemented + 6 verified-already-done/N-A across batches) |
+| Updates remaining | 460 |
 | Run started | 2026-10-22 (SAST) |
 | Baseline at run start | commit `9a17b52`, v1.6.0 |
-| CI on main | verify after batch 2 push (was green on 11f6368) |
+| CI on main | green through batch 2 (72ee05e in progress at last check) |
 
-## Batch 2 summary (verified before push)
+## Batch 3 summary (verified before push)
 
-- Suite: **673 tests OK** (630 → +43).
-- `ruff check .` / `ruff format --check .` clean; compileall clean.
-- New modules: `neezy_app/theme.py`, `neezy_backend/capabilities.py`;
-  new tests: api contracts, MCP robustness, provider errors, doctests,
-  error messages, theme; docs: RELEASING/CONTRIBUTING/SETTINGS.md;
-  menu dispatch table; local_ci --full parity.
+- Suite: **682 tests OK** (673 → +9).
+- Provider TTL response cache; DB maintenance() + WAL tuning; backup
+  retention pruning; history compaction at startup; perf smoke ceilings.
+
+## Exact next step for the next run/session
+
+1. Read this file and ROADMAP.md; resume at **Batch 4**.
+2. Recommended Batch 4 (wave-1 leftovers): #1 split CLI monolith,
+   #3 Signal dataclass, #4 unify path jails, #12 AI package split,
+   #19 dataset schema versioning, #37 property-based indicator tests,
+   #39 CLI golden files, #40 e2e offline pipeline.
+3. Workflow per batch: implement → full local gates (`python local_ci.py
+   --full`) → mark ROADMAP entries `[x]` → CHANGELOG section → update this
+   file → `python /home/z/my-project/scripts/push_repo.py "<message>"`.
+4. Watch CI via ClaudeBridge `list_workflow_runs` after each push.
 
 ## Batch 1 summary (verified before push)
 
