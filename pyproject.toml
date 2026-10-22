@@ -21,6 +21,9 @@ local-transformers = [
   "safetensors>=0.4",
 ]
 local-disk-offload = ["accelerate>=1.0"]
+# MT5 on Linux, Termux, Colab, Codespaces: talks RPyC to a Wine-hosted terminal
+# (mt5linux server). No MetaTrader5 wheel needed on the client.
+mt5-remote = ["rpyc>=6.0,<7"]
 
 [project.scripts]
 neezy = "neezy_app.launcher:main"

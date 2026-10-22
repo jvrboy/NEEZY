@@ -152,6 +152,63 @@ Without `--confirm` an order is refused. With `--confirm` but no connected termi
 
 **Third-party MCP servers.** `neezy-cli mcp list`, `mcp show <id>`, and `mcp config <id>` describe six community MCP servers for MetaTrader 5 and Windows desktop control. NEEZY does not install, run, or connect to them. `mcp config` prints a client config with the read-only profile where the server offers one; `--unsafe` prints the full-access config. Two handle your broker password badly: Qoyyuum's server takes it through a login tool call, so the AI client sees it, and ariadng's config puts it on the command line. Review both before use.
 
+## MT5 on other devices (Termux, Colab, Codespaces, Linux)
+
+The `MetaTrader5` package installs only on Windows. Everywhere else NEEZY can talk to a
+MetaTrader 5 terminal that runs on another machine, over RPyC, using the
+[mt5linux](https://github.com/lucas-campagna/mt5linux) server.
+
+**1. On the machine that runs MT5** (Windows, or Linux with Wine):
+
+- Install MetaTrader 5, log in to the broker account, and get `mt5server.exe` from the
+  [mt5linux releases](https://github.com/lucas-campagna/mt5linux/releases).
+- Start the server under Wine: `wine mt5server.exe -p 18812` (18812 is the default).
+- Keep the port private. The server runs code sent by any client that can reach it.
+  Reach it through an SSH tunnel or a VPN such as Tailscale. Never forward it to the
+  internet.
+
+**2. On the device that runs NEEZY:**
+
+```bash
+pip install 'neezy-market-workspace[mt5-remote]'
+export NEEZY_MT5_RPYC_HOST=127.0.0.1      # the tunnel or VPN address of step 1
+export NEEZY_MT5_RPYC_PORT=18812          # optional, default 18812
+neezy-cli mt5 status
+```
+
+`NEEZY_MT5_BACKEND` chooses the backend:
+
+| Value | Behaviour |
+|-------|-----------|
+| `auto` (default) | Native `MetaTrader5` if installed; else the remote terminal if `NEEZY_MT5_RPYC_HOST` is set; else simulated mode, as before. |
+| `native` | Require the `MetaTrader5` package. Fails closed if it is missing. |
+| `rpyc` | Require the remote terminal. Fails closed if the host is not set. |
+| `none` | Disable MT5 entirely. Use this in CI. |
+
+Nothing connects at import time. The socket opens on the first MT5 call, and a
+connection failure shows up as "MT5 not connected", never as made-up data.
+`MT5 Available: True` in `neezy-cli mt5 status` means a backend is configured. Check
+`connected` in the same output to see whether the terminal answers.
+
+Per-device notes:
+
+- **Termux (Android):** no Wine here, so run the terminal on a PC or VPS and point
+  `NEEZY_MT5_RPYC_HOST` at it.
+- **Google Colab:** the notebook needs a route to the Wine host, for example Tailscale.
+  Colab has no display, so use the CLI or the agent tools, not the desktop app.
+- **GitHub Codespaces:** `.devcontainer/devcontainer.json` installs the package. Reach the
+  Wine host over Tailscale or an SSH tunnel.
+- **GitHub Actions:** runners have no MT5 terminal and no `NEEZY_MT5_RPYC_HOST`, so
+  `auto` resolves to simulated mode. Set `NEEZY_MT5_BACKEND=none` to make that explicit.
+
+Safety rules are unchanged. A remote terminal is still a live account. Orders need
+`neezy-cli mt5 order ... --confirm` on a connected terminal, and agent tools still cannot
+send orders (see the MT5 bridge section above).
+
+Status: the RPyC client is covered by `tests/test_mt5_compat.py`, which runs an
+in-process fake terminal over the real RPyC protocol. Nothing here has yet been run
+against a real MT5 terminal, Wine, Termux, Colab, or Codespaces.
+
 ## Command-line tools
 
 The `neezy-cli` command (also `python -m neezy_backend`) needs no display:

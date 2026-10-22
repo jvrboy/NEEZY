@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .mt5_compat import current_selection
+
 
 def _optional_module(name: str) -> Any | None:
     try:
@@ -38,12 +40,12 @@ def _llm_available() -> bool:
     )
 
 
-_mt5 = _optional_module("MetaTrader5")
 _kivy = _optional_module("kivy")
 _numpy = _optional_module("numpy")
 
-#: Is the MetaTrader 5 terminal bridge package importable (Windows only)?
-MT5_AVAILABLE = _mt5 is not None
+#: Is a MetaTrader 5 backend selected (native package or RPyC terminal)?
+#: Native MetaTrader5 is Windows-only; mt5_compat adds the remote path.
+MT5_AVAILABLE = current_selection().backend != "none"
 
 #: Is Kivy importable (used by the Android port tooling, never on CI)?
 KIVY_AVAILABLE = _kivy is not None

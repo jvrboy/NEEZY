@@ -1,5 +1,51 @@
 # CHANGELOG
 
+## [Unreleased] — MT5 over RPyC for non-Windows devices (not a roadmap batch)
+
+### Added
+- `neezy_backend/mt5_compat.py`: picks the MT5 backend for the machine. `auto`
+  uses the native `MetaTrader5` package when installed; otherwise a terminal
+  served by the mt5linux server (`wine mt5server.exe`, RPyC, default port 18812)
+  when `NEEZY_MT5_RPYC_HOST` is set; otherwise simulated mode as before.
+  `NEEZY_MT5_BACKEND` = `auto` | `native` | `rpyc` | `none`, and
+  `NEEZY_MT5_RPYC_PORT` sets the port. Runtime detection names Termux, Codespaces,
+  GitHub Actions, Colab, Windows, macOS, Linux, or other.
+- `RpycMT5`: a `MetaTrader5`-shaped client over the RPyC classic protocol. It
+  connects lazily on the first call and reconnects after a dropped socket. Remote
+  results are plain builtins; records and tuples are rebuilt locally, so
+  attribute access and `_asdict()` keep working. It does not use
+  `mt5linux.MetaTrader5`, whose constructor always starts a Docker or udocker
+  container.
+- `pyproject.toml` extra `mt5-remote` (`rpyc>=6.0,<7`).
+- `.devcontainer/devcontainer.json` for Codespaces and VS Code dev containers.
+  Not built or opened in a real Codespace yet.
+- `tests/test_mt5_compat.py`: 38 tests. Runtime detection, backend selection
+  (including fail-closed cases), constants checked against mt5linux when it is
+  installed, record revival, and an in-process fake terminal served over the real
+  RPyC protocol.
+- README section "MT5 on other devices" with setup, the security warning for the
+  RPyC port, and per-device notes.
+
+### Changed
+- `neezy_backend/mt5_bridge.py`: `mt5` is now `load_mt5_module()`. It is still the
+  single module reference that tests patch.
+- `neezy_backend/capabilities.py`: `MT5_AVAILABLE` means a backend is selected. It
+  does not mean the terminal is reachable. Read `connected` for that.
+
+### Security
+- The RPyC server exposes arbitrary code execution to any client that can reach
+  it. The README tells users to keep the port on a tunnel or VPN. NEEZY sends
+  only its own helper code to it.
+- Safety gates are unchanged. Live orders still need the CLI `--confirm` flag on a
+  connected terminal. Agent tools still cannot send orders.
+
+### Not done
+- IDE extension: no such surface exists in the repo, and HANDOFF A2 keeps it out
+  of scope until the roadmap defines it.
+- Roadmap items are unchanged. None of them covers this work end to end. #84
+  (dev container) is partly addressed by the file above but is not marked done.
+- Not run against a real MT5 terminal, Wine, Termux, Colab, or Codespaces.
+
 ## [Unreleased] — Batch 5: stream hardening & event contracts (roadmap #15,#38,#41; total 51/500)
 
 ### Changed

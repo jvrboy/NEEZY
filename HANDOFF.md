@@ -16,7 +16,21 @@ to `main` so progress survives if the run is interrupted.
 | Run started | 2026-10-22 (SAST); resumed in a fresh session same day |
 | Baseline at run start | commit `9a17b52`, v1.6.0 |
 | CI on main | GREEN on `804d717` (Python CI 3.10/3.11/3.12 all pass; golden JSON float-tolerance fix applied) |
-| Suite size | 869 tests (682 → +187 across batches 4+5) |
+| Suite size | 918 tests (869 after Batch 5, +49 from the non-roadmap MT5 change below) |
+
+## Non-roadmap change: MT5 over RPyC (not a batch, 51/500 unchanged)
+
+- New `neezy_backend/mt5_compat.py`: `NEEZY_MT5_BACKEND` = auto|native|rpyc|none;
+  `rpyc` talks to a Wine-hosted mt5linux server (`wine mt5server.exe -p 18812`)
+  over `rpyc.classic`, skipping mt5linux's Docker-based constructor.
+- `mt5_bridge.mt5` is now `load_mt5_module()`; still the single patch point.
+- `MT5_AVAILABLE` now means "backend selected"; read `connected` for reachability.
+- Tests: `tests/test_mt5_compat.py` (38), in-process fake terminal over real RPyC.
+- Gate: `python local_ci.py --full` green, 918 tests.
+- NOT verified: real MT5 terminal, Wine, Termux, Colab, Codespaces. The
+  devcontainer is unbuilt. No roadmap item was ticked for this work.
+- Security: RPyC server runs arbitrary code for any client that reaches it. README
+  says to keep it on a tunnel or VPN.
 
 ## Batch 5 summary (verified before push)
 
@@ -55,7 +69,9 @@ to `main` so progress survives if the run is interrupted.
 
 ## Exact next step for the next run/session
 
-1. Read this file and ROADMAP.md; resume at **Batch 6**.
+1. Read this file and ROADMAP.md; resume at **Batch 6**. The MT5 RPyC work is
+   done and gated; its real-terminal check (Wine host, then a Termux or Codespace
+   client) is an open item, not a roadmap item.
 2. Recommended Batch 6 (architecture wave, size to taste): #2 candle
    accessor layer, #5 repository layer over SQLite, #6 backend service
    context, #7 decouple UI mixins from stores. These are the four remaining

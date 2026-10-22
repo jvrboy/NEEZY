@@ -8,10 +8,11 @@ import threading
 import time
 from typing import Any
 
-try:
-    import MetaTrader5 as mt5
-except ImportError:
-    mt5 = None
+from .mt5_compat import load_mt5_module
+
+# Native MetaTrader5 on Windows, a remote terminal over RPyC when configured, or None
+# (simulated mode). Tests patch this name; keep it the single module reference.
+mt5 = load_mt5_module()
 
 logger = logging.getLogger(__name__)
 
