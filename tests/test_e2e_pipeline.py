@@ -206,8 +206,9 @@ class E2EPipelineTests(unittest.TestCase):
 
         Every session row survives ``parse_candle`` unchanged. Corrupt wire
         rows (inverted highs/lows, non-positive, NaN, infinity, non-numeric
-        epoch) raise ``ValueError``; a missing OHLC key raises ``KeyError``
-        (pinned actual behavior — the validator indexes the mapping directly).
+        epoch, missing OHLC keys) all raise ``ValueError`` — the parser was
+        hardened (roadmap #38) so the websocket boundary never escapes with
+        an arbitrary ``KeyError``/``TypeError``.
         ``parse_history_response`` is all-or-nothing: one corrupt candle fails
         the whole payload.
         """
@@ -231,7 +232,7 @@ class E2EPipelineTests(unittest.TestCase):
             with self.subTest(corrupt=label):
                 with self.assertRaises(ValueError):
                     parse_candle(row)
-        with self.assertRaises(KeyError):
+        with self.assertRaises(ValueError):
             parse_candle({"epoch": 1, "open": 1.0, "high": 1.1, "low": 0.9})
 
         clean_payload = {"candles": wire[:3]}

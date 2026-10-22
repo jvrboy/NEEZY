@@ -203,9 +203,17 @@ class DerivStreamClient:
 def parse_candle(
     candle: Mapping[str, Any], time_key: str = "epoch"
 ) -> tuple[int, float, float, float, float]:
-    """Convert a Deriv candle/ohlc payload into a validated OHLC five-tuple."""
-    timestamp = int(candle[time_key])
-    values = [float(candle[name]) for name in ("open", "high", "low", "close")]
+    """Convert a Deriv candle/ohlc payload into a validated OHLC five-tuple.
+
+    Malformed payloads (missing or non-numeric fields, non-mapping input)
+    raise :class:`ValueError` so the websocket boundary never escapes with
+    an arbitrary ``KeyError``/``TypeError`` (roadmap #38).
+    """
+    try:
+        timestamp = int(candle[time_key])
+        values = [float(candle[name]) for name in ("open", "high", "low", "close")]
+    except (KeyError, TypeError, OverflowError) as err:
+        raise ValueError(f"candle is missing or has invalid fields: {err}") from err
     if not all(math.isfinite(value) and value > 0 for value in values):
         raise ValueError("OHLC prices must be finite positive numbers")
     open_, high, low, close = values
@@ -218,6 +226,8 @@ def parse_history_response(
     message: Mapping[str, Any],
 ) -> list[tuple[int, float, float, float, float]]:
     """Validate a ``ticks_history`` candles response, raising on API errors."""
+    if not isinstance(message, Mapping):
+        raise ValueError("history response must be a JSON object")
     error = message.get("error")
     if error:
         detail = error.get("message") if isinstance(error, Mapping) else error

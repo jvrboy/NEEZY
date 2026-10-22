@@ -1,5 +1,38 @@
 # CHANGELOG
 
+## [Unreleased] — Batch 5: stream hardening & event contracts (roadmap #15,#38,#41; total 51/500)
+
+### Changed
+- `neezy_backend/stream.py`: the websocket boundary parsers were hardened.
+  `parse_candle` now converts missing/invalid fields (including the
+  `OverflowError` from `int(inf)` and `TypeError` from non-mapping input)
+  into `ValueError` with a clear message, and `parse_history_response`
+  rejects non-object payloads up front. Mutated wire data can no longer
+  escape the parser as an arbitrary `KeyError`/`TypeError`/`OverflowError`.
+- `neezy_backend/events.py`: every core event kind now has an explicit
+  payload contract (`PAYLOAD_CONTRACTS`, plus a `ClosedPayload` TypedDict).
+  `EventBus(validate_payloads=True)` — or the new `debug_bus()` factory —
+  enforces the contracts at publish time for tests and development runs;
+  production buses keep the historical unchecked behaviour.
+
+### Added
+- `tests/test_fuzz_stream.py`: 27 seeded mutation-fuzz tests over
+  `parse_candle`/`parse_history_response` (value junk, missing fields,
+  structural mutants, OHLC consistency swaps, API error shapes). The fuzz
+  run found and fixed a real parser gap (`epoch: inf` escaping as
+  `OverflowError`).
+- `tests/test_event_contracts.py`: 11 tests pinning the contract table,
+  validation-mode failures (with kind/expected/actual in the message), and
+  the open-for-extension rule for app-level event kinds.
+- `tests/test_stream_races.py`: 6 lifecycle stress tests against a fake
+  `WebSocketApp` — concurrent start/stop/send from six threads, idempotent
+  stop, stop-from-callback (no self-join), send-after-stop, exactly-once
+  `stopped` event, and restart cycles.
+
+### Verified
+- Full local CI (`local_ci.py --full`): compile, ruff check, ruff format,
+  and **869 tests OK** (842 → +27), fully offline.
+
 ## [Unreleased] — Batch 4: foundations wave wrap-up (roadmap #1-#40, 8 items; total 48/500)
 
 ### Changed — architecture

@@ -10,13 +10,26 @@ to `main` so progress survives if the run is interrupted.
 | Item | Value |
 |------|-------|
 | Phase | 4 (batched implementation) — active |
-| Current batch | Batch 4 COMPLETE (8 updates: #1,3,4,12,19,37,39,40) |
-| Updates completed | 48/500 |
-| Updates remaining | 452 |
+| Current batch | Batch 5 COMPLETE (3 updates: #15,38,41) |
+| Updates completed | 51/500 |
+| Updates remaining | 449 |
 | Run started | 2026-10-22 (SAST); resumed in a fresh session same day |
 | Baseline at run start | commit `9a17b52`, v1.6.0 |
-| CI on main | green through batch 3; batch 4 pushed this session |
-| Suite size | 842 tests (682 → +160 this batch) |
+| CI on main | batch 4 pushed; verify via list_workflow_runs |
+| Suite size | 869 tests (682 → +187 across batches 4+5) |
+
+## Batch 5 summary (verified before push)
+
+- `python local_ci.py --full`: compile, ruff check, ruff format, **869 tests
+  OK**, fully offline.
+- Stream parser hardened (#38): `parse_candle` converts
+  KeyError/TypeError/OverflowError into ValueError; non-mapping history
+  payloads rejected up front. Fuzz tests found the `epoch: inf` →
+  OverflowError escape for real.
+- Event payload contracts (#15): `PAYLOAD_CONTRACTS` + `debug_bus()`;
+  validation off by default in production.
+- Stream lifecycle race stress tests (#41): 6 tests, fake WebSocketApp,
+  no deadlocks, exactly-once `stopped`.
 
 ## Batch 4 summary (verified before push)
 
@@ -38,13 +51,13 @@ to `main` so progress survives if the run is interrupted.
 
 ## Exact next step for the next run/session
 
-1. Read this file and ROADMAP.md; resume at **Batch 5**.
-2. Recommended Batch 5 (finish wave-1 leftovers): #2 candle accessor layer,
-   #5 repository layer over SQLite, #6 backend service context,
-   #7 decouple UI mixins from stores, #9 typing pass (mypy-clean core),
-   #13 menu/ui_style split from backend, #15 events typed payloads,
-   #38 stream fuzz tests, #41 provider contract tests, #45 test-fixture
-   builder module. Adjust as needed — pick coherent groups.
+1. Read this file and ROADMAP.md; resume at **Batch 6**.
+2. Recommended Batch 6 (architecture wave, size to taste): #2 candle
+   accessor layer, #5 repository layer over SQLite, #6 backend service
+   context, #7 decouple UI mixins from stores. These are the four remaining
+   Hard foundations items; alternatively mix in #9 typing pass, #13
+   menu/ui_style split, #42-#47 test-infrastructure items for a lighter
+   batch.
 3. Workflow per batch: implement → full local gates (`python local_ci.py
    --full`) → mark ROADMAP entries `[x]` → CHANGELOG section → update this
    file → `python /home/z/my-project/scripts/push_repo.py "<message>"`.

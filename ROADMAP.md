@@ -116,7 +116,7 @@ Legend at a glance:
 - **Areas:** neezy_backend/{research,study}.py, tests/test_study*.py
 - **Difficulty:** Hard
 
-### 15. [ ] Make event payload types explicit
+### 15. [x] Make event payload types explicit — *PAYLOAD_CONTRACTS table + ClosedPayload TypedDict; debug_bus() validates known kinds (off in production); 11 contract tests*
 - **Category:** Architecture & refactoring
 - **What:** Type the EventBus payloads (TypedDict per event kind: message, error, connected, reconnecting, closed, stopped) and validate at publish in debug mode.
 - **Why:** Payload shape drift between publisher and subscriber is currently caught only by manual testing.
@@ -277,7 +277,7 @@ Legend at a glance:
 - **Areas:** tests/test_indicator_properties.py (new)
 - **Difficulty:** Medium
 
-### 38. [ ] Fuzz parse_candle and history responses
+### 38. [x] Fuzz parse_candle and history responses — *27 seeded mutation tests; parser hardened (KeyError/TypeError/OverflowError -> ValueError, non-mapping top-level rejected)*
 - **Category:** Testing
 - **What:** Randomized mutation testing on parse_candle/parse_history_response: mutated JSON must raise ValueError/RuntimeError, never crash uncaught.
 - **Why:** The websocket boundary is the highest-risk parser; fuzzing hardens it.
@@ -298,7 +298,7 @@ Legend at a glance:
 - **Areas:** tests/test_e2e_pipeline.py (new)
 - **Difficulty:** Hard
 
-### 41. [ ] Race-condition stress tests for stream client
+### 41. [x] Race-condition stress tests for stream client — *6 stress tests with fake WebSocketApp: concurrent start/stop/send, idempotent stop, self-join safety, exactly-once stopped event*
 - **Category:** Testing
 - **What:** Threads calling start/stop/send concurrently under a fake WebSocketApp; assert no deadlock and clean shutdown within timeout.
 - **Why:** Lifecycle races are reported in the audit as unverified; stress tests make them reproducible.
