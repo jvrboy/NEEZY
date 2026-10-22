@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "schema": 1,
   "name": "qa_training_pairs.json",
   "description": "55 question/answer training pairs for retrieval and fine-tuning. Answers never promise profit.",

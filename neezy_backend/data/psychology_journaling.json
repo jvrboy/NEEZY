@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "schema": 1,
   "name": "psychology_journaling.json",
   "description": "Behavioural biases, journaling templates, routines and problem-gambling warning signs. Self-monitoring material, not therapy.",

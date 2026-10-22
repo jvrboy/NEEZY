@@ -9,93 +9,91 @@ to `main` so progress survives if the run is interrupted.
 
 | Item | Value |
 |------|-------|
-| Phase | 4 (batched implementation) — run context ending; see Next steps |
-| Current batch | Batch 3 COMPLETE (8 updates: #105,130,133,136,143,144,145,164) |
-| Updates completed | 40/500 (34 implemented + 6 verified-already-done/N-A across batches) |
-| Updates remaining | 460 |
-| Run started | 2026-10-22 (SAST) |
+| Phase | 4 (batched implementation) — active |
+| Current batch | Batch 4 COMPLETE (8 updates: #1,3,4,12,19,37,39,40) |
+| Updates completed | 48/500 |
+| Updates remaining | 452 |
+| Run started | 2026-10-22 (SAST); resumed in a fresh session same day |
 | Baseline at run start | commit `9a17b52`, v1.6.0 |
-| CI on main | green through batch 2 (72ee05e in progress at last check) |
+| CI on main | green through batch 3; batch 4 pushed this session |
+| Suite size | 842 tests (682 → +160 this batch) |
 
-## Batch 3 summary (verified before push)
+## Batch 4 summary (verified before push)
 
-- Suite: **682 tests OK** (673 → +9).
-- Provider TTL response cache; DB maintenance() + WAL tuning; backup
-  retention pruning; history compaction at startup; perf smoke ceilings.
+- `python local_ci.py --full`: compile, ruff check, ruff format, **842 tests
+  OK**, fully offline.
+- cli.py (2,081 lines) → `neezy_backend/cli/` package (12 modules); entry
+  point, public names, and mock.patch targets unchanged.
+- ai.py (834 lines) → `neezy_backend/ai/` package (errors/prompts/providers/
+  keystore/transport/client); public surface re-exported.
+- `storage.sanitize_path` now delegates to `sandbox.resolve_within`
+  (single traversal guard); wrapper CWD-anchoring bug found + fixed.
+- `ConfluenceSignal.from_dict` / `from_history_record` + typed store
+  accessors (`append_signal` / `read_signals`); UI write path wired.
+- Datasets: `schema_version: 1` stamped in all 27 JSON datasets; migrating
+  loader; future versions fail loud.
+- New test modules: indicator properties (80), CLI golden files (27 + 48
+  fixtures), e2e offline pipeline (9), signal protocol (21), sanitize
+  wrapper (11), dataset schema (12).
 
 ## Exact next step for the next run/session
 
-1. Read this file and ROADMAP.md; resume at **Batch 4**.
-2. Recommended Batch 4 (wave-1 leftovers): #1 split CLI monolith,
-   #3 Signal dataclass, #4 unify path jails, #12 AI package split,
-   #19 dataset schema versioning, #37 property-based indicator tests,
-   #39 CLI golden files, #40 e2e offline pipeline.
+1. Read this file and ROADMAP.md; resume at **Batch 5**.
+2. Recommended Batch 5 (finish wave-1 leftovers): #2 candle accessor layer,
+   #5 repository layer over SQLite, #6 backend service context,
+   #7 decouple UI mixins from stores, #9 typing pass (mypy-clean core),
+   #13 menu/ui_style split from backend, #15 events typed payloads,
+   #38 stream fuzz tests, #41 provider contract tests, #45 test-fixture
+   builder module. Adjust as needed — pick coherent groups.
 3. Workflow per batch: implement → full local gates (`python local_ci.py
    --full`) → mark ROADMAP entries `[x]` → CHANGELOG section → update this
    file → `python /home/z/my-project/scripts/push_repo.py "<message>"`.
 4. Watch CI via ClaudeBridge `list_workflow_runs` after each push.
+5. Local mirror has no `.git`; the manifest-based pusher
+   (`scripts/push_repo.py`) diffs against `.repo_manifest.json` — never
+   hand-edit that file; re-run `--init` only after a fresh full mirror.
 
-## Batch 1 summary (verified before push)
+## Notes carried forward
 
-- Suite: **630 tests OK** (535 at batch start → +95 new tests).
-- `ruff check .` and `ruff format --check .` clean; compileall clean.
-- Real bugs found by the new tests and fixed:
-  - `exporters.signals_to_csv` crashed (`StringIO(newlines=)` invalid kwarg)
-    — shipped broken, now fixed + schema-pinned.
-  - `knowledge.record_for` shallow copy leaked nested mutations — now deep.
-- Key changes: config STRATEGIES derived from engine registry; risk
-  `resolve_stop` helper; settings-load warnings; `--debug`; ResourceWarning
-  gate in tests; dev tooling (Makefile, dev_setup, pre-commit, templates).
+- `neezy_backend/__init__.py` still says `__version__ = "1.5.0"` while
+  pyproject is 1.6.0 — align at the next release commit (deliberately not
+  bundled into batch 4 to keep it refactor-only).
+- Known indicator quirks pinned in tests (see #37 notes in
+  tests/test_indicator_properties.py docstrings): `atr()` does not validate
+  candle consistency (inverted first bar → negative ATR); one-ulp wobble on
+  flat-series EMA/SMA; `analyze()` rejects a garbage forming bar even though
+  it is dropped afterwards. Candidates for roadmap "engine hardening".
+- Golden fixtures: regenerate with `NEEZY_UPDATE_GOLDEN=1 python -m unittest
+  tests.test_cli_golden` after any intentional CLI output change.
+- ClaudeBridge session TTL: if MCP calls start failing with 404, delete
+  `/home/z/my-project/scripts/.mcp_session` (the client re-initializes).
 
-## Verified state after Phase 2
+## Batch 1-3 summaries (prior sessions)
 
-- Full suite: **535 tests OK** (2 new regression tests added).
-- `ruff check .` → clean (whole tree incl. kaggle notebook).
-- `ruff format --check .` → clean.
-- Fixes pushed: PAGE_TITLES ORDERS entry, menu `input` late binding,
-  settings.json chmod 0o600, quant.py/exporters.py/glass.py lint, notebook
-  lint, 4 files reformatted.
-
-## Files touched this run
-
-- (Phase 0) `HANDOFF.md` (this file) — created.
-- (Phase 1) `ARCHITECTURE.md` — written at repo root (docs/ARCHITECTURE.md
-  predates it and covers an older layout; the new root file supersedes it).
-- (Phase 1) `AUDIT.md` — replaced with a fresh, verified audit.
-
-## Known bugs found this run (to fix in Phase 2)
-
-- N1 (medium, test infra): `neezy_backend/menu.py` — `input_fn=input` is bound
-  at import time, so `mock.patch("builtins.input")` in
-  `tests/test_ui_style.py::test_cli_menu_plain_flag_runs_without_colour` has no
-  effect; the real stdin is read. Under a stdin that returns blank lines forever
-  the menu loops printing the prompt and the suite hangs. Fix: resolve the
-  default inside `run_menu` (`input_fn=None` → `input`).
-- N2 (high, correctness): `neezy_app/ui_panels/constants.py` — `PAGE_TITLES`
-  missing the `ORDERS` entry added with the ORDERS page; test failure above.
-- N3 (high, CI): 24 ruff errors in CI's lint path (glass/quant/exporters).
-- N4 (low): kaggle notebook lint debt (19 findings) — outside CI lint path.
+- Batch 3: 682 tests OK. Provider TTL response cache; DB maintenance() +
+  WAL tuning; backup retention pruning; history compaction; perf ceilings.
+- Batch 2: 660 tests OK. Theme module, capabilities flags, API contract
+  tests, dev tooling (Makefile, pre-commit, templates), settings-load
+  warnings, `--debug`.
+- Batch 1: 630 tests OK. 95 new tests; real bugs fixed (exporters CSV
+  crash, knowledge shallow-copy leak); config STRATEGIES derived; risk
+  `resolve_stop`; ResourceWarning gate.
 
 ## Decisions and assumptions
 
-- A1: Work happens in a local clone; commits are pushed to `main` directly via
-  the ClaudeBridge GitHub MCP (`push_files_to_branch`). No PRs; owner asked for
-  direct pushes.
+- A1: Work happens in a local mirror; commits are pushed to `main` directly
+  via the ClaudeBridge GitHub MCP (`push_files_to_branch`). No PRs; owner
+  asked for direct pushes.
 - A2: "Phase 4 (ide)" from the old audit is out of scope unless the roadmap
   makes it concrete.
 - A3: Existing behaviors (BYOK AI, MT5 confirm gates, local-first security
-  model in DECISIONS.md 1–6) are preserved; nothing gets relaxed.
-- A4: `docs/ARCHITECTURE.md` is kept but superseded by root `ARCHITECTURE.md`
-  for this run (docs/ copy left untouched to avoid breaking links).
+  model in DECISIONS 1-6) are preserved; nothing gets relaxed.
+- A4: `docs/ARCHITECTURE.md` is kept but superseded by root
+  `ARCHITECTURE.md` (docs/ copy left untouched to avoid breaking links).
+- A5 (batch 4): the CLI and AI splits keep module-level re-exports so every
+  historical import and patch target survives; subagents were used for
+  well-scoped test-only updates (#19/#37/#39/#40) but never push.
 
 ## BLOCKED items
 
-- (none yet)
-
-## Exact next step
-
-1. Finish Phase 1: write root `ARCHITECTURE.md` + fresh `AUDIT.md`; push.
-2. Phase 2: fix N1–N4 + every other audit finding; make CI green; push.
-3. Phase 3: author `ROADMAP.md` with exactly 500 numbered updates; push.
-4. Phase 4: implement batches; update `CHANGELOG.md`, `ROADMAP.md`, and this
-   file after each batch; push each batch.
+- (none)

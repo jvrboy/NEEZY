@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "schema": 1,
   "name": "market_knowledge",
   "description": "Curated educational knowledge dataset shipped with NEEZY. Reference material for the local chat assistant: indicator definitions, candle patterns, risk rules, and Deriv public API notes. Educational only; not financial advice.",

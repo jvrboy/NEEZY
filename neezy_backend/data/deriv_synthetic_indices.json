@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "schema": 1,
   "name": "deriv_synthetic_indices.json",
   "description": "Deriv synthetic instruments: volatility indices, drift switching indices (DSI 10/20/30) and other synthetics, with regime structure, strategies and product notes. Educational; verify current specs on deriv.com.",

@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "schema": 1,
   "name": "general_strategies.json",
   "description": "Hypothesis library of 16 strategy archetypes with filters, trade management and regime selectors. Untested candidates, not proven edges.",

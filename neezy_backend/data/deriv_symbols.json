@@ -1,4 +1,5 @@
 {
+ "schema_version": 1,
  "source": "Deriv public WebSocket, active_symbols (brief), wss://api.derivws.com/trading/v1/options/ws/public",
  "captured": "2026-10-20",
  "note": "tick_size is Deriv's pip_size (price precision), not a forex pip.",

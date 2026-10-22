@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "schema": 1,
   "trained_at": "2026-10-20T20:57:57+00:00",
   "source": "derived from neezy_backend/data/knowledge.json out-of-sample study records (train-then-validate backtests, see study.py)",

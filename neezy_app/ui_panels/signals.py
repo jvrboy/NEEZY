@@ -287,7 +287,7 @@ class SignalsMixin:
         signals = scan_candles(candles_map, timeframe, self.settings)
         for signal in signals:
             try:
-                self.confluence_store.append(signal.as_history_record())
+                self.confluence_store.append_signal(signal)
             except (OSError, ValueError):
                 pass
         message = f"{len(signals)} signal(s) · provider: {provider}"

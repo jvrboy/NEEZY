@@ -56,6 +56,31 @@ class ConfluenceFactor:
             "detail": self.detail,
         }
 
+    @classmethod
+    def from_dict(cls, values: dict[str, Any]) -> ConfluenceFactor:
+        """Build a factor from its serialized form.
+
+        Unknown keys are ignored (forward-compatible); known keys are
+        type-checked so a corrupt record fails loudly at the boundary.
+        """
+        if not isinstance(values, dict):
+            raise ValueError(f"factor must be a mapping, got {type(values).__name__}")
+        name = values.get("name", "")
+        detail = values.get("detail", "")
+        if not isinstance(name, str) or not isinstance(detail, str):
+            raise ValueError("factor name and detail must be strings")
+        try:
+            direction = int(values.get("direction", 0))
+            weight = float(values.get("weight", 0.0))
+        except (TypeError, ValueError) as err:
+            msg = f"factor {name!r}: direction/weight must be numeric"
+            raise ValueError(msg) from err
+        if direction not in (-1, 0, 1):
+            raise ValueError(f"factor {name!r}: direction must be -1, 0, or 1")
+        if weight < 0:
+            raise ValueError(f"factor {name!r}: weight must not be negative")
+        return cls(name=name, direction=direction, weight=weight, detail=detail)
+
 
 @dataclass(frozen=True, slots=True)
 class ConfluenceSignal:
@@ -100,6 +125,64 @@ class ConfluenceSignal:
             "created_at": self.created_at,
         }
 
+    @classmethod
+    def from_dict(cls, values: dict[str, Any]) -> ConfluenceSignal:
+        """Build a signal from its ``to_dict`` wire form.
+
+        Unknown keys are ignored so newer producers stay readable by older
+        consumers; every known key is validated and coerced, and impossible
+        values raise ``ValueError`` with the offending field named.
+        """
+        if not isinstance(values, dict):
+            raise ValueError(f"signal must be a mapping, got {type(values).__name__}")
+        for key in ("symbol", "instrument", "timeframe", "created_at"):
+            value = values.get(key, "")
+            if value is not None and not isinstance(value, str):
+                raise ValueError(f"signal field {key!r} must be a string")
+        try:
+            direction = int(values.get("direction", 0))
+        except (TypeError, ValueError) as err:
+            raise ValueError("signal field 'direction' must be an integer") from err
+        if direction not in (-1, 0, 1):
+            raise ValueError("signal field 'direction' must be -1, 0, or 1")
+        numeric: dict[str, float] = {}
+        for key in ("entry", "stop_loss", "take_profit", "win_rate", "score"):
+            try:
+                numeric[key] = float(values.get(key, 0.0))
+            except (TypeError, ValueError) as err:
+                raise ValueError(f"signal field {key!r} must be numeric") from err
+        raw_factors = values.get("factors") or []
+        if not isinstance(raw_factors, list):
+            raise ValueError("signal field 'factors' must be a list")
+        factors = tuple(ConfluenceFactor.from_dict(item) for item in raw_factors)
+        raw_votes = values.get("votes") or {}
+        if not isinstance(raw_votes, dict):
+            raise ValueError("signal field 'votes' must be a mapping")
+        try:
+            votes = {str(key): int(value) for key, value in raw_votes.items()}
+        except (TypeError, ValueError) as err:
+            raise ValueError("signal field 'votes' values must be integers") from err
+        mode = values.get("mode", "strict")
+        basis = values.get("win_rate_basis", "")
+        if not isinstance(mode, str) or not isinstance(basis, str):
+            raise ValueError("signal 'mode' and 'win_rate_basis' must be strings")
+        return cls(
+            symbol=values.get("symbol", ""),
+            instrument=values.get("instrument", ""),
+            timeframe=values.get("timeframe", ""),
+            direction=direction,
+            entry=numeric["entry"],
+            stop_loss=numeric["stop_loss"],
+            take_profit=numeric["take_profit"],
+            win_rate=numeric["win_rate"],
+            score=numeric["score"],
+            factors=factors,
+            created_at=values.get("created_at", ""),
+            mode=mode,
+            win_rate_basis=basis,
+            votes=votes,
+        )
+
     def as_history_record(self) -> dict[str, Any]:
         """Fields persisted to the local confluence history store."""
         return {
@@ -116,6 +199,35 @@ class ConfluenceSignal:
             "mode": self.mode,
             "outcome": None,
         }
+
+    @classmethod
+    def from_history_record(cls, record: dict[str, Any]) -> ConfluenceSignal:
+        """Build a signal from a persisted history record.
+
+        The persisted shape (:meth:`as_history_record` plus the store-managed
+        ``outcome`` key) carries no factors or votes, so those default empty;
+        ``outcome`` itself is store metadata and is deliberately not part of
+        the signal. Unknown keys are ignored.
+        """
+        if not isinstance(record, dict):
+            raise ValueError(
+                f"history record must be a mapping, got {type(record).__name__}"
+            )
+        return cls.from_dict(
+            {
+                "symbol": record.get("symbol", ""),
+                "instrument": record.get("instrument", ""),
+                "timeframe": record.get("timeframe", ""),
+                "direction": record.get("direction", 0),
+                "entry": record.get("entry", 0.0),
+                "stop_loss": record.get("stop_loss", 0.0),
+                "take_profit": record.get("take_profit", 0.0),
+                "win_rate": record.get("win_rate", 0.0),
+                "score": record.get("score", 0.0),
+                "created_at": record.get("timestamp", ""),
+                "mode": record.get("mode", "strict"),
+            }
+        )
 
 
 # ---------------------------------------------------------------------------

@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "schema": 1,
   "name": "correlation_strategies.json",
   "description": "Positive/negative correlation and divergence strategies with entry checklists and risk notes, plus sourced research context on why correlation is not cointegration.",

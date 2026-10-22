@@ -1,5 +1,53 @@
 # CHANGELOG
 
+## [Unreleased] — Batch 4: foundations wave wrap-up (roadmap #1-#40, 8 items; total 48/500)
+
+### Changed — architecture
+- `neezy_backend/cli.py` (2,081 lines) became the `neezy_backend/cli/` package:
+  `common` (output/argument helpers), `parser` (argparse construction),
+  `analysis`, `backtest`, `research`, `db`, `alerts`, `ai`, `mt5`, `mcp`,
+  `dm`, and `menu_bridge` — one module per command family. The console
+  script (`neezy_backend.cli:main`), every public name, and the
+  `mock.patch.object(cli, ...)` targets used by the tests are unchanged.
+- `neezy_backend/ai.py` (834 lines) became the `neezy_backend/ai/` package:
+  `errors` (result + exception hierarchy), `prompts`, `providers`
+  (catalogue), `keystore` (key vault), `transport` (injectable HTTP layer,
+  request building, response parsing), and `client` (key-rotating
+  failover). The historical public surface is re-exported; `ai_cache` and
+  `ai_resilient` continue to work on top unchanged.
+- `storage.sanitize_path` is now a thin wrapper over
+  `sandbox.resolve_within`, making the sandbox the single traversal guard.
+  The `allow_absolute` escape hatch is kept, documented, and tested. The
+  unification tests caught a real wrapper bug (relative paths in the escape
+  hatch resolved against the CWD instead of the sandbox root) — fixed.
+- `ConfluenceSignal`/`ConfluenceFactor` gained `from_dict` /
+  `from_history_record` constructors with per-field validation and
+  forward-compatible unknown-key tolerance; `ConfluenceHistoryStore` gained
+  typed `append_signal`/`read_signals` accessors and the signals panel now
+  writes through them.
+- `neezy_backend/datasets.py` is a versioned, migrating loader:
+  `schema_version: 1` stamped into all 27 shipped datasets (including
+  `research_candles/*`), legacy files migrate forward in memory, and future
+  versions fail loudly with file/version/max-supported in the message.
+
+### Added — testing
+- `tests/test_indicator_properties.py`: 80 stdlib-random property tests for
+  the indicator math (bounds, length contracts, Wilder-recurrence oracles,
+  flat/spike/short-series edges). Four known quirks pinned with notes.
+- `tests/test_cli_golden.py` + `tests/golden/` (48 fixtures, 27 tests):
+  golden snapshots of every read-only CLI command, plain and JSON, with a
+  deterministic seeded fetcher and `NEEZY_UPDATE_GOLDEN=1` regen mode.
+- `tests/test_e2e_pipeline.py`: 9-test scripted offline session — stream
+  candle validation, engine + confluence flip across a trend reversal, an
+  alert that fires exactly once, card-history round-trip, outcome
+  resolution (SL and TP), and CLI JSON payload equality.
+- `tests/test_signal_protocol.py` (21 tests) and
+  `tests/test_storage_sanitize.py` (11 tests) pin the new contracts.
+
+### Verified
+- Full local CI (`local_ci.py --full`): compile, ruff check, ruff format,
+  and **842 tests OK** (682 at batch start → +160), fully offline.
+
 ## [Unreleased] — Batch 3: caching & storage hygiene (roadmap #105-#164, 8 items; total 40/500)
 
 ### Added

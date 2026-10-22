@@ -18,7 +18,7 @@ Legend at a glance:
 
 ## Wave 1 — Foundations: architecture, testing, developer experience, configuration
 
-### 1. [ ] Split CLI monolith into command modules
+### 1. [x] Split CLI monolith into command modules — *neezy_backend/cli/ package (common, parser, analysis, backtest, research, db, alerts, ai, mt5, mcp, dm, menu_bridge); entry point, public names and mock.patch targets unchanged*
 - **Category:** Architecture & refactoring
 - **What:** Break neezy_backend/cli.py (2,070 lines) into a package: cli/__init__.py with main(), cli/research.py, cli/mt5.py, cli/ai.py, cli/db.py, cli/mcp.py, cli/menu_bridge.py etc., one module per command family.
 - **Why:** The 25 command groups in one file are hard to navigate, review, and test in isolation; a package allows parallel work and per-group unit tests.
@@ -32,14 +32,14 @@ Legend at a glance:
 - **Areas:** neezy_backend/{stream,database,providers,research}.py, consumers in cli.py and ui panels
 - **Difficulty:** Hard
 
-### 3. [ ] Define a Signal dataclass protocol
+### 3. [x] Define a Signal dataclass protocol — *ConfluenceSignal.from_dict / from_history_record + ConfluenceFactor.from_dict with validation; typed store accessors append_signal / read_signals; UI write path wired; 21 protocol tests*
 - **Category:** Architecture & refactoring
 - **What:** Replace ad-hoc signal dicts flowing between confluence, alerts, history, UI, and exporters with a frozen Signal dataclass plus to_dict/from_dict.
 - **Why:** Dict key typos are invisible until runtime; a typed contract catches them at construction and documents the schema once.
 - **Areas:** neezy_backend/{confluence,alerts,outcomes,exporters,dm}.py, neezy_app/ui_panels/signals.py, history.py
 - **Difficulty:** Medium
 
-### 4. [ ] Unify the two path-jail implementations
+### 4. [x] Unify the two path-jail implementations — *storage.sanitize_path is now a thin wrapper over sandbox.resolve_within; allow_absolute escape hatch documented and tested; wrapper bug (relative paths anchored to CWD) caught and fixed by the new tests*
 - **Category:** Architecture & refactoring
 - **What:** Make sandbox.resolve_within the only traversal guard; storage.sanitize_path becomes a thin wrapper over it (keeping its allow_absolute flag as an explicit, tested escape hatch).
 - **Why:** Two divergent security-critical implementations can drift; one core with a documented wrapper is safer and clearer.
@@ -95,7 +95,7 @@ Legend at a glance:
 - **Areas:** neezy_backend/menu.py, tests/test_menu.py
 - **Difficulty:** Easy
 
-### 12. [ ] Extract AI provider transport from prompt logic
+### 12. [x] Extract AI provider transport from prompt logic — *ai/ package: errors, prompts, providers, keystore, transport, client; full public surface re-exported; ai_cache / ai_resilient unchanged on top*
 - **Category:** Architecture & refactoring
 - **What:** Split ai.py into ai/ package: providers (HTTP transports), prompts (message assembly), and client (failover + caching) layers.
 - **Why:** ai.py at 834 lines mixes three concerns; separation allows retry policies to evolve without touching prompt code.
@@ -144,7 +144,7 @@ Legend at a glance:
 - **Areas:** neezy_mobile/{services,screens}.py
 - **Difficulty:** Medium
 
-### 19. [ ] Version the JSON datasets schema
+### 19. [x] Version the JSON datasets schema — *schema_version stamped in all 27 shipped datasets; migrating loader (v0→v1 stamp, in-memory only) with loud ValueError on future versions; 12 new tests*
 - **Category:** Architecture & refactoring
 - **What:** Add a schema_version field to every neezy_backend/data/*.json and a loader that migrates old versions forward.
 - **Why:** Shipped knowledge currently has no versioning; future edits silently change behavior of older installs.
@@ -270,7 +270,7 @@ Legend at a glance:
 - **Areas:** tests/test_api_contracts.py (new)
 - **Difficulty:** Medium
 
-### 37. [ ] Property-based tests for indicator math
+### 37. [x] Property-based tests for indicator math — *80 stdlib-random property tests (bounds, Wilder oracles, edge cases); 4 indicator quirks pinned with notes*
 - **Category:** Testing
 - **What:** Hypothesis-style generators (pure stdlib: random with fixed seeds) asserting invariants: EMA within min/max of inputs, RSI in [0,100], ATR non-negative.
 - **Why:** Edge inputs (flat series, spikes, NaN adjacency) break indicators silently today.
@@ -284,14 +284,14 @@ Legend at a glance:
 - **Areas:** tests/test_fuzz_stream.py (new)
 - **Difficulty:** Medium
 
-### 39. [ ] Golden-file tests for CLI outputs
+### 39. [x] Golden-file tests for CLI outputs — *48 fixtures under tests/golden/, 27 tests, NEEZY_UPDATE_GOLDEN=1 regen mode; deterministic seeded fetcher; network/terminal commands excluded with reasons*
 - **Category:** Testing
 - **What:** Snapshot the plain and JSON output of every read-only CLI command against fixtures; diffs on change force conscious updates.
 - **Why:** Output regressions (column drift, missing fields) currently ship unnoticed.
 - **Areas:** tests/golden/*.txt, tests/test_cli_golden.py (new)
 - **Difficulty:** Medium
 
-### 40. [ ] End-to-end offline scenario test
+### 40. [x] End-to-end offline scenario test — *9-test scripted session: stream validation → engine/confluence flip → alert fires once → history round-trip → outcome resolution (SL and TP) → CLI JSON payload equality*
 - **Category:** Testing
 - **What:** Scripted session: start fake stream, receive N candles, trigger strategy flip, verify alert, history append, outcome resolution — all with fakes.
 - **Why:** The full pipeline is only covered piecewise; one e2e test catches wiring regressions.

@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "generated_at": "2026-10-20T20:57:57+00:00",
   "method": "Fixed-rule backtest on 60s candles, up to 12000 per instrument, charging a 1-pip spread per trade. The first 70% of history is searched over a grid of 18 settings; the setting with the best expectancy and at least 30 trades is then run once on the remaining history. Verdict 'edge' means positive expectancy there, a t-stat of at least 2, and at least 20 trades. Synthetic indices are charged the catalogue tick size, which is probably far below their real cost, so their verdicts are provisional.",
   "schema": 1,
