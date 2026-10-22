@@ -55,6 +55,8 @@ Excluded from snapshots (not read-only-snapshotable)
 from __future__ import annotations
 
 import io
+import json
+import math
 import os
 import random
 import re
@@ -167,6 +169,64 @@ def _normalize(text: str) -> str:
     return text
 
 
+def _first_json_difference(actual: object, expected: object, path: str = "$") -> str:
+    """Human-readable path of the first difference between two JSON trees."""
+    if isinstance(actual, dict) and isinstance(expected, dict):
+        for key in sorted(set(actual) | set(expected)):
+            if key not in actual or key not in expected:
+                return f"{path}.{key} (missing on one side)"
+            detail = _first_json_difference(actual[key], expected[key], f"{path}.{key}")
+            if detail:
+                return detail
+        return ""
+    if isinstance(actual, list) and isinstance(expected, list):
+        if len(actual) != len(expected):
+            return f"{path} (list length {len(actual)} != {len(expected)})"
+        for index, (a, e) in enumerate(zip(actual, expected, strict=False)):
+            detail = _first_json_difference(a, e, f"{path}[{index}]")
+            if detail:
+                return detail
+        return ""
+    if isinstance(actual, bool) or isinstance(expected, bool):
+        return "" if actual == expected else f"{path}: {actual!r} != {expected!r}"
+    if isinstance(actual, (int, float)) and isinstance(expected, (int, float)):
+        same = math.isclose(actual, expected, rel_tol=1e-9, abs_tol=1e-12)
+        return "" if same else f"{path}: {actual!r} != {expected!r}"
+    return "" if actual == expected else f"{path}: {actual!r} != {expected!r}"
+
+
+def _assert_matches_snapshot(
+    test: unittest.TestCase,
+    actual: str,
+    expected: str,
+    argv: list[str],
+    fixture: Path,
+) -> None:
+    """Compare snapshot text; JSON gets float tolerance, everything else exact.
+
+    Python 3.10/3.11/3.12 can differ in the last one or two ULPs of
+    statistics-based floats (for example the correlation matrix), so parsed
+    JSON documents compare numerically with ``math.isclose`` while structure
+    and strings stay exact. Documents that are not parseable JSON (after
+    placeholder normalization) fall back to byte-exact comparison.
+    """
+    message = (
+        f"output of 'neezy-cli {' '.join(argv)}' no longer matches golden "
+        f"fixture {fixture}.\nIf this change is intentional, regenerate "
+        f"with:\n  NEEZY_UPDATE_GOLDEN=1 "
+        f"python3 -m unittest tests.test_cli_golden"
+    )
+    try:
+        actual_json = json.loads(actual)
+        expected_json = json.loads(expected)
+    except (json.JSONDecodeError, ValueError):
+        test.assertEqual(actual, expected, message)
+        return
+    difference = _first_json_difference(actual_json, expected_json)
+    if difference:
+        test.fail(f"{message}\nfirst difference at {difference}")
+
+
 class GoldenCliTests(unittest.TestCase):
     """Snapshot the output of every read-only CLI command."""
 
@@ -203,14 +263,7 @@ class GoldenCliTests(unittest.TestCase):
                 f"golden fixture {fixture} is missing; create it with "
                 f"NEEZY_UPDATE_GOLDEN=1 python3 -m unittest tests.test_cli_golden"
             )
-        self.assertEqual(
-            actual,
-            expected,
-            f"output of 'neezy-cli {' '.join(argv)}' no longer matches golden "
-            f"fixture {fixture}.\nIf this change is intentional, regenerate "
-            f"with:\n  NEEZY_UPDATE_GOLDEN=1 "
-            f"python3 -m unittest tests.test_cli_golden",
-        )
+        _assert_matches_snapshot(self, actual, expected, argv, fixture)
 
     # ------------------------------------------------------------------
     # Static catalogue commands (no fetch, no local state)

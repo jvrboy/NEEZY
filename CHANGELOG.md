@@ -29,6 +29,13 @@
   stop, stop-from-callback (no self-join), send-after-stop, exactly-once
   `stopped` event, and restart cycles.
 
+### Fixed
+- `tests/test_cli_golden.py`: JSON golden snapshots now compare with
+  float tolerance (`math.isclose`, rel 1e-9) after CI exposed that
+  `statistics`-based correlation values drift 1-2 ULPs between Python
+  3.10/3.11 and 3.12. Structure, strings, and plain-text fixtures stay
+  byte-exact; failures now report the first differing JSON path.
+
 ### Verified
 - Full local CI (`local_ci.py --full`): compile, ruff check, ruff format,
   and **869 tests OK** (842 → +27), fully offline.
