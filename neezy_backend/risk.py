@@ -43,7 +43,13 @@ def atr_levels(
     stop_multiple: float = 1.5,
     reward_to_risk: float = 2.0,
 ) -> tuple[float, float]:
-    """Return (stop, target) placed ``stop_multiple`` ATRs from entry."""
+    """Return (stop, target) placed ``stop_multiple`` ATRs from entry.
+
+    >>> atr_levels("BUY", 1.1000, 0.0020)  # 1.5 ATR stop, 2R target
+    (1.0970000000000002, 1.106)
+    >>> atr_levels("SELL", 1.1000, 0.0020)
+    (1.103, 1.094)
+    """
     direction = direction.upper()
     if direction not in {"BUY", "SELL"}:
         raise ValueError("direction must be BUY or SELL")

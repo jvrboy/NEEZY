@@ -104,6 +104,53 @@ def _render_footer(out: TextIO, style: Style) -> None:
     )
 
 
+def _mt5_confirm_send(
+    input_fn: Callable[[str], str], out: TextIO, style: Style
+) -> list[str] | None:
+    argv = _order_args(input_fn)
+    prompt = f"Type {LIVE_CONFIRM_PHRASE} to send a live order: "
+    if _ask(prompt, input_fn) != LIVE_CONFIRM_PHRASE:
+        out.write(style("Cancelled. No order sent.", "warn") + "\n")
+        return None
+    argv.append("--confirm")
+    return argv
+
+
+def _mcp_config_argv(
+    input_fn: Callable[[str], str], out: TextIO, style: Style
+) -> list[str] | None:
+    ids = ", ".join(server.id for server in MCP_SERVERS)
+    out.write(style(f"Servers: {ids}", "muted") + "\n")
+    return ["mcp", "config", _ask("Server id: ", input_fn)]
+
+
+#: Palette key -> argv builder (roadmap #11: dispatch table, not an if-chain).
+#: Builders may prompt via ``input_fn`` and echo via ``out``; returning None
+#: means the action was cancelled before any command runs.
+ARGV_BUILDERS: dict[
+    str, Callable[[Callable[[str], str], TextIO, Style], list[str] | None]
+] = {
+    "1": lambda input_fn, out, style: ["doctor"],
+    "p": lambda input_fn, out, style: ["mt5", "preflight"],
+    "2": lambda input_fn, out, style: ["mt5", "status"],
+    "3": lambda input_fn, out, style: ["mt5", "account"],
+    "4": lambda input_fn, out, style: ["mt5", "quote", _ask("Symbol: ", input_fn)],
+    "5": lambda input_fn, out, style: [
+        "mt5",
+        "candles",
+        _ask("Symbol: ", input_fn),
+    ],
+    "6": lambda input_fn, out, style: [*_order_args(input_fn), "--dry-run"],
+    "7": _mt5_confirm_send,
+    "r": lambda input_fn, out, style: [
+        "regime",
+        _ask("Symbol (e.g. frxEURUSD): ", input_fn),
+    ],
+    "8": lambda input_fn, out, style: ["mcp", "list"],
+    "9": _mcp_config_argv,
+}
+
+
 def _argv_for(
     choice: str,
     input_fn: Callable[[str], str],
@@ -111,37 +158,10 @@ def _argv_for(
     style: Style,
 ) -> list[str] | None:
     """argv for one palette key. None means the action was cancelled."""
-    if choice == "1":
-        return ["doctor"]
-    if choice == "p":
-        return ["mt5", "preflight"]
-    if choice == "2":
-        return ["mt5", "status"]
-    if choice == "3":
-        return ["mt5", "account"]
-    if choice == "4":
-        return ["mt5", "quote", _ask("Symbol: ", input_fn)]
-    if choice == "5":
-        return ["mt5", "candles", _ask("Symbol: ", input_fn)]
-    if choice == "6":
-        return [*_order_args(input_fn), "--dry-run"]
-    if choice == "7":
-        argv = _order_args(input_fn)
-        prompt = f"Type {LIVE_CONFIRM_PHRASE} to send a live order: "
-        if _ask(prompt, input_fn) != LIVE_CONFIRM_PHRASE:
-            out.write(style("Cancelled. No order sent.", "warn") + "\n")
-            return None
-        argv.append("--confirm")
-        return argv
-    if choice == "r":
-        return ["regime", _ask("Symbol (e.g. frxEURUSD): ", input_fn)]
-    if choice == "8":
-        return ["mcp", "list"]
-    if choice == "9":
-        ids = ", ".join(server.id for server in MCP_SERVERS)
-        out.write(style(f"Servers: {ids}", "muted") + "\n")
-        return ["mcp", "config", _ask("Server id: ", input_fn)]
-    raise ValueError(f"unknown choice {choice!r}. Type / to search, ? for help.")
+    builder = ARGV_BUILDERS.get(choice)
+    if builder is None:
+        raise ValueError(f"unknown choice {choice!r}. Type / to search, ? for help.")
+    return builder(input_fn, out, style)
 
 
 def _result_line(style: Style, code: int) -> str:

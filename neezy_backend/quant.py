@@ -115,7 +115,15 @@ def drawdown_stats(closes: Sequence[float]) -> dict[str, float]:
 
 
 def historical_var(returns: Sequence[float], confidence: float = 0.95) -> float | None:
-    """Historical Value-at-Risk as a positive loss fraction."""
+    """Historical Value-at-Risk as a positive loss fraction.
+
+    >>> returns = [-0.02 * (i + 1) / 10 for i in range(10)]
+    >>> value = historical_var(returns, confidence=0.95)
+    >>> round(value, 4)
+    0.02
+    >>> historical_var([0.01] * 3) is None  # not enough samples
+    True
+    """
     if len(returns) < 10:
         return None
     if not 0 < confidence < 1:
@@ -142,6 +150,13 @@ def kelly_fraction(win_rate: float, avg_win: float, avg_loss: float) -> float:
 
     "avg_loss" is a positive magnitude. Returns 0 for degenerate inputs and
     clamps the result to [0, 1] - half-Kelly is the usual practical ceiling.
+
+    >>> kelly_fraction(0.55, 1.5, 1.0)  # edge with 1.5 payoff
+    0.25000000000000006
+    >>> kelly_fraction(0.5, 1.0, 1.0)  # no edge, no bet
+    0.0
+    >>> kelly_fraction(0.9, 20.0, 1.0)  # strong edge
+    0.8949999999999999
     """
     if avg_win <= 0 or avg_loss <= 0:
         return 0.0
@@ -193,6 +208,11 @@ def efficiency_ratio(closes: Sequence[float], period: int = 20) -> float | None:
     """Kaufman efficiency ratio: net move divided by the path travelled.
 
     1.0 = perfectly directional, ~0 = choppy.
+
+    >>> efficiency_ratio([1.0, 1.1, 1.2, 1.3, 1.4], period=4)
+    1.0
+    >>> round(efficiency_ratio([1.0, 1.2, 1.1, 1.3, 1.2], period=4), 6)
+    0.333333
     """
     if period < 2 or len(closes) < period + 1:
         return None

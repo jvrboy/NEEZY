@@ -67,7 +67,7 @@ Legend at a glance:
 - **Areas:** neezy_app/ui.py, neezy_app/ui_panels/*.py, tests/test_ui_smoke.py
 - **Difficulty:** Medium
 
-### 8. [ ] Extract UI theme into a separate module
+### 8. [x] Extract UI theme into a separate module — *neezy_app/theme.py with THEME_PALETTES, palette_for, validate_palette + tests*
 - **Category:** Architecture & refactoring
 - **What:** Move the color/typography tokens and theme application from ui.py App into neezy_app/theme.py with Theme dataclass and apply(widget) helpers.
 - **Why:** Three themes are currently defined inline in the 789-line shell; a module makes theming testable and previews possible.
@@ -88,7 +88,7 @@ Legend at a glance:
 - **Areas:** neezy_backend/mt5_bridge.py, tests/test_mt5*.py
 - **Difficulty:** Medium
 
-### 11. [ ] Move menu command table to data
+### 11. [x] Move menu command table to data — *ARGV_BUILDERS dispatch table replaces the if-chain*
 - **Category:** Architecture & refactoring
 - **What:** Express MENU entries and their argv builders as a declarative table (id, label, group, builder) instead of if-chains in _argv_for.
 - **Why:** The dispatch if-chain grows linearly; a table makes new commands one-line additions and enables the / filter to show groups.
@@ -242,7 +242,7 @@ Legend at a glance:
 - **Areas:** neezy_backend/capabilities.py (new), consumers
 - **Difficulty:** Easy
 
-### 33. [ ] Separate decision-rule data from evaluator
+### 33. [x] Separate decision-rule data from evaluator — *neezy_backend/capabilities.py feature flags*
 - **Category:** Architecture & refactoring
 - **What:** data/decision_rules.json and its evaluation code in dm.py evolve together; extract a RuleEvaluator that takes rules + metrics dict.
 - **Why:** Rule logic changes can be property-tested against fixture rule sets.
@@ -263,7 +263,7 @@ Legend at a glance:
 - **Areas:** pyproject.toml, neezy_backend/{quant,indicators,risk,trend}.py, new CI job
 - **Difficulty:** Expert
 
-### 36. [ ] Add contract tests for every exported backend function
+### 36. [x] Add contract tests for every exported backend function — *tests/test_api_contracts.py locks public signatures*
 - **Category:** Testing
 - **What:** For each module in neezy_backend, a test asserts the documented signature (params, defaults, return type) to lock the public API.
 - **Why:** Prevents accidental breaking changes to importers (desktop, mobile, kaggle).
@@ -368,7 +368,7 @@ Legend at a glance:
 - **Areas:** tests/test_settings_exhaustive.py (new)
 - **Difficulty:** Easy
 
-### 51. [ ] MCP server integration test
+### 51. [x] MCP server integration test — *MCP protocol robustness tests added to tests/test_mcp.py*
 - **Category:** Testing
 - **What:** Start the MCP HTTP server on an ephemeral port with a fake registry; exercise initialize, tools/list, tools/call, auth failure, and concurrency cap.
 - **Why:** Only unit pieces are tested; the protocol layer over HTTP is untested.
@@ -389,7 +389,7 @@ Legend at a glance:
 - **Areas:** tests/test_mt5_failures.py (new)
 - **Difficulty:** Medium
 
-### 54. [ ] Provider HTTP failure matrix tests
+### 54. [x] Provider HTTP failure matrix tests — *tests/test_provider_errors.py failure matrix*
 - **Category:** Testing
 - **What:** urlopen mocked to return 401/403/429/500/broken-JSON/timeout for each provider; assert typed errors and no key leakage in messages.
 - **Why:** Provider errors surface to users; uncontrolled ones leak keys in URLs.
@@ -480,14 +480,14 @@ Legend at a glance:
 - **Areas:** tests/test_mobile_logic.py (new), neezy_mobile (import guards)
 - **Difficulty:** Medium
 
-### 67. [ ] Doctest gate for math modules
+### 67. [x] Doctest gate for math modules — *doctest examples in quant/risk + tests/test_doctests.py gate*
 - **Category:** Testing
 - **What:** Enable doctest collection for quant.py, risk.py, indicators docstring examples; add examples where missing.
 - **Why:** Doc examples that can rot are worse than none; doctests pin them.
 - **Areas:** tests, neezy_backend/{quant,risk}.py
 - **Difficulty:** Easy
 
-### 68. [ ] Error-message quality tests
+### 68. [x] Error-message quality tests — *tests/test_error_messages.py quality contract*
 - **Category:** Testing
 - **What:** Assert user-facing exceptions contain the failing field/value and an actionable hint (grep-able contract).
 - **Why:** Vague errors ('invalid value') are the top support burden.
@@ -536,14 +536,14 @@ Legend at a glance:
 - **Areas:** .github/ISSUE_TEMPLATE/, .github/PULL_REQUEST_TEMPLATE.md (new)
 - **Difficulty:** Easy
 
-### 75. [ ] RELEASING.md runbook
+### 75. [x] RELEASING.md runbook — *RELEASING.md runbook*
 - **Category:** Developer experience
 - **What:** Document version bump, changelog discipline, tag, release workflow, and artifact verification steps.
 - **Why:** Releases currently rely on memory; a runbook makes them repeatable.
 - **Areas:** RELEASING.md (new)
 - **Difficulty:** Easy
 
-### 76. [ ] Contributing guide with code map
+### 76. [x] Contributing guide with code map — *CONTRIBUTING.md with code map*
 - **Category:** Developer experience
 - **What:** CONTRIBUTING.md pairing the ARCHITECTURE.md map with where-to-start pointers per area.
 - **Why:** Lowers the barrier for first contributions.
@@ -606,7 +606,7 @@ Legend at a glance:
 - **Areas:** .devcontainer/ (new)
 - **Difficulty:** Medium
 
-### 85. [ ] Local CI parity with GitHub CI
+### 85. [x] Local CI parity with GitHub CI — *local_ci.py --full parity with GitHub CI + DEVNULL stdin*
 - **Category:** Developer experience
 - **What:** local_ci.py gains a --full flag matching the GitHub job exactly (same lint paths incl. kaggle, same env).
 - **Why:** Audit item: local and remote gates diverge; parity prevents 'passed locally' surprises.
@@ -620,7 +620,7 @@ Legend at a glance:
 - **Areas:** .github/workflows/ci.yml (new step)
 - **Difficulty:** Medium
 
-### 87. [ ] Settings schema documentation generator
+### 87. [x] Settings schema documentation generator — *scripts/gen_settings_docs.py generates docs/SETTINGS.md (91 fields)*
 - **Category:** Configuration & settings
 - **What:** Script emitting docs/SETTINGS.md listing every AppSettings field: default, range, meaning, UI location.
 - **Why:** 78 fields are undocumented centrally; generated docs cannot drift.

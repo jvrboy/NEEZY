@@ -10,13 +10,22 @@ to `main` so progress survives if the run is interrupted.
 | Item | Value |
 |------|-------|
 | Phase | 4 (batched implementation) |
-| Current batch | Batch 1 COMPLETE (20 updates: #21,22,46,48,49,50,56,57,58,59,60,61,62,63,71,72,73,74,79,90) |
-| Next batch | Batch 2 — wave 1 remainder (CLI split #1, theme module #8, menu table #11, API contracts #36, provider errors #54, MCP http #51, corpus replay #70, etc.) |
-| Updates completed | 20/500 |
-| Updates remaining | 480 |
+| Current batch | Batch 2 COMPLETE (12 updates: #8,11,33,36,51,54,67,68,75,76,85,87) |
+| Next batch | Batch 3 — performance/caching wave 2 picks (provider TTL cache #106, watchlist batching #120, statement reuse #128, AI streaming groundwork, perf smoke #164, etc.) |
+| Updates completed | 32/500 |
+| Updates remaining | 468 |
 | Run started | 2026-10-22 (SAST) |
 | Baseline at run start | commit `9a17b52`, v1.6.0 |
-| CI on main | GREEN as of 11f6368 (verify again after this batch) |
+| CI on main | verify after batch 2 push (was green on 11f6368) |
+
+## Batch 2 summary (verified before push)
+
+- Suite: **673 tests OK** (630 → +43).
+- `ruff check .` / `ruff format --check .` clean; compileall clean.
+- New modules: `neezy_app/theme.py`, `neezy_backend/capabilities.py`;
+  new tests: api contracts, MCP robustness, provider errors, doctests,
+  error messages, theme; docs: RELEASING/CONTRIBUTING/SETTINGS.md;
+  menu dispatch table; local_ci --full parity.
 
 ## Batch 1 summary (verified before push)
 

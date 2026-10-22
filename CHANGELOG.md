@@ -1,5 +1,35 @@
 # CHANGELOG
 
+## [Unreleased] — Batch 2: architecture & tooling (roadmap #8-#87, 12 items; total 32/500)
+
+### Added
+- `neezy_app/theme.py`: the three theme palettes extracted from the App shell
+  into testable design tokens (`THEME_PALETTES`, `palette_for`, `validate_palette`);
+  nine new theme tests.
+- `neezy_backend/capabilities.py`: runtime feature flags (MT5, Kivy, numpy,
+  FTS5, local LLM) with a `feature_report()` snapshot for doctor/diagnostics.
+- `tests/test_api_contracts.py`: locks every public export and key signature of
+  the `neezy_backend` package against accidental breaking changes.
+- MCP protocol robustness tests (malformed JSON, GET on POST endpoint,
+  oversized bodies, wrong content type, survival after hostile input).
+- `tests/test_provider_errors.py`: provider HTTP failure matrix (401/403/429/
+  500, timeouts, network errors) proving typed `ProviderError`s that never leak
+  the API key into messages.
+- `tests/test_doctests.py`: doctest gate plus runnable examples in `quant.py`
+  and `risk.py` (Kelly fraction, VaR, efficiency ratio, ATR levels).
+- `tests/test_error_messages.py`: error-quality contract (fields named, bounds
+  stated, guidance included).
+- `RELEASING.md` (release runbook) and `CONTRIBUTING.md` (code map + rules).
+- `scripts/gen_settings_docs.py` + generated `docs/SETTINGS.md`: every one of
+  the 91 settings fields documented with default and UI location.
+
+### Changed
+- `neezy_backend/menu.py`: the palette dispatch if-chain is now the
+  `ARGV_BUILDERS` table — adding a menu entry is one entry, not one branch.
+- `local_ci.py`: `--full` widens lint to the whole tree (kaggle notebook
+  included), and all child processes run with stdin=/dev/null so menu tests
+  can never hang a headless run (parity with CI).
+
 ## [Unreleased] — Batch 1: foundations (roadmap updates #21-#90, 20 items)
 
 ### Fixed

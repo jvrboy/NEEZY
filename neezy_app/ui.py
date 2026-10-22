@@ -14,6 +14,11 @@ import sqlite3
 import tkinter as tk
 from tkinter import ttk
 
+from neezy_app.theme import (
+    DEFAULT_THEME,
+    THEME_CANVAS_BG,
+    palette_for,
+)
 from neezy_app.ui_panels.ai_settings import AiSettingsMixin
 from neezy_app.ui_panels.alerts import AlertsMixin
 from neezy_app.ui_panels.chat import ChatMixin
@@ -355,44 +360,7 @@ class App(
         )
 
     def _apply_theme(self):
-        palettes = {
-            "Liquid dark": {
-                "BG": "#08111f",
-                "PANEL": "#101d30",
-                "PANEL2": "#14253b",
-                "TEXT": "#e6f0ff",
-                "MUTED": "#8ea4bd",
-                "CYAN": "#55d6ff",
-                "GREEN": "#48e6a1",
-                "RED": "#ff718c",
-                "BORDER": "#203754",
-            },
-            "Midnight blue": {
-                "BG": "#071522",
-                "PANEL": "#10263a",
-                "PANEL2": "#17354e",
-                "TEXT": "#e7f5ff",
-                "MUTED": "#9bb8ca",
-                "CYAN": "#64e1ff",
-                "GREEN": "#5ce8b2",
-                "RED": "#ff8299",
-                "BORDER": "#29506b",
-            },
-            "High contrast": {
-                "BG": "#000000",
-                "PANEL": "#111111",
-                "PANEL2": "#222222",
-                "TEXT": "#ffffff",
-                "MUTED": "#d2d2d2",
-                "CYAN": "#00e5ff",
-                "GREEN": "#00ff76",
-                "RED": "#ff647c",
-                "BORDER": "#777777",
-            },
-        }
-        palette = palettes.get(
-            getattr(self, "settings", AppSettings()).theme, palettes["Liquid dark"]
-        )
+        palette = palette_for(getattr(self, "settings", AppSettings()).theme)
         old = getattr(self, "_active_palette", {})
         for key, value in palette.items():
             setattr(self, key, value)
@@ -413,9 +381,10 @@ class App(
                             widget.configure(**{option: swaps[current]})
                     except (tk.TclError, TypeError):
                         pass
-            self.canvas.configure(
-                bg="#0c192b" if self.theme_var.get() != "High contrast" else "#050505"
+            canvas_bg = THEME_CANVAS_BG.get(
+                self.theme_var.get(), THEME_CANVAS_BG[DEFAULT_THEME]
             )
+            self.canvas.configure(bg=canvas_bg)
         self._active_palette = palette
         self.configure(bg=self.BG)
         if hasattr(self, "main"):

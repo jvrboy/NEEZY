@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from neezy_backend.mcp import MCPServer, MCPTokenStore
+from neezy_backend.mcp import MAX_REQUEST_BYTES, MCPServer, MCPTokenStore
 from neezy_backend.mcp_tools import register_public_app_tools
 from neezy_backend.tools import ToolPermission, ToolRegistry
 
@@ -243,3 +243,86 @@ class MCPTokenStoreTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MCPProtocolRobustnessTest(unittest.TestCase):
+    """Roadmap #51 addendum: hostile/edge requests must never crash the server."""
+
+    def setUp(self) -> None:
+        self.registry = ToolRegistry()
+        self.registry.register("ping", "Pong", lambda: {"pong": True})
+        self.server = MCPServer(self.registry, "s" * 40, port=0)
+        self.url = self.server.start()
+        self.addCleanup(self.server.stop)
+
+    def _post_raw(self, body: bytes, headers: dict | None = None):
+        headers = {"Content-Type": "application/json", **(headers or {})}
+        request = Request(self.url, data=body, headers=headers, method="POST")
+        try:
+            with urlopen(request, timeout=3) as response:
+                return response.status, response.read()
+        except HTTPError as error:
+            return error.code, error.read()
+
+    def test_malformed_json_gets_a_clean_error_response(self):
+        status, _ = self._post_raw(
+            b"{not json at all", {"Authorization": "Bearer " + "s" * 40}
+        )
+        self.assertEqual(status, 400)
+        self.assertTrue(self.server.running)  # server survived
+
+    def test_wrong_content_type_is_rejected(self):
+        status, _ = self._post_raw(
+            b"{}", {"Content-Type": "text/plain", "Authorization": "Bearer " + "s" * 40}
+        )
+        self.assertIn(status, (400, 415))
+
+    def test_get_request_is_not_allowed_for_post_endpoint(self):
+        request = Request(self.url)  # GET
+        try:
+            with urlopen(request, timeout=3) as response:
+                status = response.status
+        except HTTPError as error:
+            status = error.code
+        self.assertIn(status, (404, 405))
+        self.assertTrue(self.server.running)
+
+    def test_missing_auth_is_unauthorized(self):
+        status, _ = self._post_raw(b'{"jsonrpc":"2.0","id":1,"method":"ping"}')
+        self.assertEqual(status, 401)
+
+    def test_oversized_body_is_rejected(self):
+        from urllib.error import URLError
+
+        huge = b"x" * (MAX_REQUEST_BYTES + 1)
+        try:
+            status, _ = self._post_raw(
+                huge,
+                {
+                    "Authorization": "Bearer " + "s" * 40,
+                },
+            )
+        except URLError as error:
+            # The server slams the door mid-upload (broken pipe on our side);
+            # that refusal is the protection working.
+            self.assertIn("Broken pipe", str(error))
+            status = 413
+        self.assertIn(status, (413, 400))
+        self.assertTrue(self.server.running)
+
+    def test_server_still_serves_after_hostile_requests(self):
+        token = "s" * 40
+        for body in (b"", b"[", b"null", b"3", b'{"jsonrpc": 1}'):
+            self._post_raw(body, {"Authorization": f"Bearer {token}"})
+        payload = {
+            "jsonrpc": "2.0",
+            "id": 99,
+            "method": "tools/call",
+            "params": {"name": "ping", "arguments": {}},
+        }
+        status, body = self._post_raw(
+            json.dumps(payload).encode("utf-8"),
+            {"Authorization": f"Bearer {token}"},
+        )
+        self.assertEqual(status, 200)
+        self.assertIn(b"pong", body)
