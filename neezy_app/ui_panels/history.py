@@ -16,8 +16,22 @@ class HistoryMixin:
     def _history_page(self):
         page = self.pages["HISTORY"]
         bar = tk.Frame(page, bg=self.BG)
-        bar.pack(fill="x", pady=(5, 12))
+        bar.pack(fill="x", pady=(5, 8))
         self._label(bar, "Signal history", 16).pack(side="left")
+        self.hist_kpi_label = self._label(
+            bar, "0 confluence cards · 0 transitions", 10, self.MUTED
+        )
+        self.hist_kpi_label.pack(side="left", padx=14)
+        tk.Button(
+            bar,
+            text="Clear History",
+            command=self._clear_history,
+            bg=self.PANEL2,
+            fg=self.TEXT,
+            relief="flat",
+            padx=12,
+            pady=7,
+        ).pack(side="right", padx=(8, 0))
         tk.Button(
             bar,
             text="Export CSV",
@@ -50,9 +64,21 @@ class HistoryMixin:
         )
 
     def _render_history(self):
-        if not hasattr(self, "hist"):
+        if not hasattr(self, "hist_frame"):
             return
         self._render_confluence_history()
+        if hasattr(self, "hist_kpi_label"):
+            cards = self.confluence_store.read(limit=1000)
+            wins = sum(1 for item in cards if item.get("outcome") == "TP")
+            losses = sum(1 for item in cards if item.get("outcome") == "SL")
+            resolved = wins + losses
+            wr = f"{wins / resolved * 100.0:.1f}%" if resolved else "—"
+            self.hist_kpi_label.config(
+                text=(
+                    f"{len(cards)} confluence cards · Win rate {wr} "
+                    f"({wins} TP / {losses} SL) · {len(self.history)} transitions"
+                )
+            )
 
     def _export_history(self):
         destination = filedialog.asksaveasfilename(
@@ -64,7 +90,13 @@ class HistoryMixin:
         if not destination:
             return
         try:
-            count = self.history_store.export_csv(Path(destination))
+            sep = self.settings.csv_separator()
+            dest_path = Path(destination)
+            count = self.history_store.export_csv(dest_path, delimiter=sep)
+            conf_rows = self.confluence_store.read(limit=100_000)
+            if conf_rows:
+                conf_dest = dest_path.with_name(f"{dest_path.stem}-confluence.csv")
+                self.confluence_store.export_csv(conf_dest, conf_rows, delimiter=sep)
             self.settings_status.config(text=f"Exported {count} records", fg=self.GREEN)
             messagebox.showinfo(
                 "History exported", f"Exported {count} signal-history records."
@@ -76,6 +108,7 @@ class HistoryMixin:
     def _clear_history(self):
         try:
             self.history_store.clear()
+            self.confluence_store.clear()
             self.history.clear()
             self._render_history()
             self.settings_status.config(

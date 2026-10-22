@@ -20,6 +20,7 @@ from neezy_backend.markets import SYMBOLS, TIMEFRAMES
 from neezy_backend.outcomes import evaluate_outcomes, summarize
 from neezy_backend.storage import get_data_dir
 
+from .glass import PulseDot
 from .ui import NAV, App
 
 logger = logging.getLogger(__name__)
@@ -84,7 +85,12 @@ def filter_commands(commands: list[Command], query: str) -> list[Command]:
     return [c for c in commands if all(t in c[0].lower() for t in tokens)]
 
 
-def format_outcomes(symbol_name: str, timeframe: str, stats: dict[str, float]) -> str:
+def format_outcomes(
+    symbol_name: str,
+    timeframe: str,
+    stats: dict[str, float],
+    horizon: int = OUTCOME_HORIZON,
+) -> str:
     """Render outcome statistics for the report panel."""
     if not stats["count"]:
         return (
@@ -98,14 +104,18 @@ def format_outcomes(symbol_name: str, timeframe: str, stats: dict[str, float]) -
         f"Win rate        {stats['win_rate']:.1f}%\n"
         f"Avg return      {stats['avg_return_pct']:+.3f}%\n"
         f"Best / worst    {stats['best_pct']:+.2f}% / {stats['worst_pct']:+.2f}%\n"
-        f"Horizon         {OUTCOME_HORIZON} candles\n\n"
+        f"Horizon         {horizon} candles\n\n"
         "Measured from signal price to the close N candles later."
     )
 
 
 def pick_fonts(root: tk.Misc) -> tuple[str, str]:
     """Choose the best installed UI and monospace families."""
-    installed = {str(f).lower(): str(f) for f in root.tk.call("font", "families")}
+    try:
+        raw_families = root.tk.call("font", "families")
+    except (AttributeError, tk.TclError):
+        raw_families = ()
+    installed = {str(f).lower(): str(f) for f in raw_families}
 
     def first(names: tuple[str, ...], default: str) -> str:
         for name in names:
@@ -119,7 +129,8 @@ def pick_fonts(root: tk.Misc) -> tuple[str, str]:
 def apply_enterprise_style(app: App, ui: str, mono: str) -> None:
     """Extend the base ttk style with enterprise-grade widget treatments."""
     style = ttk.Style(app)
-    style.configure("Treeview", font=(ui, 10))
+    offset = int(getattr(app.settings, "font_size_offset", 0))
+    style.configure("Treeview", font=(ui, max(8, 10 + offset)))
     style.configure(
         "Treeview.Heading",
         background=app.PANEL2,
@@ -127,7 +138,7 @@ def apply_enterprise_style(app: App, ui: str, mono: str) -> None:
         relief="flat",
         borderwidth=0,
         padding=(8, 9),
-        font=(ui, 9, "bold"),
+        font=(ui, max(8, 9 + offset), "bold"),
     )
     style.map("Treeview.Heading", background=[("active", app.BORDER)])
     style.configure(
@@ -159,7 +170,7 @@ def apply_enterprise_style(app: App, ui: str, mono: str) -> None:
     }
     for option, value in popdown.items():
         app.option_add(f"*TCombobox*Listbox.{option}", value)
-    app.option_add("*TCombobox*Listbox.font", (ui, 10))
+    app.option_add("*TCombobox*Listbox.font", (ui, max(8, 10 + offset)))
 
 
 class Toasts:
@@ -171,8 +182,15 @@ class Toasts:
         self.app = app
         self._items: list[tk.Frame] = []
 
-    def show(self, text: str, kind: str = "info", ms: int = 4500) -> None:
+    def show(self, text: str, kind: str = "info", ms: int | None = None) -> None:
         app = self.app
+        if not getattr(app.settings, "toast_notifications_enabled", True):
+            return
+        duration = (
+            int(getattr(app.settings, "toast_duration_ms", 4500))
+            if ms is None
+            else int(ms)
+        )
         accent = {
             "info": app.CYAN,
             "success": app.GREEN,
@@ -208,7 +226,7 @@ class Toasts:
         while len(self._items) > self.MAX_VISIBLE:
             self._dismiss(self._items[0])
         self._layout()
-        app.after(ms, lambda: self._dismiss(frame))
+        app.after(duration, lambda: self._dismiss(frame))
 
     def _dismiss(self, frame: tk.Frame) -> None:
         if frame not in self._items:
@@ -354,11 +372,11 @@ class EnterpriseApp(App):
 
     def _apply_theme(self) -> None:
         super()._apply_theme()
-        tree = getattr(self, "tree", None)
+        tree = self.__dict__.get("tree")
         if tree is not None:
             tree.tag_configure("buy", foreground=self.GREEN)
             tree.tag_configure("sell", foreground=self.RED)
-        detail = getattr(self, "detail", None)
+        detail = self.__dict__.get("detail")
         if detail is not None:
             detail.tag_configure("buy", foreground=self.GREEN)
             detail.tag_configure("sell", foreground=self.RED)
@@ -366,10 +384,11 @@ class EnterpriseApp(App):
     def _retheme_fonts(self) -> None:
         ui, mono = self._font_pair()
         families = {"helvetica": ui, "courier": mono}
+        offset = int(getattr(self.settings, "font_size_offset", 0))
         for widget in self._walk_widgets(self):
             try:
                 spec = self.tk.splitlist(str(widget.cget("font")))
-            except tk.TclError:
+            except (AttributeError, TypeError, tk.TclError):
                 continue
             if len(spec) < 2:
                 continue
@@ -377,10 +396,11 @@ class EnterpriseApp(App):
             if target is None:
                 continue
             try:
-                widget.configure(font=(target, int(spec[1]), *spec[2:]))
+                size = max(7, int(spec[1]) + offset)
+                widget.configure(font=(target, size, *spec[2:]))
             except (ValueError, tk.TclError):
                 continue
-        self.detail.tag_configure("big", font=(ui, 22, "bold"))
+        self.detail.tag_configure("big", font=(ui, max(16, 22 + offset), "bold"))
 
     # ----------------------------------------------------------------- layout
     def _enhance_layout(self) -> None:
@@ -407,12 +427,17 @@ class EnterpriseApp(App):
             button.configure(text=f"  {glyph}   {name.title()}", cursor="hand2")
             button.bind("<Enter>", lambda _e, n=name: self._hover(n, True))
             button.bind("<Leave>", lambda _e, n=name: self._hover(n, False))
+        if not self.settings.reduced_motion and hasattr(self, "conn"):
+            self.pulse_dot = PulseDot(
+                self.conn.master, bg=self.BG, color=self.CYAN, size=10
+            )
+            self.pulse_dot.pack(anchor="w", padx=23, before=self.conn)
         self._build_status_bar()
         self._add_chat_chips()
         for widget in (
             self.tree,
             self.watch,
-            self.hist,
+            self.hist_canvas,
             self.chat,
             self.detail,
             self.risk_out,
@@ -541,11 +566,20 @@ class EnterpriseApp(App):
             self.open_palette()
             return "break"
 
+        def symbol_palette(_event: object) -> str:
+            self.open_symbol_palette()
+            return "break"
+
         self.bind_all("<Control-k>", palette)
+        self.bind_all("<Control-p>", symbol_palette)
         for widget_class in ("Entry", "Text", "TEntry", "TCombobox", "Spinbox"):
             self.bind_class(widget_class, "<Control-k>", palette)
-        for index, name in enumerate(NAV, start=1):
+        for index, name in enumerate(NAV[:9], start=1):
             self.bind_all(f"<Control-Key-{index}>", lambda _e, n=name: self._tab(n))
+        if len(NAV) >= 10:
+            tenth = NAV[9]
+            self.bind_all("<Control-Key-0>", lambda _e, n=tenth: self._tab(n))
+            self.bind_all("<Control-comma>", lambda _e, n=tenth: self._tab(n))
         self.bind_all("<F5>", lambda _e: self._resubscribe())
 
     def _resubscribe(self) -> None:
@@ -554,7 +588,10 @@ class EnterpriseApp(App):
 
     def _commands(self) -> list[Command]:
         commands: list[Command] = [
-            (f"Go to {name.title()}  (Ctrl+{i})", lambda n=name: self._tab(n))
+            (
+                f"Go to {name.title()}  (Ctrl+{i if i < 10 else '0'})",
+                lambda n=name: self._tab(n),
+            )
             for i, name in enumerate(NAV, start=1)
         ]
         commands += [
@@ -571,6 +608,7 @@ class EnterpriseApp(App):
             ("Signal outcomes report (selected market)", self._show_outcomes),
             ("Export diagnostics bundle (redacted zip)", self._export_diagnostics),
             ("Export signal history as CSV", self._export_history),
+            ("Create local backup archive", self._create_backup_archive),
             ("Reconnect market streams  (F5)", self._resubscribe),
             ("Toggle compact density", self._toggle_compact),
         ]
@@ -585,6 +623,15 @@ class EnterpriseApp(App):
             self._palette.destroy()
         self._palette = CommandPalette(self, self._commands())
 
+    def open_symbol_palette(self) -> None:
+        if self._palette is not None and self._palette.winfo_exists():
+            self._palette.destroy()
+        sym_commands: list[Command] = [
+            (f"{name}  ({symbol})", lambda s=symbol: self._open_chart(s))
+            for symbol, name in SYMBOLS.items()
+        ]
+        self._palette = CommandPalette(self, sym_commands)
+
     def _set_timeframe(self, label: str) -> None:
         self.tf.set(label)
         self._tf_changed()
@@ -592,7 +639,8 @@ class EnterpriseApp(App):
 
     def _scan_from_palette(self) -> None:
         self._tab("SETTINGS")
-        self.settings_notebook.select(1)
+        if hasattr(self, "_settings_tabs") and "ENGINE" in self._settings_tabs:
+            self.settings_notebook.select(self._settings_tabs["ENGINE"])
         self._scan_strategies()
 
     def _rank_from_palette(self) -> None:
@@ -627,9 +675,13 @@ class EnterpriseApp(App):
         except sqlite3.Error as error:
             self._write(self.rank_out, f"Database error: {error}")
             return
-        outcomes = evaluate_outcomes(signals, candles, OUTCOME_HORIZON)
+        horizon = self.settings.outcome_eval_horizon
+        outcomes = evaluate_outcomes(signals, candles, horizon)
         stats = summarize(outcomes)
-        self._write(self.rank_out, format_outcomes(SYMBOLS[symbol], timeframe, stats))
+        self._write(
+            self.rank_out,
+            format_outcomes(SYMBOLS[symbol], timeframe, stats, horizon=horizon),
+        )
 
     def _export_diagnostics(self) -> None:
         destination = filedialog.asksaveasfilename(
@@ -659,8 +711,8 @@ class EnterpriseApp(App):
         engine = self.alert_engine
         original = engine.evaluate
 
-        def evaluate(symbol, result, price, patterns):
-            fired = original(symbol, result, price, patterns)
+        def evaluate(symbol, result, price, patterns=None, **kwargs):
+            fired = original(symbol, result, price, patterns, **kwargs)
             for rule in fired or []:
                 market = SYMBOLS.get(symbol, symbol)
                 self.toasts.show(f"Alert · {market} · {rule.describe()}", "warn")

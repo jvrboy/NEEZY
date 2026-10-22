@@ -19,14 +19,40 @@ class TelegramMixin:
 
     def _telegram_settings_tab(self, notebook):
         _tab, left, right = self._settings_tab(notebook, "TELEGRAM")
-        self._label(left, "TELEGRAM BOT", 9, self.CYAN).pack(
-            anchor="w", padx=16, pady=(14, 6)
+        self._label(left, "TELEGRAM BOT & DELIVERY", 9, self.CYAN).pack(
+            anchor="w", padx=16, pady=(12, 4)
         )
         self._check_row(left, "Enable Telegram bot", self.telegram_enabled_var)
         self._check_row(
             left,
             "Send alert-rule and signal-transition notifications",
             self.telegram_alerts_var,
+        )
+        self._check_row(
+            left,
+            "Include ATR Stop-Loss & Take-Profit estimates in alerts",
+            self.extra_vars["telegram_include_sl_tp_levels"],
+        )
+        self._spin_row(
+            left,
+            "Min signal score for Telegram alerts",
+            self.extra_vars["telegram_min_signal_score"],
+            1,
+            4,
+            1,
+        )
+        self._check_row(
+            left,
+            "Send daily market summary digest",
+            self.extra_vars["telegram_daily_digest_enabled"],
+        )
+        self._spin_row(
+            left,
+            "Daily digest hour (UTC 0-23)",
+            self.extra_vars["telegram_digest_hour_utc"],
+            0,
+            23,
+            1,
         )
         self._check_row(
             left,
@@ -38,17 +64,9 @@ class TelegramMixin:
             "Allowed Telegram chat IDs (comma-separated)",
             self.telegram_chat_ids_var,
         )
-        self._label(
-            left,
-            "Commands are restricted to the chat IDs above. Read commands are always "
-            "available; write commands require the separate permission checkbox.",
-            9,
-            self.MUTED,
-            justify="left",
-            wraplength=330,
-        ).pack(anchor="w", padx=16, pady=(6, 10))
+
         self._label(right, "BOT TOKEN · STORED LOCALLY", 9, self.CYAN).pack(
-            anchor="w", padx=16, pady=(14, 6)
+            anchor="w", padx=16, pady=(12, 4)
         )
         self.telegram_token_entry = tk.Entry(
             right,
@@ -91,11 +109,9 @@ class TelegramMixin:
         self._label(
             right,
             "Create a bot with @BotFather, then message it. Use @userinfobot to "
-            "find your numeric chat ID and add it to the allow-list. Start the bot "
-            "with /start. Supported commands: /help, /status, /markets, /signals, "
-            "/analyze, /scan, /ask, /alerts; optional writes: /alert, /remember, "
-            "/set, /delete-alert. Telegram handles messages sent through the bot; "
-            "allow-list only chats you trust.",
+            "find your numeric chat ID and add it to the allow-list. Supported "
+            "commands: /help, /status, /markets, /signals, /analyze, /scan, /ask, "
+            "/alerts; optional writes: /alert, /remember, /set, /delete-alert.",
             9,
             self.MUTED,
             justify="left",

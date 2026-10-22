@@ -21,11 +21,19 @@ def send_dm_notification(
     level: str = "info",
     fields: dict[str, Any] | None = None,
     timeout: float = 10.0,
+    *,
+    webhook_format: str = "auto",
+    https_only: bool = False,
 ) -> dict[str, Any]:
     """Send a direct message notification to a Webhook URL (Discord/Slack/HTTP)."""
     cleaned_url = webhook_url.strip()
     if not cleaned_url:
         return {"success": False, "error": "Webhook URL is empty"}
+    if https_only and not cleaned_url.startswith("https://"):
+        return {
+            "success": False,
+            "error": "Webhook URL must start with https:// when HTTPS-only is active",
+        }
     if not cleaned_url.startswith(("http://", "https://")):
         return {
             "success": False,
@@ -33,6 +41,13 @@ def send_dm_notification(
         }
 
     # Format payload for standard webhook, Discord, or Slack compatibility
+    fmt = (webhook_format or "auto").strip().lower()
+    if fmt == "auto":
+        if "discord.com/api/webhooks" in cleaned_url:
+            fmt = "discord"
+        elif "hooks.slack.com" in cleaned_url:
+            fmt = "slack"
+
     payload: dict[str, Any] = {
         "text": f"*{title}*\n{message}",
         "title": title,
@@ -45,6 +60,23 @@ def send_dm_notification(
         field_strs = [f"• **{k}**: {v}" for k, v in fields.items()]
         payload["text"] += "\n" + "\n".join(field_strs)
         payload["content"] += "\n" + "\n".join(field_strs)
+    if fmt == "discord":
+        color_int = (
+            0xEF4444
+            if level == "error"
+            else (0xF59E0B if level == "warning" else 0x38BDF8)
+        )
+        payload["embeds"] = [
+            {
+                "title": title,
+                "description": message,
+                "color": color_int,
+                "fields": [
+                    {"name": str(k), "value": str(v), "inline": True}
+                    for k, v in (fields or {}).items()
+                ],
+            }
+        ]
 
     data_bytes = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(

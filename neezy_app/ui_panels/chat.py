@@ -5,8 +5,10 @@ from __future__ import annotations
 import logging
 import sqlite3
 import threading
+import time
 import tkinter as tk
 
+from neezy_backend.agent import AgentPlanner
 from neezy_backend.ai import (
     AIError,
 )
@@ -96,6 +98,9 @@ class ChatMixin:
             except sqlite3.Error as error:
                 logger.warning("Could not retrieve local chat memory: %s", error)
         messages = chat_messages(question, context, memory=memory)
+        turns = self.settings.ai_chat_history_turns
+        if turns > 0 and self._chat_history_turns:
+            messages = [*self._chat_history_turns[-(turns * 2) :], *messages]
         system_prompt = self.settings.ai_system_prompt.strip()
         guardrail = (
             "You are NEEZY's offline market-analysis assistant. Treat indicators "
@@ -154,7 +159,7 @@ class ChatMixin:
                 fallback_reason = f"Local model unavailable ({error})."
                 text = ""
             except Exception as error:
-                logger.exception("Local model inference failed")
+                logger.exception("Local model failed")
                 fallback_reason = f"Local model failed: {error}."
                 text = ""
             if fallback_reason:
@@ -162,11 +167,12 @@ class ChatMixin:
                     0,
                     lambda: self._append_ai(
                         f"{fallback_reason} Rule-based local read instead:\n"
-                        f"{self._answer(question)}"
+                        f"{self._answer(question)}",
+                        user_prompt=question,
                     ),
                 )
             else:
-                self.after(0, lambda: self._append_ai(text))
+                self.after(0, lambda: self._append_ai(text, user_prompt=question))
 
         threading.Thread(
             target=work, name="neezy-local-model-chat", daemon=True
@@ -179,24 +185,62 @@ class ChatMixin:
         self.prompt.delete(0, "end")
         self.chat.insert("end", f"\nYOU\n{question}\n\nNEEZY\n")
         self.chat.see("end")
+
+        if self.settings.agent_mode_enabled:
+            planner = AgentPlanner(
+                ai_client=None,
+                registry=self.remote_registry,
+                max_steps=self.settings.agent_max_steps,
+            )
+            plan = planner.create_plan(question)
+            executed = planner.execute_plan(
+                plan,
+                dry_run=False,
+                confirm=not self.settings.agent_require_write_confirmation,
+            )
+            trace = "\n".join(
+                f"  Step {s.step_id}: {s.task} → {s.status}" for s in executed
+            )
+            self.chat.insert("end", f"[Agent Plan]\n{trace}\n\n")
+
         if self.settings.local_llm_enabled:
             self._ask_local_model(question)
             return
         if not self.settings.ai_enabled:
-            self.chat.insert("end", self._answer(question) + "\n")
+            reply = self._answer(question)
+            self._record_chat_turn(question, reply)
+            self.chat.insert("end", reply + "\n")
             self.chat.see("end")
             return
         provider = self.settings.ai_provider
         if not self.ai_keys.secrets(provider):
+            fallback = self._answer(question)
             self.chat.insert(
                 "end",
                 f"No {provider} key is stored yet, so here is the local read. "
-                "Add a key in SETTINGS → AI PROVIDERS.\n"
-                + self._answer(question)
-                + "\n",
+                "Add a key in SETTINGS → AI PROVIDERS.\n" + fallback + "\n",
             )
             self.chat.see("end")
             return
+        if (
+            self.settings.ai_daily_request_cap > 0
+            and self._ai_requests_today >= self.settings.ai_daily_request_cap
+        ):
+            self._append_ai(
+                f"Daily AI request cap ({self.settings.ai_daily_request_cap}) "
+                f"reached. Local read instead:\n{self._answer(question)}",
+                user_prompt=question,
+            )
+            return
+
+        cache_key = f"{provider}:{self.selected}:{self.tf.get()}:{question}"
+        now = time.monotonic()
+        if self.settings.ai_cache_enabled:
+            cached = self._ai_cache.get(cache_key)
+            if cached and (now - cached[0]) < self.settings.ai_cache_ttl_seconds:
+                self._append_ai(f"{cached[1]} [cached]", user_prompt=question)
+                return
+
         snapshot = market_snapshot(
             self.candles.get(self.selected, []),
             symbol=self.selected,
@@ -216,45 +260,78 @@ class ChatMixin:
             except sqlite3.Error as error:
                 logger.warning("Could not retrieve local chat memory: %s", error)
         messages = chat_messages(question, context, memory=memory)
+        turns = self.settings.ai_chat_history_turns
+        if turns > 0 and self._chat_history_turns:
+            messages = [*self._chat_history_turns[-(turns * 2) :], *messages]
         self.status_var.set(f"Asking {provider}…")
         settings = self.settings
 
         def work():
-            # Worker thread: no Tk calls here. The local fallback touches
-            # widgets (_answer may select a market), so it runs on the main thread.
-            try:
-                result = self.ai_client.chat(
-                    provider,
-                    messages,
-                    model=settings.ai_model or None,
-                    temperature=settings.ai_temperature,
-                    max_tokens=settings.ai_max_tokens,
-                    timeout=settings.ai_timeout,
-                    base_url=settings.ai_base_url or None,
-                    system_prompt=settings.ai_system_prompt or None,
+            providers_to_try = [provider]
+            fb = settings.ai_fallback_provider
+            if fb not in {"none", "local_llm", provider} and self.ai_keys.secrets(fb):
+                providers_to_try.append(fb)
+            last_error: Exception | None = None
+            for cand in providers_to_try:
+                cand_model = (
+                    settings.ai_model
+                    if cand == provider and settings.ai_model
+                    else None
                 )
-                text = (
-                    f"{result.text}\n[{result.provider} · {result.model} · "
-                    f"key {result.key_label} · {result.latency_ms} ms]"
-                )
-            except (AIError, OSError, ValueError) as error:
-                reason = str(error)
-                self.after(
-                    0,
-                    lambda: self._append_ai(
-                        f"AI unavailable ({reason}). Local read instead:\n"
-                        f"{self._answer(question)}"
-                    ),
-                )
-                return
-            except Exception as error:
-                logger.exception("AI request failed")
-                text = f"AI request failed: {error}"
-            self.after(0, lambda: self._append_ai(text))
+                try:
+                    result = self.ai_client.chat(
+                        cand,
+                        messages,
+                        model=cand_model,
+                        temperature=settings.ai_temperature,
+                        max_tokens=settings.ai_max_tokens,
+                        timeout=settings.ai_timeout,
+                        base_url=settings.ai_base_url or None,
+                        system_prompt=settings.ai_system_prompt or None,
+                    )
+                    text = (
+                        f"{result.text}\n[{result.provider} · {result.model} · "
+                        f"key {result.key_label} · {result.latency_ms} ms]"
+                    )
+                    self._ai_requests_today += 1
+                    if settings.ai_cache_enabled:
+                        self._ai_cache[cache_key] = (time.monotonic(), text)
+                    self.after(
+                        0, lambda out=text: self._append_ai(out, user_prompt=question)
+                    )
+                    return
+                except (AIError, OSError, ValueError) as error:
+                    last_error = error
+                    continue
+                except Exception as error:
+                    logger.exception("AI request failed")
+                    self.after(
+                        0,
+                        lambda err=error: self._append_ai(
+                            f"AI request failed: {err}", user_prompt=question
+                        ),
+                    )
+                    return
+            reason = str(last_error)
+            self.after(
+                0,
+                lambda: self._append_ai(
+                    f"AI unavailable ({reason}). Local read instead:\n"
+                    f"{self._answer(question)}",
+                    user_prompt=question,
+                ),
+            )
 
         threading.Thread(target=work, name="neezy-ai-chat", daemon=True).start()
 
-    def _append_ai(self, text):
+    def _record_chat_turn(self, question: str, reply: str) -> None:
+        self._chat_history_turns.append({"role": "user", "content": question})
+        self._chat_history_turns.append({"role": "assistant", "content": reply[:1200]})
+        del self._chat_history_turns[:-60]
+
+    def _append_ai(self, text, user_prompt: str | None = None):
+        if user_prompt:
+            self._record_chat_turn(user_prompt, text)
         self.chat.insert("end", text + "\n")
         self.chat.see("end")
         self.status_var.set("AI answer ready")

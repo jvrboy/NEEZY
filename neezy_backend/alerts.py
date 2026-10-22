@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import json
 import math
+import time
 import uuid
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +17,29 @@ from .storage import _atomic_json_write, get_data_dir
 METRICS = ("price", "rsi", "score", "adx", "signal", "pattern")
 OPERATORS = (">", ">=", "<", "<=", "==", "crosses above", "crosses below")
 NUMERIC_METRICS = frozenset({"price", "rsi", "score", "adx"})
+
+
+def is_quiet_hours_now(
+    start_hhmm: str,
+    end_hhmm: str,
+    *,
+    now: datetime | None = None,
+) -> bool:
+    """Return True if ``now`` (UTC by default) falls within ``[start, end)``."""
+    try:
+        sh, sm = (int(part) for part in start_hhmm.strip().split(":", 1))
+        eh, em = (int(part) for part in end_hhmm.strip().split(":", 1))
+    except (ValueError, AttributeError):
+        return False
+    current = now or datetime.now(timezone.utc)
+    cur_min = current.hour * 60 + current.minute
+    start_min = sh * 60 + sm
+    end_min = eh * 60 + em
+    if start_min == end_min:
+        return False
+    if start_min < end_min:
+        return start_min <= cur_min < end_min
+    return cur_min >= start_min or cur_min < end_min
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,10 +104,19 @@ def metric_value(
 class AlertEngine:
     """Edge-triggered evaluation: a rule fires once when it *becomes* true."""
 
-    def __init__(self, rules: list[AlertRule] | None = None) -> None:
+    def __init__(
+        self,
+        rules: list[AlertRule] | None = None,
+        *,
+        cooldown_seconds: float = 0.0,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         self.rules: list[AlertRule] = list(rules or [])
         self._previous_values: dict[str, Any] = {}
         self._active: dict[str, bool] = {}
+        self._last_fired: dict[str, float] = {}
+        self.cooldown_seconds = max(0.0, float(cooldown_seconds))
+        self._clock = clock
 
     def evaluate(
         self,
@@ -89,7 +124,15 @@ class AlertEngine:
         analysis: dict[str, Any],
         price: float,
         patterns: list[dict[str, str]] | None = None,
+        *,
+        cooldown_seconds: float | None = None,
     ) -> list[AlertRule]:
+        effective_cooldown = (
+            self.cooldown_seconds
+            if cooldown_seconds is None
+            else max(0.0, float(cooldown_seconds))
+        )
+        now = self._clock()
         fired = []
         for rule in self.rules:
             if not rule.enabled or rule.symbol not in {symbol, "*"}:
@@ -102,6 +145,14 @@ class AlertEngine:
             was_active = self._active.get(key, False)
             self._active[key] = matched
             if matched and (not was_active or rule.operator.startswith("crosses")):
+                last_time = self._last_fired.get(key)
+                if (
+                    effective_cooldown > 0.0
+                    and last_time is not None
+                    and (now - last_time) < effective_cooldown
+                ):
+                    continue
+                self._last_fired[key] = now
                 fired.append(rule)
         return fired
 
@@ -130,6 +181,7 @@ class AlertEngine:
     def reset(self) -> None:
         self._previous_values.clear()
         self._active.clear()
+        self._last_fired.clear()
 
 
 class AlertRuleStore:

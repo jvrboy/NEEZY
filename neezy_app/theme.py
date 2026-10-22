@@ -58,10 +58,14 @@ THEME_CANVAS_BG = {
 DEFAULT_THEME = "Liquid dark"
 
 
-def palette_for(theme_name: str | None) -> dict[str, str]:
+def palette_for(theme_name: str | None, *, colorblind: bool = False) -> dict[str, str]:
     """Return the palette for ``theme_name``, or the default theme's."""
     name = theme_name if theme_name in THEME_PALETTES else DEFAULT_THEME
-    return dict(THEME_PALETTES[name])
+    palette = dict(THEME_PALETTES[name])
+    if colorblind:
+        palette["GREEN"] = "#38bdf8"
+        palette["RED"] = "#fb923c"
+    return palette
 
 
 def validate_palette(palette: Mapping[str, Any]) -> list[str]:

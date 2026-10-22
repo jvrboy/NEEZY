@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import tkinter as tk
+from dataclasses import replace
 from datetime import datetime
 from tkinter import ttk
 
@@ -102,8 +103,9 @@ class AlertsMixin:
         self.rules_list.delete(0, "end")
         for rule in self.alert_engine.rules:
             market = SYMBOLS.get(rule.symbol, "All markets")
+            state = "" if rule.enabled else " [paused]"
             self.rules_list.insert(
-                "end", f"{market:<15} {rule.metric} {rule.operator} {rule.value}"
+                "end", f"{market:<15} {rule.metric} {rule.operator} {rule.value}{state}"
             )
 
     def _add_rule(self):
@@ -143,12 +145,31 @@ class AlertsMixin:
         self.rule_status.config(text="Rule removed", fg=self.GREEN)
 
     def _evaluate_alerts(self, symbol, result, price, patterns):
-        fired = self.alert_engine.evaluate(symbol, result, price, patterns)
+        fired = self.alert_engine.evaluate(
+            symbol,
+            result,
+            price,
+            patterns,
+            cooldown_seconds=self.settings.alert_cooldown_seconds,
+        )
         if not fired:
             return
         if self.alert_log.get(0) == "Triggered alerts appear here":
             self.alert_log.delete(0)
         stamp = datetime.now().strftime("%H:%M:%S")
+        fired_ids = {rule.rule_id for rule in fired if rule.metric == "price"}
+        if fired_ids and self.settings.auto_disable_one_shot_price_alerts:
+            updated_rules = [
+                replace(r, enabled=False) if r.rule_id in fired_ids else r
+                for r in self.alert_engine.rules
+            ]
+            self.alert_engine.rules = updated_rules
+            try:
+                self.alert_store.save(updated_rules)
+            except OSError:
+                pass
+            self._render_rules()
+
         for rule in fired:
             self.alert_log.insert(
                 0,
@@ -159,13 +180,24 @@ class AlertsMixin:
         self.status.config(
             text=f"●  Alert · {SYMBOLS[symbol]} {fired[0].metric}", fg="#f0bd62"
         )
-        if self.alerts_enabled.get():
-            self.bell()
-        for rule in fired:
-            self._notify_telegram(
-                f"NEEZY alert · {SYMBOLS[symbol]}\n{rule.describe()}\n"
-                f"Price {self._fmt(symbol, price)} · timeframe {self.tf.get()}"
-            )
+        self._ring_alert_bell()
+        if not self._in_quiet_hours():
+            for rule in fired:
+                self._notify_telegram(
+                    f"NEEZY alert · {SYMBOLS[symbol]}\n{rule.describe()}\n"
+                    f"Price {self._fmt(symbol, price)} · timeframe {self.tf.get()}"
+                )
+                if self.settings.dm_enabled and self.settings.dm_notify_alerts:
+                    self._dispatch_dm_async(
+                        f"🔔 NEEZY Alert · {SYMBOLS[symbol]}",
+                        rule.describe(),
+                        "warning",
+                        {
+                            "Market": SYMBOLS[symbol],
+                            "Price": self._fmt(symbol, price),
+                            "Timeframe": self.tf.get(),
+                        },
+                    )
 
     def _notify_telegram(self, text):
         if (

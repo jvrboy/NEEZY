@@ -10,90 +10,209 @@
 | `alerts_enabled` | `True` | Master switch for alert evaluation | SETTINGS > Workspace |
 | `compact_mode` | `False` | Denser layout with smaller paddings | SETTINGS > Workspace |
 | `theme` | `'Liquid dark'` | Color theme preset | SETTINGS > Workspace |
+| `colorblind_palette` | `False` | Deuteranopia/protanopia-safe cyan & amber directional palette | SETTINGS > Workspace |
+| `reduced_motion` | `False` | Disable non-essential animations and pulse indicators | SETTINGS > Workspace |
+| `ui_scale_percent` | `100` | DPI scaling factor (75-200%) | SETTINGS > Workspace |
+| `font_size_offset` | `0` | Global UI & monospace font point offset (-2 to +6) | SETTINGS > Workspace |
+| `remember_window_geometry` | `True` | Save and restore desktop window size & coordinates | SETTINGS > Workspace |
+| `startup_page` | `'SIGNALS'` | Initial navigation screen selected on launch | SETTINGS > Workspace |
+| `startup_symbol` | `'frxEURUSD'` | Default active symbol loaded on launch | SETTINGS > Workspace |
+| `display_timezone` | `'UTC'` | Timezone used on clocks and timestamps | SETTINGS > Workspace |
+| `price_flash_on_tick` | `True` | Highlight price changes briefly when live quotes arrive | SETTINGS > Workspace |
+| `dim_ui_when_offline` | `True` | Show stale-data warning styling when market feed disconnects | SETTINGS > Workspace |
+| `stale_tick_timeout_seconds` | `60` | Seconds without a tick before feed is flagged stale | SETTINGS > Workspace |
+| `confirm_on_exit` | `False` | Prompt before closing desktop window | SETTINGS > Workspace |
 | `polling_ms` | `100` | UI poll interval in milliseconds | SETTINGS > Workspace |
 | `candle_limit` | `300` | Maximum candles held in memory per symbol | SETTINGS > Workspace |
 | `alert_min_score` | `2` | Minimum strategy score that can fire alerts | ALERTS |
 | `default_timeframe` | `'5m'` | Timeframe used on new charts | SYMBOLS/CHART |
 | `history_candles` | `300` | Candles kept for the history replay view | HISTORY |
 | `watchlist_extra` | *(empty)* | Comma-separated extra Deriv symbols beyond the default watchlist | SYMBOLS |
-| `deriv_endpoint` | *(empty)* | Optional custom Deriv WebSocket endpoint | SETTINGS > Connection |
-| `reconnect_seconds` | `2.0` | First reconnect delay in seconds | SETTINGS > Connection |
-| `max_reconnect_seconds` | `30.0` | Reconnect backoff ceiling in seconds | SETTINGS > Connection |
-| `strategy` | `'SUPERTREND'` | Active single-market strategy | INSIGHTS |
-| `supertrend_period` | `10` | Supertrend lookback | INSIGHTS |
-| `supertrend_multiplier` | `3.0` | Supertrend band multiple | INSIGHTS |
-| `divergence_lookback` | `5` | Divergence detection lookback | INSIGHTS |
-| `correlation_window` | `50` | Rolling correlation window | INSIGHTS |
-| `correlation_baseline` | `200` | Correlation baseline sample count | INSIGHTS |
-| `show_strategy_overlay` | `True` | Draw strategy overlays on the chart | CHART |
-| `store_candles` | `True` | Persist candles to the local database | SETTINGS > Storage |
-| `retention_days` | `90` | Days before stored candles are pruned | SETTINGS > Storage |
-| `save_snapshots` | `True` | Save analysis snapshots to the database | SETTINGS > Storage |
-| `ai_enabled` | `False` | Enable the AI copilot | SETTINGS > AI |
-| `ai_provider` | `'openrouter'` | Which bring-your-own-key provider to use | SETTINGS > AI |
-| `ai_model` | *(empty)* | Model name for the provider | SETTINGS > AI |
-| `ai_base_url` | *(empty)* | Optional custom provider base URL | SETTINGS > AI |
-| `ai_temperature` | `0.3` | Response randomness 0-2 | SETTINGS > AI |
-| `ai_max_tokens` | `700` | Maximum response tokens | SETTINGS > AI |
-| `ai_timeout` | `45.0` | Provider timeout in seconds | SETTINGS > AI |
-| `ai_system_prompt` | *(empty)* | Extra instructions sent to the provider | SETTINGS > AI |
-| `use_knowledge` | `False` | Include backtest knowledge in prompts | SETTINGS > AI |
-| `use_memory` | `False` | Include saved memory notes in prompts | SETTINGS > AI |
-| `use_brain_model` | `False` | Advisory local brain model vote | INSIGHTS > BRAIN |
-| `ml_history_candles` | `3000` | Candles fetched for ML research | INSIGHTS > ML RESEARCH |
-| `ml_epochs` | `60` | Training epochs | INSIGHTS > ML RESEARCH |
-| `ml_horizon` | `5` | Prediction horizon in bars | INSIGHTS > ML RESEARCH |
-| `ml_deadband_atr` | `0.1` | ATR-neutral deadband for labels | INSIGHTS > ML RESEARCH |
-| `ml_min_samples` | `100` | Minimum labelled examples | INSIGHTS > ML RESEARCH |
-| `ml_seed` | `17` | Reproducibility seed | INSIGHTS > ML RESEARCH |
-| `ml_probability` | `0.6` | Advisory probability threshold | INSIGHTS > ML RESEARCH |
-| `ml_fetch_timeout` | `15.0` | Public API timeout for research fetches | INSIGHTS > ML RESEARCH |
-| `pair_lookback` | `60` | Lagged z-score window for pair research | INSIGHTS > PAIR RESEARCH |
-| `pair_min_overlap` | `300` | Minimum aligned candles for pairs | INSIGHTS > PAIR RESEARCH |
-| `pair_entry_z` | `2.0` | Entry z threshold | INSIGHTS > PAIR RESEARCH |
-| `pair_exit_z` | `0.5` | Exit z threshold | INSIGHTS > PAIR RESEARCH |
-| `pair_stop_z` | `4.0` | Stop z threshold | INSIGHTS > PAIR RESEARCH |
-| `pair_cost_bps` | `2.0` | Turnover cost in basis points | INSIGHTS > PAIR RESEARCH |
-| `pair_max_holding` | `48` | Maximum holding bars | INSIGHTS > PAIR RESEARCH |
-| `pair_min_correlation` | `0.3` | Minimum train correlation | INSIGHTS > PAIR RESEARCH |
+| `chart_visible_candles` | `80` | Default number of visible candles on chart canvas | SETTINGS > Chart & Visuals |
+| `chart_style` | `'Candlesticks'` | Primary price rendering mode (Candlesticks, Hollow, OHLC, Heikin-Ashi, Line) | SETTINGS > Chart & Visuals |
+| `chart_show_ema_fast` | `True` | Render fast EMA line on chart | SETTINGS > Chart & Visuals |
+| `chart_ema_fast_period` | `9` | Fast chart EMA lookback period | SETTINGS > Chart & Visuals |
+| `chart_show_ema_slow` | `True` | Render medium EMA line on chart | SETTINGS > Chart & Visuals |
+| `chart_ema_slow_period` | `21` | Medium chart EMA lookback period | SETTINGS > Chart & Visuals |
+| `chart_show_ema_trend` | `True` | Render slow trend EMA line on chart | SETTINGS > Chart & Visuals |
+| `chart_ema_trend_period` | `50` | Slow trend chart EMA lookback period | SETTINGS > Chart & Visuals |
+| `chart_show_bollinger` | `True` | Render Bollinger upper/lower bands on chart | SETTINGS > Chart & Visuals |
+| `chart_show_sr_levels` | `True` | Draw horizontal swing support & resistance levels | SETTINGS > Chart & Visuals |
+| `chart_sr_count` | `1` | Number of support/resistance levels drawn per side | SETTINGS > Chart & Visuals |
+| `chart_show_pivots` | `False` | Draw classic P / R1 / S1 pivot levels on chart | SETTINGS > Chart & Visuals |
+| `chart_show_entry_sl_tp` | `True` | Draw ATR Entry / Stop-Loss / Take-Profit guide lines on chart | SETTINGS > Chart & Visuals |
+| `chart_show_session_boxes` | `False` | Shade London/New York/Asian session windows on intraday charts | SETTINGS > Chart & Visuals |
+| `chart_subpane_oscillator` | `'None'` | Optional lower oscillator subpane (None, RSI 14, MACD Histogram) | SETTINGS > Chart & Visuals |
+| `chart_show_crosshair` | `True` | Enable interactive mouse crosshair and OHLC HUD tooltip | SETTINGS > Chart & Visuals |
+| `chart_show_grid` | `True` | Draw horizontal price grid lines on chart | SETTINGS > Chart & Visuals |
+| `chart_mark_candle_gaps` | `True` | Mark missing timestamp gaps along candle axis | SETTINGS > Chart & Visuals |
+| `deriv_endpoint` | *(empty)* | Optional custom Deriv WebSocket endpoint | SETTINGS > Workspace |
+| `reconnect_seconds` | `2.0` | First reconnect delay in seconds | SETTINGS > Workspace |
+| `max_reconnect_seconds` | `30.0` | Reconnect backoff ceiling in seconds | SETTINGS > Workspace |
+| `strategy` | `'SUPERTREND'` | Active single-market strategy | SETTINGS > Engine |
+| `live_signal_source` | `'core'` | Live watchlist signal source (core, active_strategy, consensus) | SETTINGS > Engine |
+| `supertrend_period` | `10` | Supertrend lookback | SETTINGS > Engine |
+| `supertrend_multiplier` | `3.0` | Supertrend band multiple | SETTINGS > Engine |
+| `divergence_lookback` | `5` | Divergence detection lookback | SETTINGS > Engine |
+| `correlation_window` | `50` | Rolling correlation window | SETTINGS > Engine |
+| `correlation_baseline` | `200` | Correlation baseline sample count | SETTINGS > Engine |
+| `show_strategy_overlay` | `True` | Draw active strategy overlays (Supertrend/Donchian/Keltner) on chart | SETTINGS > Engine |
+| `indicator_ema_fast` | `9` | Core engine fast EMA period | SETTINGS > Engine |
+| `indicator_ema_mid` | `21` | Core engine medium EMA period | SETTINGS > Engine |
+| `indicator_ema_slow` | `50` | Core engine slow EMA period | SETTINGS > Engine |
+| `indicator_rsi_period` | `14` | Core engine RSI period | SETTINGS > Engine |
+| `indicator_rsi_oversold` | `35` | RSI oversold threshold | SETTINGS > Engine |
+| `indicator_rsi_overbought` | `65` | RSI overbought threshold | SETTINGS > Engine |
+| `indicator_atr_period` | `14` | Core engine ATR period | SETTINGS > Engine |
+| `indicator_adx_trend_threshold` | `25.0` | ADX threshold separating trending vs ranging regimes | SETTINGS > Engine |
+| `bollinger_period` | `20` | Bollinger band lookback period | SETTINGS > Engine |
+| `bollinger_std` | `2.0` | Bollinger standard deviation multiplier | SETTINGS > Engine |
+| `donchian_period` | `20` | Donchian breakout channel lookback | SETTINGS > Engine |
+| `keltner_period` | `20` | Keltner channel lookback | SETTINGS > Engine |
+| `consensus_net_threshold` | `0.15` | Minimum net vote margin required for directional consensus | SETTINGS > Engine |
+| `store_candles` | `True` | Persist candles to the local database | SETTINGS > Local Data |
+| `retention_days` | `90` | Days before stored candles are pruned | SETTINGS > Local Data |
+| `save_snapshots` | `True` | Save analysis snapshots to the database | SETTINGS > Local Data |
+| `snapshot_interval_seconds` | `60` | Minimum seconds between saved snapshots per symbol | SETTINGS > Local Data |
+| `auto_prune_on_startup` | `False` | Automatically prune expired DB rows on app startup | SETTINGS > Local Data |
+| `auto_backup_enabled` | `False` | Create automatic local zip backup cleanly on exit | SETTINGS > Local Data |
+| `max_backup_count` | `20` | Maximum local backup zip archives retained | SETTINGS > Local Data |
+| `max_signal_history_rows` | `5000` | Maximum rows retained in JSONL signal history | SETTINGS > Local Data |
+| `csv_delimiter` | `'comma'` | Delimiter used when exporting history CSVs (comma, semicolon, tab) | SETTINGS > Local Data |
+| `cache_max_size_mb` | `256` | Maximum disk budget for local provider/model caches (MB) | SETTINGS > Local Data |
+| `ai_enabled` | `False` | Enable the AI copilot | SETTINGS > AI Providers |
+| `ai_provider` | `'openrouter'` | Which bring-your-own-key provider to use | SETTINGS > AI Providers |
+| `ai_fallback_provider` | `'none'` | Automatic secondary provider when primary AI provider fails | SETTINGS > AI Providers |
+| `ai_allow_custom_models` | `False` | Unlock custom/paid model names in the AI model selector | SETTINGS > AI Providers |
+| `ai_model` | *(empty)* | Model name for the provider | SETTINGS > AI Providers |
+| `ai_base_url` | *(empty)* | Optional custom provider base URL | SETTINGS > AI Providers |
+| `ai_temperature` | `0.3` | Response randomness 0-2 | SETTINGS > AI Providers |
+| `ai_max_tokens` | `700` | Maximum response tokens | SETTINGS > AI Providers |
+| `ai_timeout` | `45.0` | Provider timeout in seconds | SETTINGS > AI Providers |
+| `ai_system_prompt` | *(empty)* | Extra instructions sent to the provider | SETTINGS > AI Providers |
+| `ai_cache_enabled` | `True` | Cache identical AI prompts briefly to save quota | SETTINGS > AI Providers |
+| `ai_cache_ttl_seconds` | `900` | Seconds before cached AI responses expire | SETTINGS > AI Providers |
+| `ai_chat_history_turns` | `6` | Number of recent chat turns included in multi-turn prompts | SETTINGS > AI Providers |
+| `ai_daily_request_cap` | `0` | Optional daily cloud AI request budget (0 = unlimited) | SETTINGS > AI Providers |
+| `agent_mode_enabled` | `False` | Enable multi-step tool planning in Copilot chat | SETTINGS > AI Providers |
+| `agent_max_steps` | `5` | Maximum tool steps per agent plan | SETTINGS > AI Providers |
+| `agent_require_write_confirmation` | `True` | Require explicit confirmation before any state-changing agent tool runs | SETTINGS > AI Providers |
+| `use_knowledge` | `False` | Include backtest knowledge in prompts | SETTINGS > AI Providers |
+| `use_memory` | `False` | Include saved memory notes in prompts | SETTINGS > AI Providers |
+| `use_brain_model` | `False` | Advisory local brain model vote | SETTINGS > Engine |
+| `ml_model_architecture` | `'v1'` | Neural model architecture (v1 MLP, sequence GRU, or ensemble) | SETTINGS > ML Research |
+| `ml_ensemble_members` | `5` | Member count when training ensemble neural models | SETTINGS > ML Research |
+| `ml_sequence_window` | `10` | Lookback sequence length for temporal GRU models | SETTINGS > ML Research |
+| `ml_history_candles` | `3000` | Candles fetched for ML research | SETTINGS > ML Research |
+| `ml_epochs` | `60` | Training epochs | SETTINGS > ML Research |
+| `ml_horizon` | `5` | Prediction horizon in bars | SETTINGS > ML Research |
+| `ml_deadband_atr` | `0.1` | ATR-neutral deadband for labels | SETTINGS > ML Research |
+| `ml_min_samples` | `100` | Minimum labelled examples | SETTINGS > ML Research |
+| `ml_seed` | `17` | Reproducibility seed | SETTINGS > ML Research |
+| `ml_probability` | `0.6` | Advisory probability threshold | SETTINGS > ML Research |
+| `ml_fetch_timeout` | `15.0` | Public API timeout for research fetches | SETTINGS > ML Research |
+| `backtest_default_spread_pips` | `0.0` | Default simulated round-turn spread cost in pips | SETTINGS > ML Research |
+| `outcome_eval_horizon` | `10` | Bar horizon used by Signal Outcomes evaluation | SETTINGS > ML Research |
+| `pair_lookback` | `60` | Lagged z-score window for pair research | SETTINGS > Pair Research |
+| `pair_min_overlap` | `300` | Minimum aligned candles for pairs | SETTINGS > Pair Research |
+| `pair_entry_z` | `2.0` | Entry z threshold | SETTINGS > Pair Research |
+| `pair_exit_z` | `0.5` | Exit z threshold | SETTINGS > Pair Research |
+| `pair_stop_z` | `4.0` | Stop z threshold | SETTINGS > Pair Research |
+| `pair_cost_bps` | `2.0` | Turnover cost in basis points | SETTINGS > Pair Research |
+| `pair_max_holding` | `48` | Maximum holding bars | SETTINGS > Pair Research |
+| `pair_min_correlation` | `0.3` | Minimum train correlation | SETTINGS > Pair Research |
 | `insights_max_rows` | `25` | Insight table row limit | INSIGHTS |
-| `local_llm_enabled` | `False` | Enable the on-device model | SETTINGS > LOCAL MODELS |
-| `local_llm_model_id` | *(empty)* | Registered local model id | SETTINGS > LOCAL MODELS |
-| `local_llm_context_tokens` | `512` | Context window tokens | SETTINGS > LOCAL MODELS |
-| `local_llm_max_tokens` | `128` | Generation token budget | SETTINGS > LOCAL MODELS |
-| `local_llm_threads` | `1` | CPU threads for inference | SETTINGS > LOCAL MODELS |
-| `local_llm_batch_size` | `32` | Batch size | SETTINGS > LOCAL MODELS |
-| `local_llm_disk_offload` | `False` | Offload layers to disk | SETTINGS > LOCAL MODELS |
-| `local_llm_cpu_memory_mb` | `512` | CPU memory budget | SETTINGS > LOCAL MODELS |
-| `mcp_enabled` | `False` | Run the local MCP server | SETTINGS > MCP |
-| `mcp_port` | `8765` | MCP loopback port | SETTINGS > MCP |
-| `mcp_allow_writes` | `False` | Expose write tools over MCP | SETTINGS > MCP |
-| `mcp_tunnel_enabled` | `False` | Expose the read-only public tunnel | SETTINGS > MCP |
-| `mcp_tunnel_executable` | `'cloudflared'` | cloudflared binary name or path | SETTINGS > MCP |
-| `telegram_enabled` | `False` | Run the Telegram bot | SETTINGS > TELEGRAM |
-| `telegram_chat_ids` | *(empty)* | Comma-separated authorized chat ids | SETTINGS > TELEGRAM |
-| `telegram_alerts_enabled` | `True` | Send alerts through Telegram | SETTINGS > TELEGRAM |
-| `telegram_allow_commands` | `False` | Accept Telegram commands | SETTINGS > TELEGRAM |
-| `mt5_enabled` | `False` | Enable the MT5 bridge | SETTINGS > INTEGRATIONS |
-| `mt5_server` | *(empty)* | Broker server name | SETTINGS > INTEGRATIONS |
-| `mt5_login` | `0` | MT5 account number | SETTINGS > INTEGRATIONS |
-| `mt5_password` | *(empty)* | MT5 password (stored owner-only) | SETTINGS > INTEGRATIONS |
-| `mt5_path` | *(empty)* | Optional terminal64.exe path | SETTINGS > INTEGRATIONS |
-| `mt5_magic` | `123456` | Order magic number | SETTINGS > INTEGRATIONS |
-| `mt5_symbol_map` | *(empty)* | Symbol mapping DERIV=MT5 pairs or JSON | SETTINGS > INTEGRATIONS |
-| `mt5_auto_sync` | `False` | Reconnect the bridge automatically | SETTINGS > INTEGRATIONS |
-| `dm_enabled` | `False` | Enable direct messaging notifications | SETTINGS > DM |
-| `dm_webhook_url` | *(empty)* | Webhook target URL | SETTINGS > DM |
-| `dm_min_score` | `3` | Minimum score for DM signal alerts | SETTINGS > DM |
-| `dm_notify_signals` | `True` | Send signal notifications | SETTINGS > DM |
-| `dm_notify_alerts` | `True` | Send alert notifications | SETTINGS > DM |
-| `default_risk_percent` | `1.0` | Default risk per trade (percent) | TOOLS |
-| `max_drawdown_limit` | `10.0` | Drawdown guard limit (percent) | TOOLS |
-| `market_data_provider` | `'deriv'` | Candle provider for analysis | SETTINGS > DATA PROVIDERS |
-| `provider_candle_count` | `300` | Candles fetched per provider request | SETTINGS > DATA PROVIDERS |
-| `confluence_min_score` | `55.0` | Strict confluence threshold | SETTINGS > DATA PROVIDERS |
-| `confluence_search_score` | `30.0` | Search-mode threshold floor | SETTINGS > DATA PROVIDERS |
-| `confluence_atr_stop_mult` | `1.5` | ATR multiple for stops | SETTINGS > DATA PROVIDERS |
-| `confluence_atr_tp_mult` | `2.5` | ATR multiple for targets | SETTINGS > DATA PROVIDERS |
-| `confluence_horizon` | `20` | Outcome horizon in bars | SETTINGS > DATA PROVIDERS |
-| `confluence_min_analogs` | `4` | Minimum analog matches for win rate | SETTINGS > DATA PROVIDERS |
+| `local_llm_enabled` | `False` | Enable the on-device model | SETTINGS > Local Models |
+| `local_llm_model_id` | *(empty)* | Registered local model id | SETTINGS > Local Models |
+| `local_llm_context_tokens` | `512` | Context window tokens | SETTINGS > Local Models |
+| `local_llm_max_tokens` | `128` | Generation token budget | SETTINGS > Local Models |
+| `local_llm_threads` | `1` | CPU threads for inference | SETTINGS > Local Models |
+| `local_llm_batch_size` | `32` | Batch size | SETTINGS > Local Models |
+| `local_llm_disk_offload` | `False` | Offload layers to disk | SETTINGS > Local Models |
+| `local_llm_cpu_memory_mb` | `512` | CPU memory budget | SETTINGS > Local Models |
+| `local_llm_gpu_layers` | `0` | GGUF GPU layer offload count (-1 = all layers, 0 = CPU) | SETTINGS > Local Models |
+| `local_llm_top_p` | `0.9` | Nucleus sampling top-p cutoff | SETTINGS > Local Models |
+| `local_llm_repeat_penalty` | `1.1` | Token repetition penalty multiplier | SETTINGS > Local Models |
+| `local_llm_keep_alive_minutes` | `10` | Minutes to retain local model weights in memory after chat | SETTINGS > Local Models |
+| `local_llm_seed` | `42` | Deterministic generation seed (-1 = random) | SETTINGS > Local Models |
+| `local_llm_verify_sha256` | `True` | Verify SHA-256 digest when loading local model files | SETTINGS > Local Models |
+| `mcp_enabled` | `False` | Run the local MCP server | SETTINGS > MCP Server |
+| `mcp_port` | `8765` | MCP loopback port | SETTINGS > MCP Server |
+| `mcp_allow_writes` | `False` | Expose write tools over MCP | SETTINGS > MCP Server |
+| `mcp_tunnel_enabled` | `False` | Expose the read-only public tunnel | SETTINGS > MCP Server |
+| `mcp_tunnel_executable` | `'cloudflared'` | cloudflared binary name or path | SETTINGS > MCP Server |
+| `mcp_rate_limit_rpm` | `60` | Maximum requests per minute accepted by local MCP server | SETTINGS > MCP Server |
+| `mcp_tool_timeout_seconds` | `15.0` | Execution timeout per MCP tool invocation (seconds) | SETTINGS > MCP Server |
+| `mcp_strict_origin_check` | `True` | Reject non-loopback Origin headers to block DNS rebinding | SETTINGS > MCP Server |
+| `mcp_audit_log_enabled` | `True` | Log every MCP tool invocation locally | SETTINGS > MCP Server |
+| `alert_sound_mode` | `'System Bell'` | Audible alert mode (System Bell or Muted) | SETTINGS > Alerts & Quiet Hours |
+| `alert_cooldown_seconds` | `0` | Minimum seconds before the same alert rule can fire again | SETTINGS > Alerts & Quiet Hours |
+| `toast_notifications_enabled` | `True` | Display sliding toast cards in Enterprise desktop mode | SETTINGS > Alerts & Quiet Hours |
+| `toast_duration_ms` | `4500` | Toast notification display duration in milliseconds | SETTINGS > Alerts & Quiet Hours |
+| `quiet_hours_enabled` | `False` | Suppress bells and outbound webhook/bot notifications during quiet window | SETTINGS > Alerts & Quiet Hours |
+| `quiet_hours_start` | `'22:00'` | Quiet hours start time in 24-hour HH:MM format | SETTINGS > Alerts & Quiet Hours |
+| `quiet_hours_end` | `'06:00'` | Quiet hours end time in 24-hour HH:MM format | SETTINGS > Alerts & Quiet Hours |
+| `alert_on_stream_disconnect` | `False` | Trigger desktop alert if live market feed stays disconnected | SETTINGS > Alerts & Quiet Hours |
+| `alert_on_drawdown_breach` | `True` | Warn immediately if planned risk or MT5 equity exceeds max drawdown | SETTINGS > Alerts & Quiet Hours |
+| `auto_disable_one_shot_price_alerts` | `False` | Automatically disable price cross alerts after firing once | SETTINGS > Alerts & Quiet Hours |
+| `telegram_enabled` | `False` | Run the Telegram bot | SETTINGS > Telegram |
+| `telegram_chat_ids` | *(empty)* | Comma-separated authorized chat ids | SETTINGS > Telegram |
+| `telegram_alerts_enabled` | `True` | Send alerts through Telegram | SETTINGS > Telegram |
+| `telegram_allow_commands` | `False` | Accept Telegram commands | SETTINGS > Telegram |
+| `telegram_min_signal_score` | `2` | Minimum absolute signal score sent to Telegram | SETTINGS > Telegram |
+| `telegram_include_sl_tp_levels` | `True` | Include ATR Stop-Loss and Take-Profit estimates in Telegram messages | SETTINGS > Telegram |
+| `telegram_daily_digest_enabled` | `False` | Send daily market summary digest to authorized chats | SETTINGS > Telegram |
+| `telegram_digest_hour_utc` | `20` | UTC hour (0-23) for daily Telegram summary digest | SETTINGS > Telegram |
+| `mt5_enabled` | `False` | Enable the MT5 bridge | SETTINGS > MT5 Bridge |
+| `mt5_server` | *(empty)* | Broker server name | SETTINGS > MT5 Bridge |
+| `mt5_login` | `0` | MT5 account number | SETTINGS > MT5 Bridge |
+| `mt5_password` | *(empty)* | MT5 password (stored owner-only) | SETTINGS > MT5 Bridge |
+| `mt5_path` | *(empty)* | Optional terminal64.exe path | SETTINGS > MT5 Bridge |
+| `mt5_magic` | `123456` | Order magic number | SETTINGS > MT5 Bridge |
+| `mt5_symbol_map` | *(empty)* | Symbol mapping DERIV=MT5 pairs or JSON | SETTINGS > MT5 Bridge |
+| `mt5_auto_sync` | `False` | Sync MT5 bridge status & quotes automatically | SETTINGS > MT5 Bridge |
+| `mt5_order_deviation_points` | `20` | Maximum acceptable slippage in points on market orders | SETTINGS > MT5 Bridge |
+| `mt5_filling_mode` | `'Auto'` | Broker order filling policy (Auto, IOC, FOK, RETURN) | SETTINGS > MT5 Bridge |
+| `mt5_sync_interval_seconds` | `5` | Background sync cadence in seconds when MT5 auto-sync is enabled | SETTINGS > MT5 Bridge |
+| `dm_enabled` | `False` | Enable direct messaging notifications | SETTINGS > Direct Messaging |
+| `dm_webhook_url` | *(empty)* | Webhook target URL | SETTINGS > Direct Messaging |
+| `dm_webhook_format` | `'auto'` | Webhook JSON schema (auto, discord, slack, generic) | SETTINGS > Direct Messaging |
+| `dm_https_only` | `False` | Reject non-HTTPS webhook URLs | SETTINGS > Direct Messaging |
+| `dm_min_score` | `3` | Minimum score for DM signal alerts | SETTINGS > Direct Messaging |
+| `dm_notify_signals` | `True` | Send signal notifications | SETTINGS > Direct Messaging |
+| `dm_notify_alerts` | `True` | Send alert notifications | SETTINGS > Direct Messaging |
+| `account_balance_default` | `10000.0` | Default account balance pre-filled in risk planner | SETTINGS > Risk & Safety |
+| `account_currency` | `'USD'` | Display currency code for risk & equity calculations | SETTINGS > Risk & Safety |
+| `default_risk_percent` | `1.0` | Default risk per trade (percent) | SETTINGS > Risk & Safety |
+| `default_reward_to_risk` | `2.0` | Default target Reward:Risk ratio in Tools & Orders | SETTINGS > Risk & Safety |
+| `default_pip_value_per_lot` | `10.0` | Default pip value per standard lot in Risk Planner | SETTINGS > Risk & Safety |
+| `fx_risk_percent` | `1.0` | Per-trade risk percent override for Forex pairs | SETTINGS > Risk & Safety |
+| `synthetic_risk_percent` | `0.5` | Per-trade risk percent override for Synthetic indices | SETTINGS > Risk & Safety |
+| `crypto_risk_percent` | `0.5` | Per-trade risk percent override for Crypto pairs | SETTINGS > Risk & Safety |
+| `max_drawdown_limit` | `10.0` | Drawdown guard limit (percent) | SETTINGS > Risk & Safety |
+| `order_dry_run_mode` | `False` | Paper/simulation lock preventing live MT5 order submission | SETTINGS > Risk & Safety |
+| `require_stop_loss_on_live_orders` | `False` | Block live MT5 orders when Stop-Loss is blank | SETTINGS > Risk & Safety |
+| `max_lot_size_cap` | `10.0` | Hard ceiling on single-order volume in lots | SETTINGS > Risk & Safety |
+| `max_open_positions` | `10` | Maximum simultaneous open MT5 positions permitted | SETTINGS > Risk & Safety |
+| `daily_max_loss_percent` | `5.0` | Daily drawdown circuit breaker threshold (percent) | SETTINGS > Risk & Safety |
+| `daily_max_trades` | `20` | Maximum live orders allowed per UTC day | SETTINGS > Risk & Safety |
+| `min_rr_for_live_order` | `1.0` | Minimum Reward:Risk required when both SL and TP are specified | SETTINGS > Risk & Safety |
+| `pre_trade_checklist_enabled` | `False` | Prompt pre-trade checklist confirmation before sending live orders | SETTINGS > Risk & Safety |
+| `pre_trade_checklist_items` | `'Higher timeframe aligned;Stop loss at invalidation;Within daily risk budget'` | Semicolon-separated checklist items verified before live order execution | SETTINGS > Risk & Safety |
+| `market_data_provider` | `'deriv'` | Candle provider for analysis | SETTINGS > Data Providers |
+| `fallback_data_provider` | `'deriv'` | Fallback candle provider when primary source fails | SETTINGS > Data Providers |
+| `provider_candle_count` | `300` | Candles fetched per provider request | SETTINGS > Data Providers |
+| `provider_cache_enabled` | `True` | Cache provider candle responses briefly to prevent rate-limiting | SETTINGS > Data Providers |
+| `provider_cache_ttl_seconds` | `30` | Seconds before cached provider candles expire | SETTINGS > Data Providers |
+| `provider_requests_per_minute` | `30` | Client-side rate limit for external market data providers | SETTINGS > Data Providers |
+| `confluence_min_score` | `55.0` | Strict confluence threshold | SETTINGS > Data Providers |
+| `confluence_search_score` | `30.0` | Search-mode threshold floor | SETTINGS > Data Providers |
+| `confluence_require_strict_only` | `False` | Hide relaxed search-mode fallback cards in ANALYSIS scans | SETTINGS > Data Providers |
+| `confluence_mtf_confirmation` | `False` | Require higher-timeframe trend alignment in confluence scans | SETTINGS > Data Providers |
+| `confluence_higher_timeframe` | `'1h'` | Higher timeframe used when MTF confirmation is active | SETTINGS > Data Providers |
+| `confluence_atr_stop_mult` | `1.5` | ATR multiple for stops | SETTINGS > Data Providers |
+| `confluence_atr_tp_mult` | `2.5` | ATR multiple for targets | SETTINGS > Data Providers |
+| `confluence_horizon` | `20` | Outcome horizon in bars | SETTINGS > Data Providers |
+| `confluence_min_analogs` | `4` | Minimum analog matches for win rate | SETTINGS > Data Providers |
+| `active_settings_profile` | `'Default'` | Active workspace settings preset profile | SETTINGS > Profiles & Diagnostics |
+| `log_level` | `'INFO'` | Application diagnostic log verbosity (WARNING, INFO, DEBUG) | SETTINGS > Profiles & Diagnostics |

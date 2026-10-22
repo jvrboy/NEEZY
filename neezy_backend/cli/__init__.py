@@ -76,6 +76,7 @@ from .research import (
     cmd_research,
     cmd_study,
 )
+from .settings_cmd import cmd_config
 
 Fetcher = Callable[[str, int, int], list[tuple[int, float, float, float, float]]]
 
@@ -103,6 +104,7 @@ __all__ = [
     "cmd_analyze",
     "cmd_backtest",
     "cmd_brain",
+    "cmd_config",
     "cmd_corrdiv",
     "cmd_correlation",
     "cmd_datasets",

@@ -11,6 +11,7 @@ from neezy_backend.ai import (
     AIError,
     free_models,
 )
+from neezy_backend.config import AI_FALLBACK_PROVIDERS
 
 
 class AiSettingsMixin:
@@ -21,10 +22,15 @@ class AiSettingsMixin:
 
     def _ai_settings_tab(self, notebook):
         _tab, left, right = self._settings_tab(notebook, "AI PROVIDERS")
-        self._label(left, "BRING YOUR OWN KEY", 9, self.CYAN).pack(
-            anchor="w", padx=16, pady=(14, 6)
+        self._label(left, "BRING YOUR OWN KEY & AGENT CONFIG", 9, self.CYAN).pack(
+            anchor="w", padx=16, pady=(12, 4)
         )
         self._check_row(left, "Enable AI answers in CHAT", self.ai_enabled_var)
+        self._check_row(
+            left,
+            "Unlock custom / paid model names",
+            self.extra_vars["ai_allow_custom_models"],
+        )
         self._combo_row(
             left,
             "Provider",
@@ -32,24 +38,58 @@ class AiSettingsMixin:
             list(self._provider_labels),
             self._ai_provider_changed,
         )
-        self._label(left, "Model (free models only)", 10, self.MUTED).pack(
-            anchor="w", padx=16, pady=(6, 3)
+        self._combo_row(
+            left,
+            "Fallback provider on error",
+            self.extra_vars["ai_fallback_provider"],
+            sorted(AI_FALLBACK_PROVIDERS),
+        )
+        self._label(left, "Model (free preset or custom)", 10, self.MUTED).pack(
+            anchor="w", padx=16, pady=(5, 2)
         )
         self.ai_model_combo = ttk.Combobox(
             left,
             textvariable=self.ai_model_var,
             values=free_models(self.settings.ai_provider),
-            state="readonly",
+            state="normal" if self.settings.ai_allow_custom_models else "readonly",
         )
-        self.ai_model_combo.pack(fill="x", padx=16, pady=(0, 4))
+        self.ai_model_combo.pack(fill="x", padx=16, pady=(0, 3))
         self.ai_model_combo.bind(
             "<<ComboboxSelected>>", lambda _: self._settings_changed()
         )
+        self.ai_model_combo.bind("<Return>", lambda _: self._settings_changed())
+        self.ai_model_combo.bind("<FocusOut>", lambda _: self._settings_changed())
         self._entry_row(left, "Base URL (blank = provider default)", self.ai_base_var)
         self._spin_row(left, "Temperature x10", self.ai_temp_var, 0.0, 2.0, 0.1)
         self._spin_row(left, "Max reply tokens", self.ai_tokens_var, 64, 8192, 64)
         self._spin_row(left, "Timeout (seconds)", self.ai_timeout_var, 5.0, 300.0, 5.0)
+        self._spin_row(
+            left,
+            "Conversation history turns",
+            self.extra_vars["ai_chat_history_turns"],
+            0,
+            30,
+            1,
+        )
+        self._spin_row(
+            left,
+            "Daily request cap (0 = unlimited)",
+            self.extra_vars["ai_daily_request_cap"],
+            0,
+            5000,
+            25,
+        )
         self._entry_row(left, "System prompt (blank = built-in)", self.ai_system_var)
+        self._check_row(
+            left,
+            "Cache identical AI prompts briefly",
+            self.extra_vars["ai_cache_enabled"],
+        )
+        self._check_row(
+            left,
+            "Enable multi-step Agent tool planning in CHAT",
+            self.extra_vars["agent_mode_enabled"],
+        )
         self._check_row(
             left,
             "Include held-out backtest knowledge in AI context",
@@ -62,7 +102,7 @@ class AiSettingsMixin:
         )
 
         self._label(right, "KEY POOL", 9, self.CYAN).pack(
-            anchor="w", padx=16, pady=(14, 6)
+            anchor="w", padx=16, pady=(12, 4)
         )
         self.ai_provider_help = self._label(
             right, "", 9, self.MUTED, justify="left", wraplength=330
@@ -132,14 +172,18 @@ class AiSettingsMixin:
         provider_key = self._ai_provider_key()
         spec = PROVIDERS[provider_key]
         models = free_models(provider_key)
+        allow_custom = bool(self.extra_vars["ai_allow_custom_models"].get())
         if hasattr(self, "ai_model_combo"):
-            self.ai_model_combo.config(values=models)
-        if self.ai_model_var.get() not in models:
+            self.ai_model_combo.config(
+                values=models, state="normal" if allow_custom else "readonly"
+            )
+        if not allow_custom and self.ai_model_var.get() not in models:
             self.ai_model_var.set(models[0])
         if hasattr(self, "ai_provider_help"):
+            mode_label = "custom or free models" if allow_custom else "free models"
             self.ai_provider_help.config(
                 text=(
-                    f"{spec.label} · free models only\n"
+                    f"{spec.label} · {mode_label}\n"
                     f"Get a key: {spec.key_url}\n{spec.notes}"
                 )
             )

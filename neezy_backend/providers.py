@@ -586,6 +586,10 @@ class ProviderKeyStore:
         from .storage import _atomic_json_write
 
         _atomic_json_write(self.path, keys)
+        try:
+            self.path.chmod(0o600)
+        except OSError:
+            pass
         self._restrict_permissions()
 
     def _restrict_permissions(self) -> None:

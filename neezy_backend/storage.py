@@ -6,6 +6,8 @@ import csv
 import json
 import logging
 import os
+import shutil
+import sqlite3
 import sys
 import tempfile
 import zipfile
@@ -92,7 +94,10 @@ def create_local_backup(
         "neezy.sqlite3",
         "settings.json",
         "ai-keys.json",
+        "provider-keys.json",
         "signal-history.jsonl",
+        "confluence-history.jsonl",
+        "alert-rules.json",
         "alerts.json",
         "local-models.json",
     ]
@@ -101,8 +106,30 @@ def create_local_backup(
         for filename in files_to_backup:
             file_path = data_dir / filename
             if file_path.exists() and file_path.is_file():
-                archive.write(file_path, arcname=filename)
+                if filename == "neezy.sqlite3":
+                    tmp_fd, tmp_name = tempfile.mkstemp(
+                        suffix=".sqlite3", dir=dest_path.parent
+                    )
+                    os.close(tmp_fd)
+                    tmp_path = Path(tmp_name)
+                    try:
+                        with (
+                            sqlite3.connect(file_path) as src_conn,
+                            sqlite3.connect(tmp_path) as dst_conn,
+                        ):
+                            src_conn.backup(dst_conn)
+                        archive.write(tmp_path, arcname=filename)
+                    except sqlite3.Error:
+                        archive.write(file_path, arcname=filename)
+                    finally:
+                        tmp_path.unlink(missing_ok=True)
+                else:
+                    archive.write(file_path, arcname=filename)
 
+    try:
+        dest_path.chmod(0o600)
+    except OSError:
+        pass
     prune_backups(dest_path.parent, keep=max_backups)
     return dest_path
 
@@ -145,11 +172,17 @@ def restore_local_backup(
         raise FileNotFoundError(f"Backup archive '{zip_path}' not found")
 
     restored = []
+    sensitive = {"settings.json", "ai-keys.json", "provider-keys.json"}
     with zipfile.ZipFile(zip_path, "r") as archive:
         for member in archive.infolist():
             # Prevent zip slip
-            sanitize_path(member.filename, base_dir=data_dir)
+            target = sanitize_path(member.filename, base_dir=data_dir)
             archive.extract(member, path=data_dir)
+            if Path(member.filename).name in sensitive and target.is_file():
+                try:
+                    target.chmod(0o600)
+                except OSError:
+                    pass
             restored.append(member.filename)
 
     return restored
@@ -208,14 +241,69 @@ class SettingsStore:
             )
         return loaded
 
+    @property
+    def revisions_dir(self) -> Path:
+        return self.path.parent / "settings_revisions"
+
     def save(self, settings: AppSettings) -> None:
-        """Persist settings, then tighten permissions (holds the MT5 password)."""
+        """Persist settings with bounded revision history and 0600 permissions."""
+        if self.path.exists():
+            try:
+                rev_dir = self.revisions_dir
+                rev_dir.mkdir(parents=True, exist_ok=True)
+                stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
+                rev_file = rev_dir / f"settings_{stamp}.json"
+                shutil.copy2(self.path, rev_file)
+                try:
+                    rev_file.chmod(0o600)
+                except OSError:
+                    pass
+                for stale in sorted(rev_dir.glob("settings_*.json"))[:-10]:
+                    stale.unlink(missing_ok=True)
+            except OSError:
+                pass
         _atomic_json_write(self.path, settings.to_dict())
         try:
             # Match the other secret stores: owner-only read/write.
             self.path.chmod(0o600)
         except OSError:
             pass  # best effort; some filesystems reject chmod
+
+    def list_revisions(self) -> list[Path]:
+        if not self.revisions_dir.exists():
+            return []
+        return sorted(self.revisions_dir.glob("settings_*.json"), reverse=True)
+
+    def rollback_latest(self) -> AppSettings | None:
+        revs = self.list_revisions()
+        if not revs:
+            return None
+        latest = revs[0]
+        raw = json.loads(latest.read_text(encoding="utf-8"))
+        restored = AppSettings.from_dict(raw)
+        latest.unlink(missing_ok=True)
+        _atomic_json_write(self.path, restored.to_dict())
+        try:
+            self.path.chmod(0o600)
+        except OSError:
+            pass
+        return restored
+
+    rollback = rollback_latest
+
+    def export_json(self, destination: Path | str) -> Path:
+        dest = Path(destination)
+        _atomic_json_write(dest, self.load().to_dict())
+        return dest
+
+    def import_json(self, source: Path | str) -> AppSettings:
+        src = Path(source)
+        raw = json.loads(src.read_text(encoding="utf-8"))
+        if not isinstance(raw, dict):
+            raise ValueError("Settings file must contain a JSON object")
+        loaded = AppSettings.from_dict(raw)
+        self.save(loaded)
+        return loaded
 
 
 class SignalHistoryStore:
@@ -325,14 +413,21 @@ class SignalHistoryStore:
         self.path.write_text("", encoding="utf-8")
 
     def export_csv(
-        self, destination: Path, records: Iterable[dict[str, Any]] | None = None
+        self,
+        destination: Path,
+        records: Iterable[dict[str, Any]] | None = None,
+        *,
+        delimiter: str = ",",
     ) -> int:
         rows = list(records) if records is not None else self.read(limit=100_000)
         destination = Path(destination)
         destination.parent.mkdir(parents=True, exist_ok=True)
         with destination.open("w", newline="", encoding="utf-8") as stream:
             writer = csv.DictWriter(
-                stream, fieldnames=self.FIELDS, extrasaction="ignore"
+                stream,
+                fieldnames=self.FIELDS,
+                extrasaction="ignore",
+                delimiter=delimiter,
             )
             writer.writeheader()
             writer.writerows(rows)
@@ -467,6 +562,28 @@ class ConfluenceHistoryStore:
     def clear(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text("", encoding="utf-8")
+
+    def export_csv(
+        self,
+        destination: Path,
+        records: Iterable[dict[str, Any]] | None = None,
+        *,
+        delimiter: str = ",",
+    ) -> int:
+        rows = list(records) if records is not None else self.read(limit=100_000)
+        destination = Path(destination)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        fields = (*self.REQUIRED, "score", "mode", "outcome")
+        with destination.open("w", newline="", encoding="utf-8") as stream:
+            writer = csv.DictWriter(
+                stream,
+                fieldnames=fields,
+                extrasaction="ignore",
+                delimiter=delimiter,
+            )
+            writer.writeheader()
+            writer.writerows(rows)
+        return len(rows)
 
     def _rewrite(self, records: list[dict[str, Any]]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
