@@ -53,7 +53,7 @@ Legend at a glance:
 - **Areas:** neezy_backend/database.py, cli/db command, ui_panels/database.py
 - **Difficulty:** Hard
 
-### 6. [ ] Create a backend service context object
+### 6. [x] Create a backend service context object — *service_context.py: ServiceContext with lazy shared LocalDatabase (factory-injectable), bound CandleAccessor, SignalHistoryStore, tool registry; thread-safe scoped defaults with scoped_context() override and NEEZY_HOME rebind recreation; memory/signals tools now share one connection through the context; 16 context tests*
 - **Category:** Architecture & refactoring
 - **What:** Bundle the shared runtime handles (event bus, stores, settings, tool registry) into one ServiceContext passed explicitly instead of module-level globals.
 - **Why:** Globals (e.g. get_global_mt5_bridge) complicate tests and lifetime management; a context makes ownership visible.

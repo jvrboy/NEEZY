@@ -227,15 +227,19 @@ CORRELATION_MAX_SYMBOLS = 8
 def register_default_tools(registry: ToolRegistry = DEFAULT_REGISTRY) -> None:
     """Populate default registry with core NEEZY capabilities."""
     from neezy_backend.candles import CandleAccessor
-    from neezy_backend.database import LocalDatabase
     from neezy_backend.markets import SYMBOLS
     from neezy_backend.risk import position_size
+    from neezy_backend.service_context import current_context
     from neezy_backend.storage import create_local_backup, restore_local_backup
     from neezy_backend.strategies import consensus, run_all
 
     def accessor() -> CandleAccessor:
         """Fetch-only accessor; delegates bind to stream at each call."""
         return CandleAccessor()
+
+    def workspace() -> Any:
+        """Shared local handles from the service context (roadmap #6)."""
+        return current_context()
 
     def tool_read_market(symbol: str = "frxEURUSD", timeframe: str = "15m") -> str:
         from neezy_backend.context import format_context, market_snapshot
@@ -365,8 +369,7 @@ def register_default_tools(registry: ToolRegistry = DEFAULT_REGISTRY) -> None:
         )
 
     def tool_search_memory(query: str, limit: int = 5) -> str:
-        with LocalDatabase() as database:
-            rows = database.search_memory(query, limit=_bounded(limit, 1, 50))
+        rows = workspace().database.search_memory(query, limit=_bounded(limit, 1, 50))
         if not rows:
             return "No matching memory."
         return "\n".join(
@@ -377,15 +380,15 @@ def register_default_tools(registry: ToolRegistry = DEFAULT_REGISTRY) -> None:
         text = content.strip()
         if not text:
             raise ValueError("content must not be empty")
-        with LocalDatabase() as database:
-            item_id = database.add_memory(text, category=category.strip() or "general")
+        item_id = workspace().database.add_memory(
+            text, category=category.strip() or "general"
+        )
         return f"Memory saved as #{item_id}"
 
     def tool_recent_signals(limit: int = 10, symbol: str = "") -> str:
-        with LocalDatabase() as database:
-            rows = database.recent_signals(
-                limit=_bounded(limit, 1, 100), symbol=symbol.strip() or None
-            )
+        rows = workspace().database.recent_signals(
+            limit=_bounded(limit, 1, 100), symbol=symbol.strip() or None
+        )
         if not rows:
             return "No saved signals."
         return "\n".join(

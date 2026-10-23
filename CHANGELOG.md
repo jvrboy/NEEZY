@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## [Unreleased] — Autonomous run 2026-10-23 (Update #6: service context)
+
+### Added
+- `neezy_backend/service_context.py` — `ServiceContext` bundles the shared
+  runtime handles: a lazily-created, factory-injectable `LocalDatabase`, the
+  `CandleAccessor` bound to it, the `SignalHistoryStore`, and the tool
+  registry. `scoped_context()` / `current_context()` give explicit override
+  semantics; `default_context()` recreates itself when the NEEZY data
+  directory changes. `close()` is idempotent and blocks further use.
+- `tests/test_service_context.py` — 16 tests: lazy single-instance handles,
+  injected factories, scope nesting/restore, close protections, thread-safe
+  creation, NEEZY_HOME rebind, and the tool roundtrips below.
+
+### Changed
+- The `search_memory`, `add_memory`, and `recent_signals` agent tools no
+  longer open and close a fresh SQLite connection per call; they use the
+  shared context database (behavior, output, and patch targets unchanged).
+
 ## [Unreleased] — Autonomous run 2026-10-23 (Update #5: repository layer)
 
 ### Added

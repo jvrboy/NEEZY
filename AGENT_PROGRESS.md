@@ -33,9 +33,9 @@ resume exactly where the state below says.
 | Item | Value |
 |------|-------|
 | Phase | 3 — sequential implementation loop, active |
-| Latest verified baseline | 1102 tests OK (was 1081) + lint/format clean, AFTER Update #5 push |
-| Updates completed | 53/500 (Updates #2 and #5 done) |
-| Next Update in progress | **Update #6** backend service context object (next `[ ]` in ROADMAP.md) |
+| Latest verified baseline | 1118 tests OK (was 1102) + lint/format clean, AFTER Update #6 push |
+| Updates completed | 54/500 (Updates #2, #5, #6 done) |
+| Next Update in progress | **Update #7** decouple UI mixins from concrete stores (next `[ ]` in ROADMAP.md) |
 
 ## Roadmap interpretation
 
@@ -46,6 +46,11 @@ prior run's structure and is kept unchanged; new Updates are implemented
 from item #.offset next (see ROADMAP.md for exact list and status).
 
 ## Update log
+
+- Update #6 (roadmap #6, service context) DONE and pushed: added
+  neezy_backend/service_context.py (ServiceContext + scoped defaults),
+  memory/signals tools share the context database, added
+  tests/test_service_context.py (16 tests). Suite 1102->1118, ruff clean.
 
 - Update #5 (roadmap #5, repository layer) DONE and pushed: added
   neezy_backend/repositories.py (four typed repos + shared helpers),
