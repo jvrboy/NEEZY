@@ -13,15 +13,22 @@ prompt only when the user explicitly enables memory context in Settings.
 from __future__ import annotations
 
 import json
-import math
 import sqlite3
 import threading
 from collections.abc import Iterable, Sequence
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 from .migrations import BASELINE_VERSION, apply_migrations, latest_version
+from .repositories import (
+    CandleRepo,
+    SignalRepo,
+    SnapshotRepo,
+    UsageRepo,
+    _json_safe,
+    _now,
+)
 from .storage import get_data_dir
 
 SCHEMA_VERSION = latest_version()
@@ -97,23 +104,6 @@ CREATE TABLE IF NOT EXISTS memory_items (
 """
 
 
-def _now() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def _json_safe(value: Any) -> Any:
-    """Make analysis output storable: drop non-finite floats and series blobs."""
-    if isinstance(value, float):
-        return value if math.isfinite(value) else None
-    if isinstance(value, dict):
-        return {str(key): _json_safe(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_json_safe(item) for item in value]
-    if isinstance(value, (str, int, bool)) or value is None:
-        return value
-    return str(value)
-
-
 class LocalDatabase:
     """Thread-safe wrapper around one SQLite file with bounded retention."""
 
@@ -163,6 +153,12 @@ class LocalDatabase:
             )
             self._connection.commit()
             apply_migrations(self._connection)
+        # Typed repository boundaries over each data table (roadmap #5). The
+        # wrappers below keep every historical public name and behaviour.
+        self.candles = CandleRepo(self)
+        self.signals = SignalRepo(self)
+        self.snapshots = SnapshotRepo(self)
+        self.usage = UsageRepo(self)
 
     # ------------------------------------------------------------------ lifecycle
     @property
@@ -285,58 +281,18 @@ class LocalDatabase:
         timeframe: str,
         candles: Iterable[Sequence[float]],
     ) -> int:
-        """Upsert OHLC rows; returns the number written."""
-        if not self.store_candles:
-            return 0
-        stamp = _now().isoformat(timespec="seconds")
-        rows = []
-        for candle in candles:
-            if len(candle) < 5:
-                continue
-            epoch, open_, high, low, close = candle[:5]
-            values = [float(open_), float(high), float(low), float(close)]
-            if not all(math.isfinite(value) and value > 0 for value in values):
-                continue
-            rows.append((symbol, timeframe, int(epoch), *values, stamp))
-        if not rows:
-            return 0
-        with self._lock:
-            self._connection.executemany(
-                "INSERT OR REPLACE INTO candles "
-                "(symbol, timeframe, epoch, open, high, low, close, saved_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                rows,
-            )
-            self._connection.commit()
-        return len(rows)
+        """Upsert validated, ordered OHLC rows; returns the number written."""
+        return self.candles.upsert(symbol, timeframe, candles)
 
     def load_candles(
         self, symbol: str, timeframe: str, limit: int = 500
     ) -> list[tuple[int, float, float, float, float]]:
         if limit < 1:
             raise ValueError("limit must be positive")
-        with self._lock:
-            rows = self._connection.execute(
-                "SELECT epoch, open, high, low, close FROM candles "
-                "WHERE symbol = ? AND timeframe = ? ORDER BY epoch DESC LIMIT ?",
-                (symbol, timeframe, limit),
-            ).fetchall()
-        return [
-            (int(row["epoch"]), row["open"], row["high"], row["low"], row["close"])
-            for row in reversed(rows)
-        ]
+        return self.candles.tail(symbol, timeframe, limit)
 
     def candle_count(self, symbol: str | None = None) -> int:
-        with self._lock:
-            if symbol is None:
-                row = self._connection.execute(
-                    "SELECT COUNT(*) AS n FROM candles"
-                ).fetchone()
-            else:
-                row = self._connection.execute(
-                    "SELECT COUNT(*) AS n FROM candles WHERE symbol = ?", (symbol,)
-                ).fetchone()
-        return int(row["n"]) if row else 0
+        return self.candles.count(symbol)
 
     # --------------------------------------------------------------------- signals
     def save_signal(
@@ -352,95 +308,41 @@ class LocalDatabase:
         confidence: float = 0.0,
         payload: dict[str, Any] | None = None,
     ) -> int:
-        with self._lock:
-            cursor = self._connection.execute(
-                "INSERT INTO signals (created_at, symbol, timeframe, strategy, "
-                "signal, direction, score, confidence, price, payload) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    _now().isoformat(timespec="seconds"),
-                    symbol,
-                    timeframe,
-                    strategy,
-                    signal,
-                    int(direction),
-                    float(score),
-                    float(confidence),
-                    None if price is None else float(price),
-                    None if payload is None else json.dumps(_json_safe(payload)),
-                ),
-            )
-            self._connection.commit()
-        return int(cursor.lastrowid or 0)
+        return self.signals.insert(
+            symbol=symbol,
+            timeframe=timeframe,
+            signal=signal,
+            score=score,
+            price=price,
+            strategy=strategy,
+            direction=direction,
+            confidence=confidence,
+            payload=payload,
+        )
 
     def recent_signals(
         self, limit: int = 50, symbol: str | None = None
     ) -> list[dict[str, Any]]:
         if limit < 1:
             raise ValueError("limit must be positive")
-        query = "SELECT * FROM signals"
-        params: list[Any] = []
-        if symbol:
-            query += " WHERE symbol = ?"
-            params.append(symbol)
-        query += " ORDER BY id DESC LIMIT ?"
-        params.append(limit)
-        with self._lock:
-            rows = self._connection.execute(query, params).fetchall()
-        return [self._signal_row(row) for row in rows]
+        return self.signals.recent(limit, symbol)
 
     @staticmethod
     def _signal_row(row: sqlite3.Row) -> dict[str, Any]:
-        record = dict(row)
-        payload = record.get("payload")
-        if isinstance(payload, str):
-            try:
-                record["payload"] = json.loads(payload)
-            except json.JSONDecodeError:
-                record["payload"] = None
-        return record
+        # Historical name kept working; conversion lives in the repository.
+        return SignalRepo.row_record(row)
 
     # ------------------------------------------------------------------- snapshots
     def save_snapshot(
         self, *, symbol: str, timeframe: str, result: dict[str, Any]
     ) -> int:
         """Store one ``analyze()`` result for later review."""
-        with self._lock:
-            cursor = self._connection.execute(
-                "INSERT INTO snapshots (created_at, symbol, timeframe, regime, "
-                "signal, score, payload) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (
-                    _now().isoformat(timespec="seconds"),
-                    symbol,
-                    timeframe,
-                    str(result.get("regime", "")),
-                    str(result.get("signal", "")),
-                    int(result.get("score", 0)),
-                    json.dumps(_json_safe(result)),
-                ),
-            )
-            self._connection.commit()
-        return int(cursor.lastrowid or 0)
+        return self.snapshots.save(symbol=symbol, timeframe=timeframe, result=result)
 
     def latest_snapshot(
         self, symbol: str, timeframe: str | None = None
     ) -> dict[str, Any] | None:
-        query = "SELECT * FROM snapshots WHERE symbol = ?"
-        params: list[Any] = [symbol]
-        if timeframe:
-            query += " AND timeframe = ?"
-            params.append(timeframe)
-        query += " ORDER BY id DESC LIMIT 1"
-        with self._lock:
-            row = self._connection.execute(query, params).fetchone()
-        if row is None:
-            return None
-        record = dict(row)
-        try:
-            record["payload"] = json.loads(record["payload"])
-        except (json.JSONDecodeError, TypeError):
-            record["payload"] = None
-        return record
+        return self.snapshots.latest(symbol, timeframe)
 
     # -------------------------------------------------------------------- AI usage
     def record_ai_call(
@@ -455,44 +357,19 @@ class LocalDatabase:
         response_chars: int = 0,
         detail: str = "",
     ) -> int:
-        with self._lock:
-            cursor = self._connection.execute(
-                "INSERT INTO ai_calls (created_at, provider, model, key_label, "
-                "status, latency_ms, prompt_chars, response_chars, detail) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    _now().isoformat(timespec="seconds"),
-                    provider,
-                    model,
-                    key_label,
-                    status,
-                    int(latency_ms),
-                    int(prompt_chars),
-                    int(response_chars),
-                    detail[:500],
-                ),
-            )
-            self._connection.commit()
-        return int(cursor.lastrowid or 0)
+        return self.usage.record(
+            provider=provider,
+            model=model,
+            status=status,
+            key_label=key_label,
+            latency_ms=latency_ms,
+            prompt_chars=prompt_chars,
+            response_chars=response_chars,
+            detail=detail,
+        )
 
     def ai_usage(self, limit: int = 100) -> dict[str, Any]:
-        with self._lock:
-            rows = self._connection.execute(
-                "SELECT provider, model, status, latency_ms, created_at "
-                "FROM ai_calls ORDER BY id DESC LIMIT ?",
-                (limit,),
-            ).fetchall()
-        by_provider: dict[str, int] = {}
-        by_status: dict[str, int] = {}
-        for row in rows:
-            by_provider[row["provider"]] = by_provider.get(row["provider"], 0) + 1
-            by_status[row["status"]] = by_status.get(row["status"], 0) + 1
-        return {
-            "calls": [dict(row) for row in rows],
-            "by_provider": by_provider,
-            "by_status": by_status,
-            "total": len(rows),
-        }
+        return self.usage.usage(limit)
 
     # ------------------------------------------------------------------------ kv
     def set_value(self, key: str, value: Any) -> None:
@@ -564,16 +441,10 @@ class LocalDatabase:
         epoch_cutoff = int(cutoff.timestamp())
         removed: dict[str, int] = {}
         with self._lock:
-            for table in ("signals", "snapshots", "ai_calls"):
-                cursor = self._connection.execute(
-                    f"DELETE FROM {table} WHERE created_at < ?",
-                    (stamp,),
-                )
-                removed[table] = cursor.rowcount
-            cursor = self._connection.execute(
-                "DELETE FROM candles WHERE epoch < ?", (epoch_cutoff,)
-            )
-            removed["candles"] = cursor.rowcount
+            removed["signals"] = self.signals.prune_before(stamp)
+            removed["snapshots"] = self.snapshots.prune_before(stamp)
+            removed["ai_calls"] = self.usage.prune_before(stamp)
+            removed["candles"] = self.candles.prune_before(epoch_cutoff)
             self._connection.commit()
         return removed
 
@@ -592,15 +463,11 @@ class LocalDatabase:
         result: dict[str, int] = {}
         with self._lock:
             self._connection.commit()
-            cursor = self._connection.execute(
-                "DELETE FROM snapshots WHERE created_at < ?",
-                (
-                    (_now() - timedelta(days=self.retention_days)).isoformat(
-                        timespec="seconds"
-                    ),
-                ),
+            result["snapshots_removed"] = self.snapshots.prune_before(
+                (_now() - timedelta(days=self.retention_days)).isoformat(
+                    timespec="seconds"
+                )
             )
-            result["snapshots_removed"] = cursor.rowcount
             self._connection.commit()
             checkpoint = self._connection.execute(
                 "PRAGMA wal_checkpoint(TRUNCATE)"

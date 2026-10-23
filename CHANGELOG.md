@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## [Unreleased] — Autonomous run 2026-10-23 (Update #5: repository layer)
+
+### Added
+- `neezy_backend/repositories.py` — typed repositories over the four data
+  tables (`CandleRepo` upsert/tail/count/prune, `SignalRepo` insert/recent/
+  count/prune, `SnapshotRepo` save/latest/prune, `UsageRepo` record/usage/
+  prune), each executing through `LocalDatabase`'s connection and re-entrant
+  lock. Row→dict conversion and the shared `_now`/`_json_safe` helpers moved
+  here, so no caller builds SQL at the data-table boundary.
+- `tests/test_repositories.py` — 21 tests: per-repo contracts and validation,
+  `LocalDatabase` delegate parity (wrapper methods keep signature, ordering,
+  and the historical skip-grade `save_candles` behaviour), concurrency smoke,
+  prune aggregation, and helper parity for non-finite floats.
+
+### Changed
+- `LocalDatabase` candle/signal/snapshot/ai_calls SQL now lives in the
+  repositories; the public wrapper methods delegate and behave identically.
+  `prune()` and `maintenance()` route deletes through repos and post-commit.
+
 ## [Unreleased] — Autonomous run 2026-10-23 (Update #2: candle accessor layer)
 
 ### Added

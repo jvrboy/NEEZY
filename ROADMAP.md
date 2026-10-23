@@ -46,7 +46,7 @@ Legend at a glance:
 - **Areas:** neezy_backend/{sandbox,storage}.py, tests/test_sandbox.py
 - **Difficulty:** Medium
 
-### 5. [ ] Introduce a repository layer over SQLite
+### 5. [x] Introduce a repository layer over SQLite — *repositories.py: CandleRepo/SignalRepo/SnapshotRepo/UsageRepo over one shared lock+connection; LocalDatabase wrappers delegate (public names unchanged, historical save_candles skip-grade contract preserved); shared _now/_json_safe moved to repositories; 21 repo/parity tests*
 - **Category:** Architecture & refactoring
 - **What:** Wrap database.py raw SQL in typed repository classes (CandleRepo, SignalRepo, SnapshotRepo, UsageRepo) with explicit method contracts and no SQL in callers.
 - **Why:** Callers currently build SQL strings; a repository boundary enables schema migration tests and future storage engines.

@@ -33,9 +33,9 @@ resume exactly where the state below says.
 | Item | Value |
 |------|-------|
 | Phase | 3 — sequential implementation loop, active |
-| Latest verified baseline | 1081 tests OK (was 1037) + lint/format clean, AFTER Update #2 push |
-| Updates completed | 52/500 (Update #2 candle accessor layer done) |
-| Next Update in progress | **Update #5** repository layer over SQLite (next `[ ]` in ROADMAP.md) |
+| Latest verified baseline | 1102 tests OK (was 1081) + lint/format clean, AFTER Update #5 push |
+| Updates completed | 53/500 (Updates #2 and #5 done) |
+| Next Update in progress | **Update #6** backend service context object (next `[ ]` in ROADMAP.md) |
 
 ## Roadmap interpretation
 
@@ -46,6 +46,11 @@ prior run's structure and is kept unchanged; new Updates are implemented
 from item #.offset next (see ROADMAP.md for exact list and status).
 
 ## Update log
+
+- Update #5 (roadmap #5, repository layer) DONE and pushed: added
+  neezy_backend/repositories.py (four typed repos + shared helpers),
+  LocalDatabase delegates to them with unchanged public surface, added
+  tests/test_repositories.py (21 tests). Suite 1081->1102, ruff clean.
 
 - Update #2 (roadmap #2, candle accessor layer) DONE and pushed: added
   `neezy_backend/candles.py` (validator, normalize, CandleStore protocol,
