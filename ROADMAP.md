@@ -60,7 +60,7 @@ Legend at a glance:
 - **Areas:** neezy_backend/*.py (progressive), tests
 - **Difficulty:** Hard
 
-### 7. [ ] Decouple UI mixins from concrete stores
+### 7. [x] Decouple UI mixins from concrete stores
 - **Category:** Architecture & refactoring
 - **What:** Panel mixins currently instantiate stores directly; inject them via App.__init__ wiring so fake-tk tests can pass in-memory fakes.
 - **Why:** Injection removes filesystem side effects from UI tests and shortens the test suite.

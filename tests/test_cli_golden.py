@@ -163,7 +163,8 @@ def _normalize(text: str) -> str:
     home = os.environ.get("NEEZY_HOME", "")
     if home:
         text = text.replace(str(Path(home).resolve()), "<NEEZY_HOME>")
-    text = text.replace(str(REPO_ROOT), "<REPO>")
+    repo_str = str(REPO_ROOT)
+    text = re.sub(r"(?<![a-zA-Z0-9])" + re.escape(repo_str), "<REPO>", text)
     text = re.sub(r'"size_bytes": \d+', '"size_bytes": <BYTES>', text)
     text = re.sub(r'"size_mb": [0-9.]+', '"size_mb": <MB>', text)
     return text
