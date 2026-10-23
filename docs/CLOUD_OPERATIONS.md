@@ -3,7 +3,7 @@
 This deployment keeps the **Windows 10 PC always on but deliberately light**. It
 connects to MT5, downloads validated JSON weights, performs compact inference,
 enforces local risk limits, sends demo orders, and serves a read-only status API.
-Training, backtesting, scheduled collection, alerts, and the dashboard run elsewhere.
+Training, backtesting, data collection, alerts, and the dashboard run elsewhere.
 
 > **Safety default:** `execution_enabled` is `false`. The unattended service is
 > **demo-only by implementation**, not merely by convention. Observe for weeks,
@@ -18,12 +18,12 @@ Training, backtesting, scheduled collection, alerts, and the dashboard run elsew
 | Windows 10 PC | MT5/broker connection, latest-model download, compact inference, persistent risk state, demo order placement/monitoring, loopback status API | Training, backtests, Transformers/Torch, public bind, remote order endpoints |
 | Colab / Kaggle | Public-data pulls, training, held-out trade backtests, candidate upload | Broker login, 24/7 execution, automatic promotion |
 | Hugging Face Hub | Versioned model candidates/manifests, promoted `latest/` pointers, public-candle datasets | Store tokens in files, execute code on the PC |
-| GitHub + Actions | Code/CI, daily tests/data pulls, optional weekly Kaggle trigger | Assume schedules are a reliable always-on executor |
+| GitHub | Code hosting and existing Python CI | Run the PC executor or broker actions |
 | Cloudflare | Named Tunnel, Access, five-minute Worker health checks, alert dedupe, R2 status/data archives | Receive broker passwords or expose trade mutations |
 | Vercel | Authenticated Next.js read-only dashboard for equity, open trades, models, and status | Hold Access secrets in browser code or place trades |
 
 Free tiers are not 24/7 process hosts: Colab/Kaggle sessions end, Hugging Face
-Spaces sleep, and Vercel functions are serverless. GitHub schedules can be delayed
+Spaces sleep, and Vercel functions are serverless. Cloud schedules can be delayed
 or paused. The PC is therefore the only always-on component in this design. Kaggle
 GPU quotas are account-dependent (often described as roughly 30 hours/week); the
 current compact model is CPU-based and does not consume GPU quota.
@@ -31,7 +31,7 @@ current compact model is CPU-based and does not consume GPU quota.
 ## 2. Data and promotion flow
 
 ```text
-Deriv public candles -> GitHub Action / Kaggle / Colab
+Deriv public candles -> Kaggle / Colab
                       -> train + chronological held-out trade backtest
                       -> HF candidate model + hash-bound manifest + dataset
                       -> exact candidate paper-traded on demo (14d/20 trades min.)
@@ -145,7 +145,7 @@ do not bypass it by exposing an RPyC or broker port to the internet.
 2. Import `kaggle/cloud/NEEZY_cloud_training.ipynb` into Kaggle or Colab.
 3. Add platform secrets `HF_TOKEN`, `HF_MODEL_REPO`, and `HF_DATASET_REPO`. The token
    needs write access only to those repositories. Keep notebook versions private.
-4. For Kaggle CLI/Actions, replace `YOUR_USERNAME` in
+4. For the Kaggle CLI, replace `YOUR_USERNAME` in
    `kaggle/cloud/kernel-metadata.json`.
 5. Run all cells. The notebook clones a configurable Git ref, installs
    `requirements-training.txt`, pulls public candles, trains, runs the held-out trade
@@ -268,26 +268,26 @@ the PC. Telegram is supported directly; `ALERT_WEBHOOK_URL` can call an HTTPS au
 that delivers email. Treat that webhook URL as a secret and review the provider's data
 policy. Cloudflare can observe Tunnel/Worker traffic and metadata.
 
-## 8. GitHub Actions and data archives
+## 8. Explicit data pulls and archives
 
-`.github/workflows/cloud-jobs.yml` provides:
+No scheduled GitHub Actions cloud workflow is included. Public-candle collection
+remains available as an explicit command:
 
-- daily offline tests;
-- daily public-candle collection, retained for seven days as a GitHub artifact;
-- optional upload to the HF dataset repo and/or R2;
-- an optional weekly/manual `kaggle kernels push` for candidate training.
+```bash
+python -m pip install -r requirements-actions.txt
+python scripts/cloud_data_pull.py \
+  --symbols frxEURUSD frxGBPUSD frxUSDJPY \
+  --timeframe 15m --candles 5000
+```
 
-Configure only the integrations you use:
+Run `python scripts/cloud_data_pull.py --help` for the output and publishing
+options. Add `--upload` only after configuring the intended HF dataset repository
+and credentials in the chosen runner's secret store. Optional R2 settings use the
+same explicit script. Never commit tokens or place them in notebook source.
 
-| Secret/variable | Used for |
-| --- | --- |
-| `HF_TOKEN`, `HF_DATASET_REPO` | Actions dataset upload |
-| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | Optional Actions R2 dataset upload |
-| `KAGGLE_USERNAME`, `KAGGLE_KEY` | Actions notebook trigger |
-| Kaggle Secrets `HF_TOKEN`, `HF_MODEL_REPO`, `HF_DATASET_REPO` | Actual notebook candidate/dataset upload; the HF token is not sent by Actions |
-
-Do not make the training job push straight to `latest/`; that would bypass paper
-validation. Scheduled workflows are operational conveniences, not a trading watchdog.
+Launch the Kaggle/Colab training notebook manually as described above. Data pulls
+do not train or promote a model, and neither path places broker orders. Do not make
+a training job push straight to `latest/`; that would bypass paper validation.
 
 ## 9. Risk boundaries and operations
 

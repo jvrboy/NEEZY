@@ -22,9 +22,9 @@ jobs:
       - name: Install project and tooling
         run: python -m pip install -e ".[dev]" build
       - name: Lint
-        run: ruff check neezy_app neezy_backend tests forex_signals.py main.py scripts
+        run: ruff check neezy_app neezy_backend tests forex_signals.py
       - name: Check formatting
-        run: ruff format --check neezy_app neezy_backend tests forex_signals.py main.py scripts
+        run: ruff format --check neezy_app neezy_backend tests forex_signals.py
       - name: Run tests
         run: python -m unittest discover -s tests -v
       - name: CLI smoke test (offline)
@@ -34,29 +34,3 @@ jobs:
           neezy-cli risk EURUSD --balance 10000 --entry 1.1 --stop 1.098
       - name: Build wheel
         run: python -m build --wheel
-
-  cloud-worker:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - name: Test watchdog transitions and R2 archiving
-        run: node --test cloudflare/worker.test.mjs
-
-  dashboard:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: dashboard/package-lock.json
-      - name: Install dashboard dependencies
-        working-directory: dashboard
-        run: npm ci
-      - name: Build read-only monitoring dashboard
-        working-directory: dashboard
-        run: npm run build

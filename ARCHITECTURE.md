@@ -104,9 +104,8 @@ Worker and `dashboard/app/api/status/route.js` are read-only clients; neither ha
 an order mutation. `dashboard/proxy.js` separately authenticates dashboard users.
 
 The cloud control/data plane is intentionally not highly available: notebook
-sessions expire, Actions schedules are best-effort, and Vercel is serverless. Only
-the Windows service is always-on. Full deployment and rollback procedures are in
-`docs/CLOUD_OPERATIONS.md`.
+sessions expire and Vercel is serverless. Only the Windows service is always-on.
+Full deployment and rollback procedures are in `docs/CLOUD_OPERATIONS.md`.
 
 ### Threading rule
 
@@ -188,16 +187,16 @@ cannot enable real-account trading; manual live-order behavior is unchanged.
 - `kaggle/` — ready-to-run research notebook plus `kaggle/cloud/` candidate
   training/publishing notebook (no broker access and no automatic promotion).
 - `requirements-runtime.txt` — PC-only websocket + Windows MT5 dependencies;
-  training/Actions dependencies are separate files.
-- `.github/workflows/cloud-jobs.yml` — scheduled tests/data collection and an
-  optional Kaggle trigger; `cloudflare/` and `dashboard/` have their own CI gates.
+  training/cloud-publishing dependencies are separate files.
+- `cloudflare/` and `dashboard/` — read-only monitoring deployment components;
+  their Node tests and production build are explicit local release checks.
 
 ## 9. Testing
 
 The offline unittest suite covers backend modules, property/edge cases for math,
 fake-tk smoke builds of the whole UI, CLI integration against stub fetches, MT5
 safety, executor risk/model-update behavior, and platform config invariants.
-Node tests cover the Worker; CI also builds the production dashboard.
+Node tests cover the Worker; the production dashboard build is an explicit local release check.
 
 ## 10. Key invariants (do not break)
 

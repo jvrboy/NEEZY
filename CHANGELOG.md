@@ -39,7 +39,7 @@
 - NSSM-friendly `main.py` and `neezy_backend/executor_service.py`: always-on MT5
   monitoring, one compact inference per closed candle, optional demo execution,
   rotating local logs, and a loopback read-only status API. Runtime dependencies
-  are isolated in `requirements-runtime.txt`; training/Actions deps are separate.
+  are isolated in `requirements-runtime.txt`; training/cloud-publishing deps are separate.
 - `model_hub.py`: bounded Hugging Face JSON downloads, safe repository paths,
   SHA-256 and schema checks, exact-hash held-out-backtest/paper evidence, and
   atomic active-model swaps that preserve the prior model on every failure.
@@ -56,9 +56,9 @@
 - `kaggle/cloud/` plus `scripts/cloud_train.py`: cloud training/backtesting and
   HF candidate/dataset upload without automatic `latest/` promotion.
   `scripts/promote_model.py` performs deliberate post-paper promotion.
-- `scripts/cloud_data_pull.py` and `.github/workflows/cloud-jobs.yml`: daily
-  tests/public-data pulls, optional HF/R2 publishing, and weekly/manual Kaggle
-  triggers. Existing CI now also tests the Worker and builds the dashboard.
+- `scripts/cloud_data_pull.py`: explicit public-data pulls with optional HF/R2
+  publishing. Kaggle training is launched manually; no scheduled cloud workflow
+  or automatic model promotion is included.
 - `cloudflare/`: five-minute cron-only Worker health checks, Access service-token
   support, KV incident dedupe/recovery with delivery retry, Telegram/email-webhook
   alerts, and R2 snapshots.
