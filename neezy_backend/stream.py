@@ -11,6 +11,7 @@ from typing import Any
 
 import websocket
 
+from .candles import Candle
 from .events import EventBus
 from .markets import ws_urls
 
@@ -297,7 +298,6 @@ def probe_endpoint(url: str, timeout: float = 8.0) -> tuple[bool, str]:
 
 
 MAX_HISTORY_COUNT = 5000
-Candle = tuple[int, float, float, float, float]
 
 
 def _candidate_urls(url: str | Sequence[str] | None) -> tuple[str, ...]:

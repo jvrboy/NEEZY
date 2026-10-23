@@ -22,3 +22,5 @@ data-artifacts/
 promoted-latest.json
 executor.json
 *.local
+
+.venv-ci/

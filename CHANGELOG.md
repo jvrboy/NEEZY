@@ -1,5 +1,32 @@
 # CHANGELOG
 
+## [Unreleased] — Autonomous run 2026-10-23 (Update #2: candle accessor layer)
+
+### Added
+- `neezy_backend/candles.py` — the single candle API: `validate_candle_row/
+  rows` (shape, positive finite prices, OHLC consistency), `normalize_candles`
+  (validate + dedupe by epoch, freshest wins + oldest-first sort), a
+  `CandleStore` protocol match for `LocalDatabase`, a thread-safe
+  `InMemoryCandleStore` for tests and offline tools, and `CandleAccessor`
+  with `fetch/history` (deriv or MT5 sources; late-bound stream delegates so
+  existing `neezy_backend.stream.fetch_candles` patch targets keep working),
+  `persist/read/latest/count`, and combined `refresh/ensure` operations.
+- `tests/test_candles.py` — 44 tests: validation units, dedupe semantics,
+  in-memory store (incl. concurrent-write smoke), accessor delegates/bounds,
+  SQLite roundtrip, CLI `db save`/`db candles` wiring (incl. deep-history
+  paging), and the tools-registry path.
+
+### Changed
+- `stream.py`/`providers.py` now share the one `Candle` type from
+  `candles.py` instead of redefining it.
+- `neezy-cli db save` and `db candles` go through `CandleAccessor` (fetch →
+  validate → persist; reads normalize through the store), preserving the
+  count > 5000 deep-history paging behavior and CLI fixture outputs.
+- The five `tools.py` market-data tools (`read_market`, `scan_strategies`,
+  `market_regime`, `correlation_snapshot`, `get_decision_metrics`) fetch
+  through the accessor; malformed candle rows now fail loud instead of
+  reaching the strategy engine.
+
 ## [Unreleased] — Chat-first portable CLI workspace (2026-10-23)
 
 ### Added

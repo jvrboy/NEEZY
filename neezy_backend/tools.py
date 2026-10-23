@@ -226,12 +226,16 @@ CORRELATION_MAX_SYMBOLS = 8
 
 def register_default_tools(registry: ToolRegistry = DEFAULT_REGISTRY) -> None:
     """Populate default registry with core NEEZY capabilities."""
+    from neezy_backend.candles import CandleAccessor
     from neezy_backend.database import LocalDatabase
-    from neezy_backend.markets import SYMBOLS, granularity
+    from neezy_backend.markets import SYMBOLS
     from neezy_backend.risk import position_size
     from neezy_backend.storage import create_local_backup, restore_local_backup
     from neezy_backend.strategies import consensus, run_all
-    from neezy_backend.stream import fetch_candles
+
+    def accessor() -> CandleAccessor:
+        """Fetch-only accessor; delegates bind to stream at each call."""
+        return CandleAccessor()
 
     def tool_read_market(symbol: str = "frxEURUSD", timeframe: str = "15m") -> str:
         from neezy_backend.context import format_context, market_snapshot
@@ -240,8 +244,7 @@ def register_default_tools(registry: ToolRegistry = DEFAULT_REGISTRY) -> None:
             raise ValueError(
                 f"Unknown market {symbol!r}; choose from {', '.join(SYMBOLS)}"
             )
-        seconds = granularity(timeframe)
-        candles = fetch_candles(symbol, seconds, 100)
+        candles = accessor().fetch(symbol, timeframe, 100)
         snapshot = market_snapshot(candles, symbol=symbol, timeframe=timeframe)
         return format_context(snapshot) if snapshot else "No candles fetched."
 
@@ -258,7 +261,7 @@ def register_default_tools(registry: ToolRegistry = DEFAULT_REGISTRY) -> None:
             raise ValueError(
                 f"Unknown market {symbol!r}; choose from {', '.join(SYMBOLS)}"
             )
-        candles = fetch_candles(symbol, granularity(timeframe), 300)
+        candles = accessor().fetch(symbol, timeframe, 300)
         if len(candles) < 61:
             return f"Not enough candles to scan {symbol} ({len(candles)} fetched)."
         signals = run_all(candles)
@@ -282,7 +285,7 @@ def register_default_tools(registry: ToolRegistry = DEFAULT_REGISTRY) -> None:
             raise ValueError(
                 f"Unknown market {symbol!r}; choose from {', '.join(SYMBOLS)}"
             )
-        candles = fetch_candles(symbol, granularity(timeframe), 300)
+        candles = accessor().fetch(symbol, timeframe, 300)
         result = market_regime(candles)
         return (
             f"Market: {symbol} ({timeframe})\n"
@@ -309,12 +312,11 @@ def register_default_tools(registry: ToolRegistry = DEFAULT_REGISTRY) -> None:
         if len(set(names)) < 2:
             raise ValueError("name at least two distinct markets")
         span = _bounded(window, 10, 500)
-        seconds = granularity(timeframe)
         closes: dict[str, list[float]] = {}
         unavailable: list[str] = []
         for name in names:
             try:
-                rows = fetch_candles(name, seconds, span + 2)
+                rows = accessor().fetch(name, timeframe, span + 2)
             except (OSError, RuntimeError, ValueError):
                 unavailable.append(name)
                 continue
@@ -481,7 +483,7 @@ def register_default_tools(registry: ToolRegistry = DEFAULT_REGISTRY) -> None:
             raise ValueError(
                 f"Unknown market {symbol!r}; choose from {', '.join(SYMBOLS)}"
             )
-        candles = fetch_candles(symbol, granularity(timeframe), 200)
+        candles = accessor().fetch(symbol, timeframe, 200)
         metrics = compute_decision_metrics(symbol, timeframe, candles)
         return (
             f"Decision: {metrics['decision']} ({metrics['confidence']}%) | "

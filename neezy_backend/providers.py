@@ -27,10 +27,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .candles import Candle
 from .markets import TIMEFRAMES
 from .storage import get_data_dir
-
-Candle = tuple[int, float, float, float, float]
 
 # Timeout and user agent for every provider request.
 HTTP_TIMEOUT = 20.0

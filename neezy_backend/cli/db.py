@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ..markets import display_name, format_price, granularity
+from ..candles import CandleAccessor
+from ..markets import display_name, format_price
 from ..storage import SignalHistoryStore
+from ..stream import MAX_HISTORY_COUNT
 from .common import _emit, _open_database, _symbol, _table
 
 
@@ -53,7 +55,8 @@ def cmd_db(args, fetch, out) -> int:
             return 0
         if args.action == "candles":
             symbol = _symbol(args.symbol)
-            rows = database.load_candles(symbol, args.timeframe, args.limit)
+            accessor = CandleAccessor(store=database)
+            rows = accessor.read(symbol, args.timeframe, args.limit)
             if args.json:
                 _emit(
                     out,
@@ -77,9 +80,18 @@ def cmd_db(args, fetch, out) -> int:
             return 0
         if args.action == "save":
             symbol = _symbol(args.symbol)
-            seconds = granularity(args.timeframe)
-            candles = fetch(symbol, seconds, args.count)
-            written = database.save_candles(symbol, args.timeframe, candles)
+            accessor = CandleAccessor(
+                store=database,
+                stream_fetch=lambda s, sec, c: fetch(s, sec, c),
+                stream_history=lambda s, sec, total: fetch(s, sec, total),
+            )
+            # Deriv caps one request at 5000 candles; the CLI fetch delegate
+            # (cli/__init__._default_fetch) pages deeper history transparently.
+            if args.count > MAX_HISTORY_COUNT:
+                candles = accessor.history(symbol, args.timeframe, args.count)
+            else:
+                candles = accessor.fetch(symbol, args.timeframe, args.count)
+            written = accessor.persist(symbol, args.timeframe, candles)
             from ..context import market_snapshot
 
             snapshot = market_snapshot(candles, symbol=symbol, timeframe=args.timeframe)

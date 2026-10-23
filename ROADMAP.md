@@ -25,7 +25,7 @@ Legend at a glance:
 - **Areas:** neezy_backend/cli.py, tests/test_*cli*.py, pyproject.toml (entry point unchanged)
 - **Difficulty:** Medium
 
-### 2. [ ] Extract a candle accessor layer
+### 2. [x] Extract a candle accessor layer — *candles.py: shared strict validator + normalize (dedupe/sort); CandleStore protocol + InMemoryCandleStore; CandleAccessor fetch/history/persist/read/latest/count/refresh/ensure with injectable stream and MT5 delegates; one Candle type re-exported by stream/providers; cli db save/candles and 5 tools.py fetch sites rewired; 44 tests*
 - **Category:** Architecture & refactoring
 - **What:** Introduce neezy_backend/candles.py as the single API (fetch, cache, persist, read) that today is spread across stream.py, database.py, providers.py and research paths.
 - **Why:** Four modules currently hand-roll candle retrieval; one accessor removes duplicated validation and lets storage backends swap in later.
