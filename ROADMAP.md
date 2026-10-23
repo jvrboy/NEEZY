@@ -74,7 +74,7 @@ Legend at a glance:
 - **Areas:** neezy_app/ui.py, neezy_app/ui_panels/constants.py, tests/test_ui_style.py
 - **Difficulty:** Easy
 
-### 9. [ ] Standardize provider abstraction
+### 9. [x] Standardize provider abstraction
 - **Category:** Architecture & refactoring
 - **What:** Give every market-data provider (deriv, alpha_vantage, finnhub, binance, twelve_data) a common Provider protocol: fetch_candles(symbol, tf, count) -> list[Candle] plus health().
 - **Why:** confluence.py branches on provider names; a protocol removes isinstance/name checks and lets new providers drop in.

@@ -17,8 +17,6 @@ from neezy_backend.providers import (
     PROVIDERS as MARKET_PROVIDERS,
 )
 from neezy_backend.providers import (
-    ProviderError,
-    get_candles,
     provider_key_issues,
     resolve_provider,
 )
@@ -184,15 +182,19 @@ class DataProvidersMixin:
         spec = resolve_provider(provider)
 
         def work():
-            try:
-                rows = get_candles(provider, symbol, timeframe, 60)
+            health = spec.health(
+                symbol,
+                timeframe,
+                keystore=getattr(self, "provider_keys", None),
+            )
+            if health.get("ok"):
                 message = (
-                    f"{spec.label}: fetched {len(rows)} candles for "
+                    f"{spec.label}: fetched {health.get('candle_count')} candles for "
                     f"{SYMBOLS.get(symbol, symbol)}."
                 )
                 color = self.GREEN
-            except (ProviderError, ValueError, ConnectionError, OSError) as error:
-                message = f"{spec.label}: {error}"
+            else:
+                message = f"{spec.label}: {health.get('error', 'health check failed')}"
                 color = self.RED
             self.after(
                 0,

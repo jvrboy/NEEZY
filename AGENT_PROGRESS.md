@@ -33,9 +33,9 @@ resume exactly where the state below says.
 | Item | Value |
 |------|-------|
 | Phase | 3 — sequential implementation loop, active |
-| Latest verified baseline | 1118 tests OK + lint/format clean, AFTER Update #7 push |
-| Updates completed | 55/500 (Updates #2, #5, #6, #7 done) |
-| Next Update in progress | **Update #9** Standardize provider abstraction (next `[ ]` in ROADMAP.md) |
+| Latest verified baseline | 1123 tests OK + lint/format clean, AFTER Update #9 push |
+| Updates completed | 56/500 (Updates #2, #5, #6, #7, #9 done) |
+| Next Update in progress | **Update #10** Extract MT5 bridge connection state machine (next `[ ]` in ROADMAP.md) |
 
 ## Roadmap interpretation
 
@@ -46,6 +46,11 @@ prior run's structure and is kept unchanged; new Updates are implemented
 from item #.offset next (see ROADMAP.md for exact list and status).
 
 ## Update log
+
+- Update #9 (roadmap #9, provider abstraction) DONE: added `@runtime_checkable`
+  `Provider` protocol (`fetch_candles` + `health` methods) to `neezy_backend/providers.py`;
+  implemented on `ProviderSpec`; wired `data_providers.py` UI test worker to `spec.health()`;
+  added `tests/test_providers_protocol.py` (5 tests). Suite 1118->1123 tests OK, ruff clean.
 
 - Update #7 (roadmap #7, decouple UI mixins) DONE: refactored
   `neezy_app/ui_panels/orders.py` to use `self.settings_store.load()`
