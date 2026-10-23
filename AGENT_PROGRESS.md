@@ -33,9 +33,9 @@ resume exactly where the state below says.
 | Item | Value |
 |------|-------|
 | Phase | 3 — sequential implementation loop, active |
-| Latest verified baseline | 1118 tests OK (was 1102) + lint/format clean, AFTER Update #6 push |
-| Updates completed | 54/500 (Updates #2, #5, #6 done) |
-| Next Update in progress | **Update #7** decouple UI mixins from concrete stores (next `[ ]` in ROADMAP.md) |
+| Latest verified baseline | 1129 tests OK + lint/format clean, AFTER Update #10 push |
+| Updates completed | 57/500 (Updates #2, #5, #6, #7, #9, #10 done) |
+| Next Update in progress | **Update #13** Introduce ports/adapters for notifications (next `[ ]` in ROADMAP.md) |
 
 ## Roadmap interpretation
 
@@ -46,6 +46,23 @@ prior run's structure and is kept unchanged; new Updates are implemented
 from item #.offset next (see ROADMAP.md for exact list and status).
 
 ## Update log
+
+- Update #10 (roadmap #10, MT5 bridge state machine) DONE: defined `MT5ConnectionState`
+  enum (`DISCONNECTED`, `CONNECTING`, `CONNECTED`, `DISCONNECTING`, `FAILED`) in
+  `neezy_backend/mt5_bridge.py`; thread-guarded transitions inside `connect()` and `disconnect()`;
+  kept `connected` property backward compatible; added `tests/test_mt5_state_machine.py` (6 tests).
+  Suite 1123->1129 tests OK, ruff clean.
+
+- Update #9 (roadmap #9, provider abstraction) DONE: added `@runtime_checkable`
+  `Provider` protocol (`fetch_candles` + `health` methods) to `neezy_backend/providers.py`;
+  implemented on `ProviderSpec`; wired `data_providers.py` UI test worker to `spec.health()`;
+  added `tests/test_providers_protocol.py` (5 tests). Suite 1118->1123 tests OK, ruff clean.
+
+- Update #7 (roadmap #7, decouple UI mixins) DONE: refactored
+  `neezy_app/ui_panels/orders.py` to use `self.settings_store.load()`
+  on the `App` instance instead of instantiating `SettingsStore()` directly;
+  updated golden test normalization regex to avoid replacing `/app` inside URLs;
+  updated smoke tests in `tests/test_ui_smoke.py`. Suite 1118 tests OK, ruff clean.
 
 - Update #6 (roadmap #6, service context) DONE and pushed: added
   neezy_backend/service_context.py (ServiceContext + scoped defaults),

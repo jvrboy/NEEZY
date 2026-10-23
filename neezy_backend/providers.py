@@ -25,11 +25,44 @@ import urllib.request
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 from .candles import Candle
 from .markets import TIMEFRAMES
 from .storage import get_data_dir
+
+
+@runtime_checkable
+class Provider(Protocol):
+    """Common market-data provider interface."""
+
+    key: str
+    label: str
+    description: str
+    requires_key: bool
+    env_var: str
+
+    def fetch_candles(
+        self,
+        symbol: str,
+        timeframe: str,
+        count: int = 300,
+        *,
+        keystore: ProviderKeyStore | None = None,
+        fetcher: Callable[[str], str] | None = None,
+        base_urls: Mapping[str, str] | None = None,
+    ) -> list[Candle]: ...
+
+    def health(
+        self,
+        symbol: str = "frxEURUSD",
+        timeframe: str = "15m",
+        *,
+        keystore: ProviderKeyStore | None = None,
+        fetcher: Callable[[str], str] | None = None,
+        base_urls: Mapping[str, str] | None = None,
+    ) -> dict[str, Any]: ...
+
 
 # Timeout and user agent for every provider request.
 HTTP_TIMEOUT = 20.0
@@ -299,6 +332,66 @@ class ProviderSpec:
 
     def parse(self, payload: str) -> list[Candle]:
         return _PARSERS[self.key](payload)
+
+    def fetch_candles(
+        self,
+        symbol: str,
+        timeframe: str,
+        count: int = 300,
+        *,
+        keystore: ProviderKeyStore | None = None,
+        fetcher: Callable[[str], str] | None = None,
+        base_urls: Mapping[str, str] | None = None,
+    ) -> list[Candle]:
+        return get_candles(
+            self.key,
+            symbol,
+            timeframe,
+            count,
+            keystore=keystore,
+            fetcher=fetcher,
+            base_urls=base_urls,
+        )
+
+    def health(
+        self,
+        symbol: str = "frxEURUSD",
+        timeframe: str = "15m",
+        *,
+        keystore: ProviderKeyStore | None = None,
+        fetcher: Callable[[str], str] | None = None,
+        base_urls: Mapping[str, str] | None = None,
+    ) -> dict[str, Any]:
+        issue = provider_key_issues(self.key, keystore=keystore)
+        if issue is not None:
+            return {
+                "ok": False,
+                "provider": self.key,
+                "error": issue,
+                "candle_count": 0,
+            }
+        try:
+            candles = self.fetch_candles(
+                symbol,
+                timeframe,
+                count=5,
+                keystore=keystore,
+                fetcher=fetcher,
+                base_urls=base_urls,
+            )
+            return {
+                "ok": True,
+                "provider": self.key,
+                "error": "",
+                "candle_count": len(candles),
+            }
+        except (ProviderError, ValueError, ConnectionError, OSError) as error:
+            return {
+                "ok": False,
+                "provider": self.key,
+                "error": str(error),
+                "candle_count": 0,
+            }
 
 
 def _alpha_translate(symbol: str) -> str | None:

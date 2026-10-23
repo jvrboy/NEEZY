@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import enum
 import json
 import logging
 import threading
@@ -9,6 +10,17 @@ import time
 from typing import Any
 
 from .mt5_compat import load_mt5_module
+
+
+class MT5ConnectionState(enum.Enum):
+    """Explicit connection state machine for the MT5 bridge."""
+
+    DISCONNECTED = "DISCONNECTED"
+    CONNECTING = "CONNECTING"
+    CONNECTED = "CONNECTED"
+    DISCONNECTING = "DISCONNECTING"
+    FAILED = "FAILED"
+
 
 # Native MetaTrader5 on Windows, a remote terminal over RPyC when configured, or None
 # (simulated mode). Tests patch this name; keep it the single module reference.
@@ -77,9 +89,21 @@ class MT5Bridge:
         self.magic = magic
         self.symbol_map_str = symbol_map
         self.mock = mock or (mt5 is None)
-        self.connected = False
+        self.state = MT5ConnectionState.DISCONNECTED
         self._lock = threading.RLock()
         self._mappings = self._parse_symbol_map(symbol_map)
+
+    @property
+    def connected(self) -> bool:
+        """Backward-compatible boolean property indicating active connection."""
+        return self.state == MT5ConnectionState.CONNECTED
+
+    @connected.setter
+    def connected(self, value: bool) -> None:
+        """Backward-compatible setter updating the state machine."""
+        self.state = (
+            MT5ConnectionState.CONNECTED if value else MT5ConnectionState.DISCONNECTED
+        )
 
     def _parse_symbol_map(self, map_str: str) -> dict[str, str]:
         """Parse comma-separated 'DERIV=MT5' pairs or JSON string."""
@@ -123,9 +147,31 @@ class MT5Bridge:
         return self.connect()
 
     def connect(self) -> dict[str, Any]:
-        """Connect to local MetaTrader 5 terminal."""
+        """Connect to local MetaTrader 5 terminal with state guard."""
+        with self._lock:
+            if self.state in (
+                MT5ConnectionState.CONNECTING,
+                MT5ConnectionState.DISCONNECTING,
+            ):
+                return {
+                    "success": False,
+                    "connected": self.connected,
+                    "mock": self.mock,
+                    "error": f"Cannot connect while state is {self.state.value}",
+                }
+            if self.state == MT5ConnectionState.CONNECTED:
+                return {
+                    "success": True,
+                    "connected": True,
+                    "mock": self.mock,
+                    "message": "Already connected to MT5 Bridge",
+                    "account": self.login or 1000001,
+                }
+            self.state = MT5ConnectionState.CONNECTING
+
         if self.mock:
-            self.connected = True
+            with self._lock:
+                self.state = MT5ConnectionState.CONNECTED
             return {
                 "success": True,
                 "connected": True,
@@ -146,16 +192,17 @@ class MT5Bridge:
 
         try:
             init_ok = mt5.initialize(**kwargs) if kwargs else mt5.initialize()
-            if not init_ok:
-                err = mt5.last_error()
-                self.connected = False
-                return {
-                    "success": False,
-                    "connected": False,
-                    "mock": False,
-                    "error": f"MT5 initialize failed: {err}",
-                }
-            self.connected = True
+            with self._lock:
+                if not init_ok:
+                    err = mt5.last_error()
+                    self.state = MT5ConnectionState.FAILED
+                    return {
+                        "success": False,
+                        "connected": False,
+                        "mock": False,
+                        "error": f"MT5 initialize failed: {err}",
+                    }
+                self.state = MT5ConnectionState.CONNECTED
             acc_info = mt5.account_info()
             acc_dict = acc_info._asdict() if acc_info else {}
             return {
@@ -169,7 +216,8 @@ class MT5Bridge:
                 "equity": acc_dict.get("equity", 0.0),
             }
         except Exception as ex:  # noqa: BLE001
-            self.connected = False
+            with self._lock:
+                self.state = MT5ConnectionState.FAILED
             return {
                 "success": False,
                 "connected": False,
@@ -178,13 +226,23 @@ class MT5Bridge:
             }
 
     def disconnect(self) -> None:
-        """Shutdown connection to MT5 terminal."""
+        """Shutdown connection to MT5 terminal with state guard."""
+        with self._lock:
+            if self.state in (
+                MT5ConnectionState.DISCONNECTED,
+                MT5ConnectionState.DISCONNECTING,
+            ):
+                return
+            self.state = MT5ConnectionState.DISCONNECTING
+
         if not self.mock and mt5 is not None:
             try:
                 mt5.shutdown()
             except Exception:  # noqa: BLE001
                 pass
-        self.connected = False
+
+        with self._lock:
+            self.state = MT5ConnectionState.DISCONNECTED
 
     def get_status(self) -> dict[str, Any]:
         """Return status of MT5 connection and terminal info."""

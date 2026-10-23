@@ -211,9 +211,8 @@ class OrdersMixin:
         order = self._order_read()
         if order is None:
             return
-        from neezy_backend.storage import SettingsStore
 
-        saved = SettingsStore().load()
+        saved = self.settings_store.load()
         safety_error = self._check_order_safety_gates(order, saved)
         if safety_error is not None:
             self._order_show(f"Order blocked by safety gate: {safety_error}", self.RED)

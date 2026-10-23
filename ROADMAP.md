@@ -60,7 +60,7 @@ Legend at a glance:
 - **Areas:** neezy_backend/*.py (progressive), tests
 - **Difficulty:** Hard
 
-### 7. [ ] Decouple UI mixins from concrete stores
+### 7. [x] Decouple UI mixins from concrete stores
 - **Category:** Architecture & refactoring
 - **What:** Panel mixins currently instantiate stores directly; inject them via App.__init__ wiring so fake-tk tests can pass in-memory fakes.
 - **Why:** Injection removes filesystem side effects from UI tests and shortens the test suite.
@@ -74,14 +74,14 @@ Legend at a glance:
 - **Areas:** neezy_app/ui.py, neezy_app/ui_panels/constants.py, tests/test_ui_style.py
 - **Difficulty:** Easy
 
-### 9. [ ] Standardize provider abstraction
+### 9. [x] Standardize provider abstraction
 - **Category:** Architecture & refactoring
 - **What:** Give every market-data provider (deriv, alpha_vantage, finnhub, binance, twelve_data) a common Provider protocol: fetch_candles(symbol, tf, count) -> list[Candle] plus health().
 - **Why:** confluence.py branches on provider names; a protocol removes isinstance/name checks and lets new providers drop in.
 - **Areas:** neezy_backend/providers.py, confluence.py, ui_panels/data_providers.py
 - **Difficulty:** Medium
 
-### 10. [ ] Extract MT5 bridge connection state machine
+### 10. [x] Extract MT5 bridge connection state machine
 - **Category:** Architecture & refactoring
 - **What:** Formalize connect/disconnect/health of MT5Bridge into an explicit state enum with guarded transitions instead of the connected boolean.
 - **Why:** Boolean state lets calls race (connect while disconnecting); a state machine makes invalid transitions loud.

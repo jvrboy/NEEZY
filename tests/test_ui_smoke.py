@@ -315,10 +315,13 @@ class AppSmokeTests(unittest.TestCase):
         self.app.order_vars["volume"].set("abc")
         self.app._order_preview()
         self.assertIn("Check the ticket", self.app.order_status.options["text"])
-        # The saved MT5 bridge toggle is off by default: placing must refuse
-        # before any terminal is contacted.
+        # Verify that _order_place uses the injected self.settings_store handle
         self.app.order_vars["volume"].set("0.01")
+        mock_store = mock.Mock()
+        mock_store.load.return_value = self.app.settings.updated(mt5_enabled=False)
+        self.app.settings_store = mock_store
         self.app._order_place()
+        mock_store.load.assert_called_once()
         self.assertIn("bridge is off", self.app.order_status.options["text"])
         self.assertFalse(self.app._order_busy)
 
