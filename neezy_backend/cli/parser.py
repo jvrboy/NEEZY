@@ -15,6 +15,7 @@ from ..alerts import METRICS, OPERATORS
 from ..knowledge import KNOWLEDGE_PATH
 from ..markets import TIMEFRAMES
 from ..strategies import STRATEGIES
+from ..ui_style import THEME_NAMES
 from .ai import cmd_ai, cmd_local_model
 from .alerts import cmd_alerts
 from .analysis import (
@@ -31,18 +32,25 @@ from .analysis import (
     cmd_strategies,
     cmd_supertrend,
 )
+
+# Advanced capability commands (roadmap: accessibility, UI, automation)
+from .automation import cmd_agents, cmd_bots
 from .backtest import cmd_backtest, cmd_risk
 from .bot import cmd_bot
+from .btoken_cmd import cmd_btoken
 from .chart import cmd_chart
 from .common import _symbol
 from .db import cmd_db, cmd_history
 from .dm import cmd_dm
+from .indicators_cmd import cmd_indicators
 from .kernels import cmd_kernels
+from .market_clock import cmd_sessions
 from .mcp import cmd_mcp
 from .menu_bridge import cmd_menu
 from .mt5 import cmd_mt5
 from .research import cmd_brain, cmd_datasets, cmd_knowledge, cmd_research, cmd_study
 from .settings_cmd import cmd_config
+from .ui_cmd import cmd_ui
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -57,6 +65,19 @@ def build_parser() -> argparse.ArgumentParser:
         "--debug",
         action="store_true",
         help="print full tracebacks and diagnostics for this command",
+    )
+    parser.add_argument(
+        "--btoken",
+        action="store_true",
+        help=(
+            "keyboard-accessibility mode: comma separators and bare flag "
+            "words (also on via NEEZY_BTOKEN=1)"
+        ),
+    )
+    parser.add_argument(
+        "--theme",
+        choices=list(THEME_NAMES),
+        help="terminal colour theme for styled output (default: NEEZY_THEME or dark)",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -494,6 +515,90 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="skip the read-only profile and enable every tool",
     )
+
+    p = common(
+        sub.add_parser("sessions", help="UTC trading-session clock (offline)"),
+        timeframe=False,
+    )
+    p.add_argument(
+        "--now",
+        help="fixed ISO timestamp (UTC) e.g. 2026-01-15T13:30 for reproducible output",
+    )
+    p.set_defaults(handler=cmd_sessions)
+
+    p = common(
+        sub.add_parser("indicators", help="advanced indicator suite for one market"),
+        count=300,
+    )
+    p.add_argument("symbol", type=_symbol)
+    p.set_defaults(handler=cmd_indicators)
+
+    p = sub.add_parser("btoken", help="keyboard-accessibility (BTOKEN) tools")
+    p.set_defaults(handler=cmd_btoken)
+    btoken_actions = p.add_subparsers(dest="action", required=True)
+    a = btoken_actions.add_parser("list", help="every bt: token and what it does")
+    a.add_argument("--json", action="store_true")
+    a = btoken_actions.add_parser(
+        "translate", help="turn bt: tokens into logical key events"
+    )
+    a.add_argument("text", help="e.g. 'bt:space bt:enter'")
+    a.add_argument("--json", action="store_true")
+    a = btoken_actions.add_parser("stuck", help="what to type when one key is broken")
+    a.add_argument("key", help="broken key: space, ctrl, shift, dash, del, esc, arrows")
+    a = btoken_actions.add_parser("rewrite", help="preview the dashless argv rewriting")
+    a.add_argument("tokens", nargs="+", help="argv words to rewrite")
+    a.add_argument("--json", action="store_true")
+
+    p = sub.add_parser("ui", help="terminal UI themes, components, capabilities")
+    p.set_defaults(handler=cmd_ui)
+    ui_actions = p.add_subparsers(dest="action", required=True)
+    a = ui_actions.add_parser("theme", help="list or preview colour themes")
+    theme_verbs = a.add_subparsers(dest="verb")
+    t = theme_verbs.add_parser("list", help="every theme name and description")
+    t.add_argument("--json", action="store_true")
+    t = theme_verbs.add_parser("show", help="render one theme's roles")
+    t.add_argument("theme_name", choices=list(THEME_NAMES))
+    a = ui_actions.add_parser("demo", help="ASCII component tour (offline)")
+    a = ui_actions.add_parser(
+        "capabilities", help="device, terminal, and backend capability report"
+    )
+    a.add_argument("--json", action="store_true")
+
+    p = sub.add_parser("bots", help="bot roster status and supervised tick runs")
+    p.set_defaults(handler=cmd_bots)
+    bot_actions = p.add_subparsers(dest="action", required=True)
+    a = bot_actions.add_parser("list", help="the shipped bot roster")
+    a.add_argument("--json", action="store_true")
+    a = bot_actions.add_parser("status", help="bot states and last decisions")
+    a.add_argument("--json", action="store_true")
+    a = common(
+        bot_actions.add_parser(
+            "run", help="run N supervised ticks (read-only, educational)"
+        ),
+        timeframe=False,
+    )
+    a.add_argument("-t", "--timeframe", choices=TIMEFRAMES, default="15m")
+    a.add_argument(
+        "--bot",
+        help="one bot id (default: every bot); see 'bots list'",
+    )
+    a.add_argument("--ticks", type=int, default=1, help="ticks to run (1-10)")
+
+    p = sub.add_parser("agents", help="multi-agent team briefings")
+    p.set_defaults(handler=cmd_agents)
+    agent_actions = p.add_subparsers(dest="action", required=True)
+    a = agent_actions.add_parser("list", help="the five-role team roster")
+    a.add_argument("--json", action="store_true")
+    a = common(
+        agent_actions.add_parser("run", help="run the team on one goal"),
+        timeframe=False,
+    )
+    a.add_argument("-t", "--timeframe", choices=TIMEFRAMES, default="15m")
+    a.add_argument(
+        "goal",
+        help="what the team should investigate, e.g. 'review EURUSD'",
+    )
+    a.add_argument("--symbol", action="append", help="focus market (repeatable)")
 
     p = sub.add_parser("dm", help="direct message webhook notifications")
     p.set_defaults(handler=cmd_dm)

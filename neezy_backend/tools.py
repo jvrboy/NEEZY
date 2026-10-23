@@ -609,5 +609,119 @@ def register_default_tools(registry: ToolRegistry = DEFAULT_REGISTRY) -> None:
         permission=ToolPermission.READ_ONLY,
     )
 
+    # ----- advanced capability tools (accessibility, sessions, automation) -----
+
+    def tool_indicator_suite(symbol: str = "frxEURUSD", timeframe: str = "15m") -> str:
+        from neezy_backend.indicators import advanced_suite
+
+        if symbol not in SYMBOLS:
+            raise ValueError(
+                f"Unknown market {symbol!r}; choose from {', '.join(SYMBOLS)}"
+            )
+        candles = accessor().fetch(symbol, timeframe, 300)
+        suite = advanced_suite(candles)
+        if not suite["values"]:
+            return f"Not enough candles for {symbol} yet."
+        lines = [f"Advanced suite for {symbol} ({timeframe}):"]
+        for name, value in suite["values"].items():
+            lines.append(f"- {name}: {value if value is not None else 'warming up'}")
+        return "\n".join(lines)
+
+    def tool_market_sessions() -> str:
+        from datetime import datetime, timezone
+
+        from neezy_backend.sessions import summarize
+
+        return summarize(datetime.now(timezone.utc))
+
+    def tool_bot_roster(bot_id: str = "") -> str:
+        from neezy_backend.bots import BotManager
+
+        manager = BotManager()
+        status = manager.status()
+        wanted = bot_id.strip()
+        lines = [f"Bots: {status['running']} running of {status['total']}"]
+        for bot in status["bots"]:
+            if wanted and bot["id"] != wanted:
+                continue
+            last = bot["last_decision"]
+            tail = f" | last: {last['detail']}" if last else ""
+            lines.append(f"- {bot['id']} [{bot['state']}] {bot['name']}{tail}")
+        return "\n".join(lines)
+
+    def tool_agent_briefing(goal: str) -> str:
+        from neezy_backend.agents import AgentTeam, TeamContext
+
+        text_goal = goal.strip()
+        if not text_goal:
+            raise ValueError("goal must not be empty")
+        team = AgentTeam()
+        result = team.run(TeamContext(goal=text_goal))
+        return str(result.get("report") or "No report produced.")
+
+    def tool_scanner_rank(
+        symbols: str = "", timeframe: str = "15m", limit: int = 5
+    ) -> str:
+        from neezy_backend.strategies import consensus, run_all
+
+        names = [item.strip() for item in symbols.split(",") if item.strip()]
+        names = names or ["frxEURUSD", "frxGBPUSD", "frxUSDJPY"]
+        for name in names:
+            if name not in SYMBOLS:
+                raise ValueError(
+                    f"Unknown market {name!r}; choose from {', '.join(SYMBOLS)}"
+                )
+        ranked = []
+        for name in names[:8]:
+            try:
+                candles = accessor().fetch(name, timeframe, 300)
+            except (OSError, RuntimeError, ValueError):
+                continue
+            if len(candles) < 61:
+                continue
+            verdict = consensus(run_all(candles[:-1]))
+            ranked.append((float(verdict["confidence"]), name, verdict["label"]))
+        if not ranked:
+            return "No market returned enough candles to rank."
+        ranked.sort(reverse=True)
+        span = _bounded(limit, 1, 8)
+        lines = ["Watchlist ranking by strategy consensus:"]
+        lines.extend(
+            f"- {name}: {label} ({confidence:.0f}%)"
+            for confidence, name, label in ranked[:span]
+        )
+        return "\n".join(lines)
+
+    registry.register(
+        "indicator_suite",
+        "Full advanced indicator suite (CCI, Aroon, Ichimoku, pivots, and more).",
+        tool_indicator_suite,
+        permission=ToolPermission.READ_ONLY,
+    )
+    registry.register(
+        "market_sessions",
+        "Report open trading sessions, overlaps, and the next open/close.",
+        tool_market_sessions,
+        permission=ToolPermission.READ_ONLY,
+    )
+    registry.register(
+        "bot_roster",
+        "Show the NEEZY bot roster, states, and last decisions (read-only).",
+        tool_bot_roster,
+        permission=ToolPermission.READ_ONLY,
+    )
+    registry.register(
+        "agent_briefing",
+        "Run the five-role agent team on a goal and return the briefing.",
+        tool_agent_briefing,
+        permission=ToolPermission.READ_ONLY,
+    )
+    registry.register(
+        "scanner_rank",
+        "Rank watchlist markets by strategy consensus (read-only).",
+        tool_scanner_rank,
+        permission=ToolPermission.READ_ONLY,
+    )
+
 
 register_default_tools()

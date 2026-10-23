@@ -53,8 +53,12 @@ from .analysis import (
     cmd_strategies,
     cmd_supertrend,
 )
+
+# Advanced capability commands (accessibility, UI, automation)
+from .automation import cmd_agents, cmd_bots
 from .backtest import cmd_backtest, cmd_risk
 from .bot import cmd_bot
+from .btoken_cmd import cmd_btoken
 from .chart import cmd_chart
 from .common import (
     _closed,
@@ -68,7 +72,9 @@ from .common import (
 )
 from .db import cmd_db, cmd_history
 from .dm import cmd_dm
+from .indicators_cmd import cmd_indicators
 from .kernels import cmd_kernels
+from .market_clock import cmd_sessions
 from .mcp import cmd_mcp
 from .menu_bridge import cmd_menu
 from .mt5 import _mt5_require_live, cmd_mt5
@@ -83,6 +89,7 @@ from .research import (
     cmd_study,
 )
 from .settings_cmd import cmd_config
+from .ui_cmd import cmd_ui
 
 Fetcher = Callable[[str, int, int], list[tuple[int, float, float, float, float]]]
 
@@ -105,12 +112,15 @@ __all__ = [
     "_table",
     "_without_series",
     "build_parser",
+    "cmd_agents",
     "cmd_ai",
     "cmd_alerts",
     "cmd_analyze",
     "cmd_backtest",
     "cmd_bot",
+    "cmd_bots",
     "cmd_brain",
+    "cmd_btoken",
     "cmd_chart",
     "cmd_config",
     "cmd_corrdiv",
@@ -122,6 +132,7 @@ __all__ = [
     "cmd_dm",
     "cmd_doctor",
     "cmd_history",
+    "cmd_indicators",
     "cmd_kernels",
     "cmd_knowledge",
     "cmd_local_model",
@@ -134,9 +145,11 @@ __all__ = [
     "cmd_research",
     "cmd_risk",
     "cmd_scan",
+    "cmd_sessions",
     "cmd_strategies",
     "cmd_study",
     "cmd_supertrend",
+    "cmd_ui",
     "fetch_candles",
     "fetch_history",
     "main",
@@ -151,14 +164,45 @@ def _default_fetch(symbol: str, seconds: int, count: int):
     return fetch_candles(symbol, seconds, count)
 
 
+def _prepare_argv(argv: Sequence[str] | None) -> tuple[list[str], bool]:
+    """Dashless-friendly argv preparation (BTOKEN accessibility layer).
+
+    Always applied: ``name=value`` tokens become real flags when ``name``
+    matches the active subcommand's options and no free-text positional
+    would have consumed the token. Full mode (comma separators, bare flag
+    words) switches on via ``NEEZY_BTOKEN=1`` or the ``--btoken`` flag.
+    """
+    import sys as _sys
+
+    raw = list(_sys.argv[1:] if argv is None else argv)
+    from ..btoken import normalize_argv
+
+    prepared, full_mode = normalize_argv(raw, mode="auto")
+    return prepared, full_mode
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
     fetch: Fetcher | None = None,
     out: TextIO | None = None,
 ) -> int:
+    prepared, full_mode = _prepare_argv(argv)
     parser = build_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(prepared)
+    if getattr(args, "theme", None):
+        import os
+
+        os.environ["NEEZY_THEME"] = args.theme
+    if getattr(args, "btoken", False) and not full_mode:
+        # The flag arrived after a first conservative pass; re-run the
+        # preparation in full mode so comma separators and bare flag
+        # words take effect for this invocation.
+        raw = list(sys.argv[1:] if argv is None else argv)
+        from ..btoken import normalize_argv
+
+        prepared, _ = normalize_argv(raw, mode="full")
+        args = parser.parse_args(prepared)
     out = out or sys.stdout
     try:
         return args.handler(args, fetch or _default_fetch, out)

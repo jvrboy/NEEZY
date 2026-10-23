@@ -1,5 +1,66 @@
 # CHANGELOG
 
+## [1.7.0] — Advanced capabilities: BTOKEN accessibility, UI kit, bots, agents
+
+### Added
+- `neezy_backend/btoken.py` — the BTOKEN KEYS keyboard-accessibility layer.
+  Users with broken CTRL, DEL, SPACE, SHIFT, ESC, arrow, or dash keys get a
+  fully usable CLI: `name=value` flag forms (`timeframe=15m` -> `--timeframe
+  15m`), short aliases (`t=15m`), boolean words (`json=1` -> `--json`), a
+  comma argument separator under `NEEZY_BTOKEN=1`, bare flag words in full
+  mode, a `bt:` token registry (`bt:quit`, `bt:enter`, `bt:space`, ...) that
+  the interactive menu accepts directly, and per-key guidance
+  (`btoken stuck space`). Rewriting is conservative by default and never
+  touches free-text positionals (webhook titles, chat prompts).
+- `neezy_backend/sessions.py` — UTC trading-session clock: Sydney, Tokyo,
+  London, and New York windows, live overlaps (London/NY liquidity band),
+  progress through each session, and next open/close countdowns. Pure
+  datetime math, fully offline.
+- `neezy_backend/bots.py` — supervised bot framework: `Bot`, `BotContext`,
+  `BotDecision`, and `BotManager` with start/pause/resume/stop/reset
+  lifecycle, a deterministic `run_ticks` loop, and a decision log. Shipped
+  roster: scanner (watchlist consensus ranking), sessions (clock announcer),
+  risk_guard (ATR stop + demo sizing advice), momentum (RSI/MACD read), and
+  scribe (heartbeat). Read-only by construction; bots never place orders.
+- `neezy_backend/agents.py` — multi-agent team: `AgentTeam` runs five roles
+  (scout, analyst, risk, archivist, reporter) over a thread-safe
+  `Blackboard` with `AgentMessage` routing. Deterministic and offline
+  capable; an optional AI client can polish the final briefing.
+- `neezy_backend/ui_style.py` — advanced UI kit: seven themes (dark, light,
+  mono, contrast, ocean, sunset, grayscale) via `NEEZY_THEME`/`--theme`,
+  `ThemedStyle`, device-aware `output_width`, and new ASCII components:
+  sparkline, progress bar, spinner, gauge, histogram, heatmap, tree,
+  key-value grid, state dots, banners, responsive `fit_table`, and a
+  screen-reader `flatten_panel`.
+- `neezy_backend/indicators.py` — twelve advanced indicators: CCI, Williams
+  %R, ROC, TRIX, Choppiness Index, Fisher Transform, Ultimate Oscillator,
+  Aroon, Ichimoku, classic pivot points, Elder Ray, and rolling Z-score,
+  plus the `advanced_suite` aggregator with warmup reporting.
+- New CLI commands: `btoken` (list/translate/stuck/rewrite), `ui` (theme
+  list/show, demo, capabilities), `sessions`, `indicators`, `bots`
+  (list/status/run), and `agents` (list/run). Every command supports
+  `--json` and the dashless flag forms.
+- `tools.py` — five new agent tools registered read-only:
+  `indicator_suite`, `market_sessions`, `bot_roster`, `agent_briefing`, and
+  `scanner_rank`.
+- `capabilities.py` — `accessibility_report()`: btoken mode, colour flags,
+  theme, and screen-reader setting in one snapshot.
+- Interactive menu: seven new palette actions (advanced indicators,
+  sessions, bots, agents, UI capabilities, BTOKEN help), and `bt:` tokens
+  work at the chat prompt (`bt:quit`, `bt:tab`, ...).
+- Tests: `test_btoken.py`, `test_sessions.py`, `test_ui_components.py`,
+  `test_indicators_advanced.py`, `test_bots.py`, `test_agents.py`, and
+  `test_cli_advanced.py` — 161 new tests.
+
+### Changed
+- Version aligned at 1.7.0 everywhere (`pyproject.toml` was 1.6.0 while
+  `neezy_backend.__version__` stayed at 1.5.0).
+- `neezy-cli` now normalises argv through the BTOKEN layer before argparse
+  (standard syntax is untouched; only `name=value` forms and explicit btoken
+  mode change behaviour).
+- Package exports: agents, bots, sessions, btoken, and the advanced
+  indicator functions are importable from `neezy_backend` directly.
+
 ## [Unreleased] — Autonomous run 2026-10-23 (Update #6: service context)
 
 ### Added

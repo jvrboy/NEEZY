@@ -302,6 +302,42 @@ neezy-cli local-model remove <MODEL_ID>    # removes the index entry, not weight
 
 Use `neezy-cli local-model --help` for context, output, thread, batch, and offload options. Headless CLI commands do not require Tkinter.
 
+### Advanced capabilities (v1.7.0)
+
+```bash
+neezy-cli sessions                            # UTC session clock + overlaps (offline)
+neezy-cli sessions --now 2026-10-23T13:30     # reproducible fixed timestamp
+neezy-cli indicators EURUSD -t 15m            # 12 advanced indicators + core read
+neezy-cli bots list                           # the read-only bot roster
+neezy-cli bots run --bot scanner --ticks 2    # supervised tick run
+neezy-cli agents list                         # the five-role agent team
+neezy-cli agents run "review EURUSD and GOLD" # team briefing (offline-friendly)
+neezy-cli ui theme list                       # 7 terminal colour themes
+neezy-cli ui demo                             # ASCII component tour
+neezy-cli ui capabilities                     # device + backend capability report
+```
+
+### Keyboard accessibility (BTOKEN keys)
+
+The CLI is fully usable when modifier or special keys are broken (CTRL,
+DEL, SPACE, SHIFT, ESC, arrows, even the dash row):
+
+```bash
+neezy-cli btoken list                         # every bt: token and what it does
+neezy-cli btoken stuck space                  # what to type when one key is broken
+neezy-cli btoken rewrite analyze EURUSD timeframe=15m   # preview the rewriting
+```
+
+- Dashless flags: `timeframe=15m`, `json=1`, and short forms `t=15m`,
+  `n=300` work anywhere dashes are a problem.
+- Broken SPACE: `export NEEZY_BTOKEN=1` once, then separate arguments with a
+  comma — `neezy-cli analyze,frxEURUSD,json`.
+- Interactive menu: type `bt:quit`, `bt:enter`, `bt:tab` instead of special
+  keys; the palette is fully searchable with `/`.
+- Lowercase works everywhere: `eurusd` resolves to `frxEURUSD`.
+
+Use `neezy-cli local-model --help` for context, output, thread, batch, and offload options. Headless CLI commands do not require Tkinter.
+
 
 ## Connection troubleshooting
 

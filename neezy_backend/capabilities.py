@@ -7,6 +7,7 @@ the local environment and never performs network calls.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from .mt5_compat import current_selection
@@ -65,3 +66,22 @@ BACKEND_FEATURES: dict[str, bool] = {
 def feature_report() -> dict[str, bool]:
     """A copy of the capability snapshot (safe to log or serialize)."""
     return dict(BACKEND_FEATURES)
+
+
+def accessibility_report() -> dict[str, object]:
+    """Keyboard and terminal accessibility snapshot (no network calls).
+
+    Answers the questions the BTOKEN layer and the UI theme engine ask:
+    is btoken mode active, is colour forced off, which theme is selected,
+    and how wide is the output device.
+    """
+    from .ui_style import DEFAULT_THEME, resolve_theme
+
+    return {
+        "btoken_mode": bool(os.environ.get("NEEZY_BTOKEN", "")),
+        "color_disabled": bool(os.environ.get("NO_COLOR", "")),
+        "color_forced": bool(os.environ.get("FORCE_COLOR", "")),
+        "theme": resolve_theme(),
+        "theme_default": DEFAULT_THEME,
+        "screen_reader_friendly": bool(os.environ.get("NEEZY_SCREEN_READER", "")),
+    }

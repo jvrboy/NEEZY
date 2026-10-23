@@ -27,6 +27,28 @@ from .ui_style import Style, color_enabled, panel
 LIVE_CONFIRM_PHRASE = "SEND"
 InputFn = Callable[[str], str]
 
+# BTOKEN accessibility: logical actions for users who cannot press special
+# keys. Typed at the menu prompt, e.g. "bt:quit" instead of CTRL+C.
+_BT_TOKEN_ACTIONS = {
+    "bt:quit": "quit",
+    "bt:ctrl-c": "quit",
+    "bt:ctrl-d": "quit",
+    "bt:esc": "palette-close",
+    "bt:escape": "palette-close",
+    "bt:space": "refresh",
+    "bt:enter": "refresh",
+    "bt:return": "refresh",
+    "bt:tab": "next-tab",
+    "bt:shift-tab": "prev-tab",
+    "bt:del": "refresh",
+    "bt:delete": "refresh",
+    "bt:backspace": "refresh",
+    "bt:pgup": "prev-tab",
+    "bt:pgdn": "next-tab",
+    "bt:up": "prev-history",
+    "bt:down": "next-history",
+}
+
 
 class MenuItem(NamedTuple):
     key: str
@@ -59,8 +81,14 @@ MENU: tuple[MenuItem, ...] = (
     MenuItem("6", "MT5 orders", "Order: DRY RUN (never sent)", "ok"),
     MenuItem("7", "MT5 orders", "Order: LIVE (type SEND to confirm)", "warn"),
     MenuItem("o", "Automation", "Lightweight executor status (read-only)", "bold"),
+    MenuItem("e", "Automation", "Advanced indicator suite for one market", "bold"),
+    MenuItem("w", "Automation", "UTC trading-session clock (offline)", "bold"),
+    MenuItem("g", "Automation", "Bot roster status (read-only)", "bold"),
+    MenuItem("f", "Automation", "Agent team briefing (offline-friendly)", "bold"),
+    MenuItem("v", "Automation", "UI themes and device capabilities", "bold"),
     MenuItem("8", "Automation", "MCP server catalog", "bold"),
     MenuItem("9", "Automation", "MCP client config for one server", "bold"),
+    MenuItem("u", "Session", "Keyboard-accessibility (BTOKEN) help", "bold"),
     MenuItem("0", "Session", "Quit", "muted"),
 )
 
@@ -89,6 +117,12 @@ _SEARCH_TERMS = {
     "6": "mt5 order dry-run preview",
     "7": "mt5 order live",
     "o": "bot executor status",
+    "e": "indicators advanced suite cci aroon ichimoku",
+    "w": "sessions clock london tokyo sydney newyork overlap",
+    "g": "bots roster scanner scribe guard heartbeat",
+    "f": "agents team briefing scout analyst reporter",
+    "v": "ui themes demo capabilities devices",
+    "u": "btoken accessibility keyboard broken keys stuck",
     "8": "mcp list servers",
     "9": "mcp config",
     "0": "quit exit",
@@ -117,6 +151,12 @@ _COMMAND_NAMES = {
     "6": "mt5 order",
     "7": "mt5 order",
     "o": "bot status",
+    "e": "indicators",
+    "w": "sessions",
+    "g": "bots status",
+    "f": "agents list",
+    "v": "ui capabilities",
+    "u": "btoken list",
     "8": "mcp list",
     "9": "mcp config",
     "0": "quit",
@@ -439,6 +479,19 @@ ARGV_BUILDERS: dict[str, Callable[[InputFn, TextIO, Style], list[str] | None]] =
     "6": lambda input_fn, out, style: [*_order_args(input_fn), "--dry-run"],
     "7": _mt5_confirm_send,
     "o": lambda input_fn, out, style: ["bot", "status"],
+    "e": lambda input_fn, out, style: [
+        "indicators",
+        _ask("Symbol (e.g. frxEURUSD): ", input_fn),
+    ],
+    "w": lambda input_fn, out, style: ["sessions"],
+    "g": lambda input_fn, out, style: ["bots", "status"],
+    "f": lambda input_fn, out, style: [
+        "agents",
+        "run",
+        _ask("Goal for the team (e.g. review EURUSD): ", input_fn),
+    ],
+    "v": lambda input_fn, out, style: ["ui", "capabilities"],
+    "u": lambda input_fn, out, style: ["btoken", "list"],
     "h": lambda input_fn, out, style: ["history"],
     "k": lambda input_fn, out, style: ["knowledge"],
     "d": lambda input_fn, out, style: ["db", "stats"],
@@ -488,6 +541,45 @@ def _natural_label(argv: list[str]) -> str:
         "datasets": "Knowledge datasets",
     }
     return labels.get(argv[0] if argv else "", "Your request")
+
+
+def _run_btoken(
+    token: str,
+    state: WorkspaceState,
+    out: TextIO,
+    style: Style,
+    width: int,
+) -> None:
+    """Execute one ``bt:`` accessibility token inside the menu loop.
+
+    Quitting is handled by the caller so the return path stays simple;
+    every other logical key maps to an existing workspace action.
+    """
+    action = _BT_TOKEN_ACTIONS.get(token)
+    if action is None:
+        from .btoken import BTOKENS
+
+        known = ", ".join(sorted(BTOKENS)[:8])
+        _write_error(
+            out,
+            style,
+            f"unknown btoken {token!r}; some tokens: {known}",
+            width,
+        )
+        return
+    if action == "palette-close":
+        _render_workspace(out, style, state, width)
+        return
+    if action == "next-tab":
+        state.cycle_tab(1)
+        _render_workspace(out, style, state, width)
+        return
+    if action == "prev-tab":
+        state.cycle_tab(-1)
+        _render_workspace(out, style, state, width)
+        return
+    # refresh / clear-line / history lookups: re-show the current view.
+    _render_workspace(out, style, state, width)
 
 
 def run_menu(
@@ -544,6 +636,12 @@ def run_menu(
         if lowered in _QUIT_WORDS:
             out.write(style("bye", "muted") + "\n")
             return 0
+        if lowered.startswith("bt:"):
+            if lowered in ("bt:quit", "bt:ctrl-c", "bt:ctrl-d"):
+                out.write(style("bye", "muted") + "\n")
+                return 0
+            _run_btoken(lowered, state, out, style, width)
+            continue
         if choice.startswith("/"):
             query = choice[1:].strip()
             if query.lower() in {"close", "hide"}:

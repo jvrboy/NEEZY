@@ -325,3 +325,330 @@ def _regime(
     if bands is not None and bands["bandwidth"] < 0.002:
         return "Squeeze"
     return "Ranging"
+
+
+# ---------------------------------------------------------------------------
+# Advanced indicator suite (roadmap: more advanced indicators).
+#
+# Every function follows the house rules already used above: pure math,
+# stdlib only, ``None`` (or a partial dict) until enough closed candles
+# exist, and no look-ahead - the newest candle forms the output value.
+# ---------------------------------------------------------------------------
+
+
+def typical_price(
+    highs: Sequence[float], lows: Sequence[float], closes: Sequence[float]
+) -> list[float]:
+    """(high + low + close) / 3 per bar."""
+    return [
+        (float(h) + float(low) + float(c)) / 3.0
+        for h, low, c in zip(highs, lows, closes, strict=True)
+    ]
+
+
+def cci(
+    highs: Sequence[float],
+    lows: Sequence[float],
+    closes: Sequence[float],
+    period: int = 20,
+) -> float | None:
+    """Commodity Channel Index on the typical price."""
+    if period < 2:
+        raise ValueError("period must be at least 2")
+    if len(closes) < period:
+        return None
+    tp = typical_price(highs, lows, closes)
+    window = tp[-period:]
+    mean = sum(window) / period
+    mean_deviation = sum(abs(value - mean) for value in window) / period
+    if mean_deviation == 0:
+        return 0.0
+    return (window[-1] - mean) / (0.015 * mean_deviation)
+
+
+def williams_r(
+    highs: Sequence[float],
+    lows: Sequence[float],
+    closes: Sequence[float],
+    period: int = 14,
+) -> float | None:
+    """Williams %R: -100 (at the low) to 0 (at the high)."""
+    if period < 1:
+        raise ValueError("period must be positive")
+    if len(closes) < period:
+        return None
+    highest = max(float(v) for v in highs[-period:])
+    lowest = min(float(v) for v in lows[-period:])
+    span = highest - lowest
+    if span == 0:
+        return -50.0
+    return (highest - float(closes[-1])) / span * -100.0
+
+
+def roc(closes: Sequence[float], period: int = 12) -> float | None:
+    """Rate of change in percent over ``period`` bars."""
+    if period < 1:
+        raise ValueError("period must be positive")
+    if len(closes) <= period:
+        return None
+    past = float(closes[-1 - period])
+    if past == 0:
+        return None
+    return (float(closes[-1]) - past) / past * 100.0
+
+
+def trix(closes: Sequence[float], period: int = 15) -> float | None:
+    """TRIX: percent rate of change of a triple-smoothed EMA."""
+    if period < 1:
+        raise ValueError("period must be positive")
+    if len(closes) < period * 3:
+        return None
+    first = ema(closes, period)
+    second = ema(first, period)
+    third = ema(second, period)
+    if len(third) < 2 or third[-2] == 0:
+        return None
+    return (third[-1] - third[-2]) / third[-2] * 100.0
+
+
+def choppiness(
+    highs: Sequence[float],
+    lows: Sequence[float],
+    closes: Sequence[float],
+    period: int = 14,
+) -> float | None:
+    """Choppiness Index: 100 (flat range) down to 0 (strong trend)."""
+    if period < 2:
+        raise ValueError("period must be at least 2")
+    if len(closes) < period + 1:
+        return None
+    true_ranges = []
+    for i in range(len(closes) - period, len(closes)):
+        true_ranges.append(
+            max(
+                float(highs[i]) - float(lows[i]),
+                abs(float(highs[i]) - float(closes[i - 1])),
+                abs(float(lows[i]) - float(closes[i - 1])),
+            )
+        )
+    sum_tr = sum(true_ranges)
+    highest = max(float(v) for v in highs[-period:])
+    lowest = min(float(v) for v in lows[-period:])
+    span = highest - lowest
+    if sum_tr <= 0 or span <= 0:
+        return None
+    import math
+
+    return 100.0 * math.log10(sum_tr / span) / math.log10(period)
+
+
+def fisher_transform(
+    highs: Sequence[float], lows: Sequence[float], period: int = 10
+) -> float | None:
+    """Fisher Transform of the normalised mid-price (sharp turning points)."""
+    if period < 2:
+        raise ValueError("period must be at least 2")
+    if len(lows) < period:
+        return None
+    mids = [(float(h) + float(low)) / 2.0 for h, low in zip(highs, lows, strict=True)]
+    value = 0.0
+    for end in range(period, len(mids) + 1):
+        window = mids[end - period : end]
+        highest, lowest = max(window), min(window)
+        span = highest - lowest
+        normalized = 2.0 * ((window[-1] - lowest) / span) - 1.0 if span else 0.0
+        # Standard Ehlers clipping keeps the transform finite.
+        clipped = max(-0.999, min(0.999, 0.66 * normalized + 0.67 * value))
+        value = 0.5 * math.log((1 + clipped) / (1 - clipped))
+    return value
+
+
+def ultimate_oscillator(
+    highs: Sequence[float],
+    lows: Sequence[float],
+    closes: Sequence[float],
+) -> float | None:
+    """Ultimate Oscillator: 0-100 blend of 7/14/28-bar buying pressure."""
+    fast, middle, slow = 7, 14, 28
+    if len(closes) < slow + 1:
+        return None
+    buying_pressure: list[float] = []
+    true_range: list[float] = []
+    for i in range(1, len(closes)):
+        low_i, close_prev = float(lows[i]), float(closes[i - 1])
+        buying_pressure.append(float(closes[i]) - min(low_i, close_prev))
+        true_range.append(
+            max(
+                float(highs[i]) - low_i,
+                abs(float(highs[i]) - close_prev),
+                abs(low_i - close_prev),
+            )
+        )
+
+    def average(length: int) -> float | None:
+        bp = sum(buying_pressure[-length:])
+        tr = sum(true_range[-length:])
+        return bp / tr if tr else None
+
+    parts = (average(fast), average(middle), average(slow))
+    if any(part is None for part in parts):
+        return None
+    a, b, c = parts  # type: ignore[assignment]
+    return 100.0 * (4 * a + 2 * b + c) / 7.0
+
+
+def aroon(
+    highs: Sequence[float],
+    lows: Sequence[float],
+    period: int = 25,
+) -> dict[str, float] | None:
+    """Aroon up/down/oscillator from the bars since recent extremes."""
+    if period < 1:
+        raise ValueError("period must be positive")
+    if len(highs) < period + 1:
+        return None
+    window_h = [float(v) for v in highs[-(period + 1) :]]
+    window_l = [float(v) for v in lows[-(period + 1) :]]
+    # Bars since the window extreme: 0 means the extreme is the newest bar.
+    up_bars_since = period - window_h.index(max(window_h))
+    down_bars_since = period - window_l.index(min(window_l))
+    up = (period - up_bars_since) / period * 100.0
+    down = (period - down_bars_since) / period * 100.0
+    return {"up": up, "down": down, "oscillator": up - down}
+
+
+def ichimoku(
+    highs: Sequence[float],
+    lows: Sequence[float],
+    closes: Sequence[float],
+    *,
+    tenkan: int = 9,
+    kijun: int = 26,
+    senkou_b: int = 52,
+) -> dict[str, float] | None:
+    """Ichimoku baseline read (Tenkan, Kijun, Senkou A, Senkou B, Chikou).
+
+    Cloud displacement is applied: Senkou values are the *current* cloud at
+    the last close, not projections of it.
+    """
+    needed = max(kijun, senkou_b) + 1
+    if len(closes) < needed:
+        return None
+
+    def midpoint(length: int, offset: int = 0) -> float:
+        end = len(highs) - offset
+        window_h = [float(v) for v in highs[end - length : end]]
+        window_l = [float(v) for v in lows[end - length : end]]
+        return (max(window_h) + min(window_l)) / 2.0
+
+    tenkan_value = midpoint(tenkan)
+    kijun_value = midpoint(kijun)
+    span_a_now = (tenkan_value + kijun_value) / 2.0
+    span_b_now = midpoint(senkou_b)
+    cloud = "bullish" if span_a_now > span_b_now else "bearish"
+    return {
+        "tenkan": tenkan_value,
+        "kijun": kijun_value,
+        "senkou_a": span_a_now,
+        "senkou_b": span_b_now,
+        "cloud": cloud,
+        "price_vs_kijun": "above" if float(closes[-1]) > kijun_value else "below",
+    }
+
+
+def pivot_points(
+    highs: Sequence[float],
+    lows: Sequence[float],
+    closes: Sequence[float],
+) -> dict[str, float] | None:
+    """Classic floor-trader pivots (PP, R1-R3, S1-S3) from the last bar."""
+    if not closes:
+        return None
+    high, low, close = float(highs[-1]), float(lows[-1]), float(closes[-1])
+    pp = (high + low + close) / 3.0
+    span = high - low
+    return {
+        "pp": pp,
+        "r1": 2 * pp - low,
+        "s1": 2 * pp - high,
+        "r2": pp + span,
+        "s2": pp - span,
+        "r3": high + 2 * (pp - low),
+        "s3": low - 2 * (high - pp),
+    }
+
+
+def elder_ray(
+    highs: Sequence[float],
+    lows: Sequence[float],
+    closes: Sequence[float],
+    period: int = 13,
+) -> dict[str, float] | None:
+    """Elder Ray bull/bear power relative to an EMA of closes."""
+    if len(closes) < period:
+        return None
+    baseline = ema([float(c) for c in closes], period)[-1]
+    return {
+        "bull_power": float(highs[-1]) - baseline,
+        "bear_power": float(lows[-1]) - baseline,
+    }
+
+
+def zscore(closes: Sequence[float], period: int = 20) -> float | None:
+    """Z-score of the last close inside its own rolling window."""
+    if period < 2:
+        raise ValueError("period must be at least 2")
+    if len(closes) < period:
+        return None
+    window = [float(v) for v in closes[-period:]]
+    mean = sum(window) / period
+    deviation = math.sqrt(sum((v - mean) ** 2 for v in window) / period)
+    if deviation == 0:
+        return 0.0
+    return (window[-1] - mean) / deviation
+
+
+ADVANCED_INDICATORS: tuple[str, ...] = (
+    "cci",
+    "williams_r",
+    "roc",
+    "trix",
+    "choppiness",
+    "fisher_transform",
+    "ultimate_oscillator",
+    "aroon",
+    "ichimoku",
+    "pivot_points",
+    "elder_ray",
+    "zscore",
+)
+
+
+def advanced_suite(candles: Sequence[Candle]) -> dict[str, Any]:
+    """All advanced indicators over validated closed candles.
+
+    Missing values (short history) are ``None`` so JSON output stays
+    schema-stable; ``warmup`` lists indicators that need more bars.
+    """
+    validated = _validated_candles(candles)
+    if not validated:
+        return {"candles": 0, "warmup": list(ADVANCED_INDICATORS), "values": {}}
+    highs = [row[2] for row in validated]
+    lows = [row[3] for row in validated]
+    closes = [row[4] for row in validated]
+    values: dict[str, Any] = {
+        "cci": cci(highs, lows, closes),
+        "williams_r": williams_r(highs, lows, closes),
+        "roc": roc(closes),
+        "trix": trix(closes),
+        "choppiness": choppiness(highs, lows, closes),
+        "fisher_transform": fisher_transform(highs, lows),
+        "ultimate_oscillator": ultimate_oscillator(highs, lows, closes),
+        "aroon": aroon(highs, lows),
+        "ichimoku": ichimoku(highs, lows, closes),
+        "pivot_points": pivot_points(highs, lows, closes),
+        "elder_ray": elder_ray(highs, lows, closes),
+        "zscore": zscore(closes),
+    }
+    warmup = [name for name, value in values.items() if value is None]
+    return {"candles": len(closes), "warmup": warmup, "values": values}
