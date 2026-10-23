@@ -33,9 +33,9 @@ resume exactly where the state below says.
 | Item | Value |
 |------|-------|
 | Phase | 3 — sequential implementation loop, active |
-| Latest verified baseline | 1123 tests OK + lint/format clean, AFTER Update #9 push |
-| Updates completed | 56/500 (Updates #2, #5, #6, #7, #9 done) |
-| Next Update in progress | **Update #10** Extract MT5 bridge connection state machine (next `[ ]` in ROADMAP.md) |
+| Latest verified baseline | 1129 tests OK + lint/format clean, AFTER Update #10 push |
+| Updates completed | 57/500 (Updates #2, #5, #6, #7, #9, #10 done) |
+| Next Update in progress | **Update #13** Introduce ports/adapters for notifications (next `[ ]` in ROADMAP.md) |
 
 ## Roadmap interpretation
 
@@ -46,6 +46,12 @@ prior run's structure and is kept unchanged; new Updates are implemented
 from item #.offset next (see ROADMAP.md for exact list and status).
 
 ## Update log
+
+- Update #10 (roadmap #10, MT5 bridge state machine) DONE: defined `MT5ConnectionState`
+  enum (`DISCONNECTED`, `CONNECTING`, `CONNECTED`, `DISCONNECTING`, `FAILED`) in
+  `neezy_backend/mt5_bridge.py`; thread-guarded transitions inside `connect()` and `disconnect()`;
+  kept `connected` property backward compatible; added `tests/test_mt5_state_machine.py` (6 tests).
+  Suite 1123->1129 tests OK, ruff clean.
 
 - Update #9 (roadmap #9, provider abstraction) DONE: added `@runtime_checkable`
   `Provider` protocol (`fetch_candles` + `health` methods) to `neezy_backend/providers.py`;

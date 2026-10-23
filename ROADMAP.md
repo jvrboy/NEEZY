@@ -81,7 +81,7 @@ Legend at a glance:
 - **Areas:** neezy_backend/providers.py, confluence.py, ui_panels/data_providers.py
 - **Difficulty:** Medium
 
-### 10. [ ] Extract MT5 bridge connection state machine
+### 10. [x] Extract MT5 bridge connection state machine
 - **Category:** Architecture & refactoring
 - **What:** Formalize connect/disconnect/health of MT5Bridge into an explicit state enum with guarded transitions instead of the connected boolean.
 - **Why:** Boolean state lets calls race (connect while disconnecting); a state machine makes invalid transitions loud.
