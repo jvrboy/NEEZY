@@ -16,6 +16,9 @@ ROOT = Path(__file__).resolve().parents[1]
 KAGGLE_DIR = ROOT / "kaggle"
 NOTEBOOK_PATH = KAGGLE_DIR / "NEEZY_on_Kaggle.ipynb"
 METADATA_PATH = KAGGLE_DIR / "kernel-metadata.json"
+CLOUD_DIR = KAGGLE_DIR / "cloud"
+CLOUD_NOTEBOOK_PATH = CLOUD_DIR / "NEEZY_cloud_training.ipynb"
+CLOUD_METADATA_PATH = CLOUD_DIR / "kernel-metadata.json"
 
 
 def load_notebook() -> dict:
@@ -61,6 +64,21 @@ class KaggleNotebookTests(unittest.TestCase):
         self.assertEqual(metadata["language"], "python")
         self.assertEqual(metadata["kernel_type"], "notebook")
         self.assertFalse(metadata["enable_gpu"])
+
+    def test_cloud_notebook_compiles_and_never_auto_promotes(self) -> None:
+        notebook = json.loads(CLOUD_NOTEBOOK_PATH.read_text(encoding="utf-8"))
+        sources = code_cells(notebook)
+        for index, source in enumerate(sources):
+            with self.subTest(cell=index):
+                compile(source, f"{CLOUD_NOTEBOOK_PATH.name}:cell-{index}", "exec")
+        joined = "\n".join(sources)
+        self.assertIn("scripts/cloud_train.py", joined)
+        self.assertIn("HF_TOKEN", joined)
+        self.assertIn("UserSecretsClient", joined)
+        self.assertNotIn("latest_manifest_path", joined)
+        metadata = json.loads(CLOUD_METADATA_PATH.read_text(encoding="utf-8"))
+        self.assertEqual(metadata["code_file"], CLOUD_NOTEBOOK_PATH.name)
+        self.assertTrue(metadata["enable_internet"])
 
 
 if __name__ == "__main__":

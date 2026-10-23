@@ -7,7 +7,8 @@ Colour is decided in one place, `color_enabled`:
 - `--plain` or `NO_COLOR` (any non-empty value) turns colour off.
 - `FORCE_COLOR` (any non-empty value) turns it on, even when piped.
 - `TERM=dumb` turns it off.
-- Otherwise colour is on only when the stream is a TTY.
+- Otherwise colour is on only when the stream is a TTY and Windows VT setup,
+  where needed, succeeds; legacy Windows consoles fall back to plain text.
 
 Styling never changes the text content, only wraps it in ANSI codes, so the
 same screen can be read with or without colour.
@@ -60,29 +61,31 @@ def color_enabled(
     isatty = getattr(stream, "isatty", None)
     if not callable(isatty) or not isatty():
         return False
-    enable_windows_vt()
-    return True
+    return enable_windows_vt()
 
 
-def enable_windows_vt() -> None:
-    """Turn on ANSI escape handling in the Windows console. No-op elsewhere.
+def enable_windows_vt() -> bool:
+    """Enable ANSI in a Windows console and report whether colour is safe.
 
-    Windows 10+ supports VT sequences but only after the console mode is set.
-    Failure is silent: the caller then just gets escape codes shown as text,
-    so colour should be turned off by passing plain=True.
+    Non-Windows terminals need no setup. On legacy Windows consoles, failure
+    returns False so a TTY automatically falls back to plain text instead of
+    displaying raw escape codes. Explicit FORCE_COLOR still wins for redirects.
     """
     if os.name != "nt":
-        return
+        return True
     try:  # pragma: no cover - Windows only
         import ctypes
 
         kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
         handle = kernel32.GetStdHandle(-11)  # STD_OUTPUT_HANDLE
         mode = ctypes.c_uint32()
-        if kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
-            kernel32.SetConsoleMode(handle, mode.value | 0x0004)
+        if not kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+            return False
+        if mode.value & 0x0004:  # ENABLE_VIRTUAL_TERMINAL_PROCESSING
+            return True
+        return bool(kernel32.SetConsoleMode(handle, mode.value | 0x0004))
     except (AttributeError, OSError):  # pragma: no cover - Windows only
-        return
+        return False
 
 
 def strip_ansi(text: str) -> str:

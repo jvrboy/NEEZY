@@ -247,6 +247,7 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(selection.backend, "rpyc")
         self.assertEqual(selection.rpyc_host, "wine.lan")
 
+    @unittest.skipUnless(HAS_RPYC, "rpyc not installed")
     def test_load_returns_lazy_client_and_never_connects(self):
         env = {BACKEND_ENV: "rpyc", RPYC_HOST_ENV: "127.0.0.1", RPYC_PORT_ENV: "1"}
         module = load_mt5_module(env)

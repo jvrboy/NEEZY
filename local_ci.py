@@ -15,8 +15,15 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.resolve()
 
-# Exactly what the GitHub "Python CI" workflow lints.
-CI_LINT_TARGETS = ["neezy_app", "neezy_backend", "tests", "forex_signals.py"]
+# The GitHub "Python CI" targets plus the new cloud/packaging helpers.
+CI_LINT_TARGETS = [
+    "neezy_app",
+    "neezy_backend",
+    "tests",
+    "forex_signals.py",
+    "main.py",
+    "scripts",
+]
 # The whole-tree check used by the release gate of this script.
 FULL_LINT_TARGETS = ["."]
 
@@ -52,8 +59,8 @@ def main() -> None:
     else:
         print("PASS: Syntax compilation OK.")
 
-    # 2. Match the GitHub workflow: lint and formatting are mandatory gates.
-    #    --full widens to the entire tree (kaggle notebook, packaging).
+    # 2. Lint and formatting are mandatory gates. --full widens to the entire
+    #    tree (kaggle notebook, packaging).
     print("\n2. Running Linter and Formatting Checks...")
     targets = FULL_LINT_TARGETS if full else CI_LINT_TARGETS
     for options in (["check"], ["format", "--check"]):
