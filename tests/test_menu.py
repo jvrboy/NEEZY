@@ -51,6 +51,107 @@ class MenuTests(unittest.TestCase):
         self.assertEqual(calls, [])
         self.assertIn("BUY/SELL", out)
 
+    def test_chart_and_bot_palette_actions_are_read_only(self):
+        _, calls, _ = self._run(["c", "frxEURUSD", "", "o", "0"])
+        self.assertEqual(
+            calls,
+            [["chart", "frxEURUSD", "-t", "5m"], ["bot", "status"]],
+        )
+
+    def test_position_size_palette_uses_existing_risk_command(self):
+        _, calls, _ = self._run(["z", "frxEURUSD", "10000", "1.08", "1.07", "", "0"])
+        self.assertEqual(
+            calls,
+            [
+                [
+                    "risk",
+                    "frxEURUSD",
+                    "--balance",
+                    "10000",
+                    "--entry",
+                    "1.08",
+                    "--stop",
+                    "1.07",
+                    "--risk",
+                    "1",
+                ]
+            ],
+        )
+
+    def test_kernel_palette_actions_are_read_only(self):
+        _, calls, _ = self._run(["n", "j", "0"])
+        self.assertEqual(calls, [["kernels", "status"], ["kernels", "benchmark"]])
+
+    def test_data_settings_change_real_refresh_argv(self):
+        _, calls, _ = self._run(
+            [
+                ":set chart-count 240",
+                ":set chart-height 18",
+                ":chart",
+                ":refresh",
+                ":set scan-count 500",
+                ":signals",
+                ":refresh",
+                ":set history-limit 5",
+                ":history",
+                ":refresh",
+                ":set bot-timeout 1.5",
+                ":bot",
+                ":refresh",
+                "0",
+            ]
+        )
+        self.assertEqual(calls[0][calls[0].index("-n") + 1], "240")
+        self.assertEqual(calls[0][-2:], ["--height", "18"])
+        self.assertEqual(calls[1], ["scan", "frxEURUSD", "-t", "5m", "-n", "500"])
+        self.assertEqual(calls[2], ["history", "--limit", "5"])
+        self.assertEqual(calls[3], ["bot", "status", "--timeout", "1.5"])
+
+    def test_ai_settings_apply_without_overriding_explicit_provider(self):
+        _, calls, _ = self._run(
+            [
+                ":set provider gemini",
+                ":set temperature 0.7",
+                ":set max-tokens 900",
+                "what is liquidity?",
+                "ask Grok what is liquidity?",
+                "0",
+            ]
+        )
+        self.assertEqual(
+            calls[0],
+            [
+                "ai",
+                "chat",
+                "what is liquidity?",
+                "--provider",
+                "gemini",
+                "--temperature",
+                "0.7",
+                "--max-tokens",
+                "900",
+            ],
+        )
+        self.assertIn("grok", calls[1])
+        self.assertNotIn("gemini", calls[1])
+
+    def test_settings_subtabs_and_natural_navigation(self):
+        _, calls, out = self._run(
+            [
+                ":settings appearance",
+                ":settings next",
+                "show safety settings",
+                ":set hints off",
+                ":set live-orders on",
+                "0",
+            ]
+        )
+        self.assertEqual(calls, [])
+        self.assertIn("APPEARANCE", out)
+        self.assertIn("DATA", out)
+        self.assertIn("cannot be changed", out)
+        self.assertIn("unknown setting", out)
+
 
 class MenuFilterTests(unittest.TestCase):
     """The / filter: substring search across the palette (roadmap #58)."""
@@ -85,6 +186,11 @@ class MenuFilterTests(unittest.TestCase):
     def test_numbers_filter_to_exact_entries(self):
         results = filter_menu("mt5")
         self.assertTrue(results)
+
+    def test_command_aliases_and_independent_terms_are_searchable(self):
+        self.assertEqual([item.key for item in filter_menu("doctor")], ["1"])
+        self.assertEqual([item.key for item in filter_menu("risk")], ["z"])
+        self.assertEqual([item.key for item in filter_menu("market scan")], ["s"])
 
 
 if __name__ == "__main__":

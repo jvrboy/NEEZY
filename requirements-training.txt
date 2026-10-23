@@ -1,0 +1,3 @@
+# Cloud-only training, validation, and Hub publishing (Colab/Kaggle/GitHub Actions).
+-r requirements.txt
+huggingface_hub>=0.30,<1

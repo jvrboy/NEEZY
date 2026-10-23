@@ -32,9 +32,12 @@ from .analysis import (
     cmd_supertrend,
 )
 from .backtest import cmd_backtest, cmd_risk
+from .bot import cmd_bot
+from .chart import cmd_chart
 from .common import _symbol
 from .db import cmd_db, cmd_history
 from .dm import cmd_dm
+from .kernels import cmd_kernels
 from .mcp import cmd_mcp
 from .menu_bridge import cmd_menu
 from .mt5 import cmd_mt5
@@ -94,6 +97,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("symbol", type=_symbol)
     p.set_defaults(handler=cmd_analyze)
+
+    p = common(
+        sub.add_parser("chart", help="closed-candle ASCII OHLC chart"), count=120
+    )
+    p.add_argument("symbol", type=_symbol)
+    p.add_argument("--width", type=int, default=72, help="total chart width")
+    p.add_argument("--height", type=int, default=14, help="price rows (6-30)")
+    p.set_defaults(handler=cmd_chart)
 
     p = common(
         sub.add_parser("backtest", help="simulate the signal engine"), count=2000
@@ -439,7 +450,32 @@ def build_parser() -> argparse.ArgumentParser:
     )
     a.add_argument("--json", action="store_true")
 
-    p = sub.add_parser("menu", help="interactive menu for cmd.exe and PowerShell")
+    p = sub.add_parser("kernels", help="numerical microkernel status and benchmark")
+    kernel_actions = p.add_subparsers(dest="action", required=True)
+    a = common(
+        kernel_actions.add_parser("status", help="show active numerical kernels"),
+        timeframe=False,
+    )
+    a.set_defaults(handler=cmd_kernels)
+    a = common(
+        kernel_actions.add_parser(
+            "benchmark", help="correctness-checked local timing benchmark"
+        ),
+        timeframe=False,
+    )
+    a.add_argument("--iterations", type=int, default=250)
+    a.add_argument("--candles", type=int, default=512)
+    a.set_defaults(handler=cmd_kernels)
+
+    p = sub.add_parser("bot", help="read-only lightweight executor status")
+    bot_actions = p.add_subparsers(dest="action", required=True)
+    a = common(
+        bot_actions.add_parser("status", help="read loopback status"), timeframe=False
+    )
+    a.add_argument("--timeout", type=float, default=0.75, help="seconds (0.1-5)")
+    a.set_defaults(handler=cmd_bot)
+
+    p = sub.add_parser("menu", help="chat-first interactive terminal workspace")
     p.add_argument("--plain", action="store_true", help="no colour (also: NO_COLOR=1)")
     p.set_defaults(handler=cmd_menu)
 

@@ -1,0 +1,97 @@
+name: Scheduled cloud jobs
+
+on:
+  schedule:
+    - cron: "17 2 * * *"       # daily data pull + tests
+    - cron: "23 3 * * 0"       # optional weekly Kaggle retrain trigger
+  workflow_dispatch:
+    inputs:
+      run_retrain:
+        description: "Also trigger the Kaggle candidate-training notebook"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: neezy-scheduled-cloud
+  cancel-in-progress: false
+
+jobs:
+  scheduled-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install project and tooling
+        run: python -m pip install -e ".[dev]"
+      - name: Run offline tests
+        run: python -m unittest discover -s tests
+
+  daily-data:
+    runs-on: ubuntu-latest
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_DATASET_REPO: ${{ secrets.HF_DATASET_REPO }}
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET }}
+      R2_PREFIX: neezy/data
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install cloud publishers
+        run: python -m pip install -r requirements-actions.txt
+      - name: Pull public candles and publish when credentials exist
+        run: |
+          upload=""
+          if [ -n "$HF_TOKEN" ] && [ -n "$HF_DATASET_REPO" ]; then
+            upload="--upload"
+          else
+            echo "::notice::HF dataset secrets are not configured; keeping a GitHub artifact only."
+          fi
+          python scripts/cloud_data_pull.py \
+            --symbols frxEURUSD frxGBPUSD frxUSDJPY \
+            --timeframe 15m --candles 5000 $upload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: public-candles-${{ github.run_number }}
+          path: data-artifacts/
+          retention-days: 7
+          if-no-files-found: error
+
+  kaggle-retrain:
+    if: >-
+      (github.event_name == 'schedule' && github.event.schedule == '23 3 * * 0') ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_retrain)
+    runs-on: ubuntu-latest
+    env:
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+      KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Kaggle CLI
+        run: python -m pip install "kaggle>=1.7,<2"
+      - name: Trigger candidate notebook (HF token remains in Kaggle Secrets)
+        run: |
+          if [ -z "$KAGGLE_USERNAME" ] || [ -z "$KAGGLE_KEY" ]; then
+            echo "::notice::Kaggle secrets are not configured; retrain trigger skipped."
+            exit 0
+          fi
+          if grep -q YOUR_USERNAME kaggle/cloud/kernel-metadata.json; then
+            echo "::error::Set your Kaggle username in kaggle/cloud/kernel-metadata.json first."
+            exit 1
+          fi
+          kaggle kernels push -p kaggle/cloud

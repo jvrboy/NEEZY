@@ -1,16 +1,33 @@
 # NEEZY Upgrades — Work Log
 
-Branch: `freebuff/a68ed870d878701bd171af3b`, pushed to `main` as `eb008da` (v1.6.0).
+## 2026-10-23 — Cloud/light-executor deployment
+- Added an observer-first, demo-only Windows executor with runtime-only deps,
+  restart-persistent risk limits, broker-side SL/TP, and atomic HF model updates.
+- Added cloud candidate training + held-out trade backtests, exact-hash paper
+  promotion, scheduled data/retrain jobs, Cloudflare watchdog/R2, and an
+  authenticated read-only Vercel dashboard.
+- Added an explicit no-order paper-candidate mode with persistent virtual outcomes,
+  mandatory spread, gap/corruption protection, and promotion-compatible reports.
+- Added atomic recent-equity restoration and read-only paper progress on the dashboard.
+- Added offline Python and Node tests plus a production Next.js build gate.
+- Full setup and limitations are documented in `docs/CLOUD_OPERATIONS.md`.
+
+Branch for this update: `arena/55d4b77d-neezy` (not merged to `main`).
 
 ## Verification summary
-- `python -m unittest discover -s tests` → 367 tests OK (2 environment skips).
-- `ruff check` + `ruff format --check` → clean (ruff 0.17.1).
-- `python -m compileall neezy_app neezy_backend forex_signals.py` → clean.
-- `python local_ci.py` → ✅ all three gates passed.
-- Fake-tk smoke build of `neezy_app.ui.App()` with all new tabs → OK.
-- Headless import check of new backend modules → OK.
+- `python local_ci.py` → 971 tests OK (2 environment skips); compile, Ruff lint,
+  and formatting gates passed.
+- `node --test cloudflare/worker.test.mjs` → 8 tests OK.
+- `cd dashboard && npm run build` → production build passed, including the dynamic
+  server-rendered status page and Node status route.
+- `main.py --once` with an isolated empty data directory stayed observer-only and
+  returned a critical offline-broker result without sending orders.
+- No real MT5 terminal, Hugging Face repository, Cloudflare account, or Vercel
+  deployment was used; those require the credentials and setup in the operations guide.
 
 ## Audited and fixed during the work
+- `tests/test_mt5_compat.py`: the lazy RPyC client test now follows the same optional-
+  dependency skip contract as the other RPyC integration tests on clean dev installs.
 - `neezy_backend/storage.py`: damaged `SignalHistoryStore.export_csv` / `clear`
   methods restored after an improper class insertion; `Mapping` import added.
 - `neezy_backend/config.py`: missing `SYMBOLS` import restored (crash in

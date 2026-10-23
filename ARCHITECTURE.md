@@ -1,29 +1,33 @@
 # NEEZY — Architecture
 
-> Authoritative architecture reference, written for the 2026-10 autonomous
-> engineering run and verified against the tree at `9a17b52` (v1.6.0).
+> Authoritative architecture reference, updated for the 2026-10 cloud/light-executor
+> engineering run and verified against the current working tree.
 > The older `docs/ARCHITECTURE.md` describes a pre-split monolith and is kept
 > for history only.
 
 ## 1. What NEEZY is
 
-NEEZY is a **local-first forex/market-signal workspace**: a native Python
-desktop application (Tkinter) that streams public market data over the
-Deriv WebSocket API, computes deterministic closed-candle signals, and layers
-optional AI assistance, local ML research, alerting, and a MetaTrader 5
-execution bridge on top. It ships three faces over one backend:
+NEEZY is a **local-first forex/market-signal workspace** with an optional
+cloud-trained, lightweight-executor deployment: a native Python desktop
+application (Tkinter) streams public market data over the Deriv WebSocket API,
+computes deterministic closed-candle signals, and layers optional AI assistance,
+ML research, alerting, and a MetaTrader 5 execution bridge on top. It ships four
+faces over one backend:
 
 | Face | Entry point | Technology |
 |------|-------------|------------|
 | Desktop app | `neezy` (`neezy_app.launcher:main`) | Tkinter + panel mixins |
 | Terminal menu / CLI | `neezy-cli` (`neezy_backend.cli:main`) | argparse + styled menu (`menu.py`, `ui_style.py`) |
 | Android app | `packaging/android/main.py` | Kivy (`neezy_mobile/`), built by Buildozer in CI |
+| Lightweight executor | `main.py` (`neezy_backend.executor_service`) | Windows/MT5, JSON inference, loopback HTTP |
 
-Design constraints (see `DECISIONS.md`): single user, no login, no hosted
-databases, no telemetry; network traffic is limited to public market data,
-user-configured AI providers, the user's own MT5 terminal, and optional
-Telegram/webhook notifications. All persistent state lives under a per-user
-data directory.
+Design constraints (see `DECISIONS.md`): single user, no hosted account database,
+and no telemetry by default. Network traffic is limited to public market data,
+user-configured AI providers, the user's own MT5 terminal, optional notifications,
+and explicitly configured Hugging Face/Cloudflare/Vercel integrations. Primary
+persistent state lives under a per-user data directory; public datasets and
+sanitized executor snapshots can optionally be archived to HF/R2. See
+`docs/CLOUD_OPERATIONS.md` for the operational trust boundaries.
 
 ## 2. Data directory (`NEEZY_HOME`)
 
@@ -76,6 +80,33 @@ Resolved by `neezy_backend.storage.get_data_dir()`, overridable with the
      shell; worker threads      menu.py interactive     ui_kit.py
      hand back via App.after     REPL; JSON/plain text
 ```
+
+### Optional cloud executor plane
+
+`executor_service.py` is independent of Tk and the desktop event loop. It reuses
+`MT5Bridge` and `brain.predict` but never invokes training or the backtester.
+`model_hub.py` downloads bounded UTF-8 JSON from Hugging Face, verifies its SHA-256
+and exact-hash held-out-backtest/paper evidence, then atomically changes a local
+active-model pointer. A rejected candidate leaves the previous release active.
+`model_validation.py` and `scripts/cloud_train.py` run on the cloud side only.
+`paper_validation.py` is the separate no-order path for an explicitly configured
+candidate: it verifies every non-paper gate, simulates exact-hash outcomes on MT5
+demo candles with nonzero spread, persists restarts, and emits promotion-compatible
+evidence. Paper mode forbids live execution and skips production model activation.
+
+`execution_guard.py` persists UTC daily baseline, order count, and last evaluated
+candle under `NEEZY_HOME`; it blocks real/simulated accounts, daily-limit breaches,
+oversize/excess positions, duplicate candles, and missing broker-side SL/TP.
+`status_api.py` exposes only loopback `GET /health` and `GET /api/status`; its bounded
+recent-equity series is atomically restored from `executor-status.json`. A named
+Cloudflare Tunnel plus Access is the only supported remote path. The Cloudflare
+Worker and `dashboard/app/api/status/route.js` are read-only clients; neither has
+an order mutation. `dashboard/proxy.js` separately authenticates dashboard users.
+
+The cloud control/data plane is intentionally not highly available: notebook
+sessions expire, Actions schedules are best-effort, and Vercel is serverless. Only
+the Windows service is always-on. Full deployment and rollback procedures are in
+`docs/CLOUD_OPERATIONS.md`.
 
 ### Threading rule
 
@@ -137,7 +168,10 @@ package is absent. `mt5_orders.py` centralizes live-order rules shared by
 CLI and desktop: market orders only, explicit confirmation (`--confirm`,
 typed `SEND` in the menu, or a default-No dialog on the ORDERS page),
 connection- and liveness-gated, never callable from agent/MCP tools.
-`mt5_preflight.py` validates environment before first use.
+`mt5_preflight.py` validates environment before first use. The separate NSSM
+executor calls the same bridge only after `ExecutionGuard` verifies a real,
+connected **demo** account and all persistent risk gates. This unattended path
+cannot enable real-account trading; manual live-order behavior is unchanged.
 
 ## 8. Packaging & CI
 
@@ -151,14 +185,19 @@ connection- and liveness-gated, never callable from agent/MCP tools.
   GitHub Releases on every push to main.
 - `local_ci.py` — the same three gates (compile, ruff, unittest) for
   pre-push use.
-- `kaggle/` — ready-to-run notebook mirroring the research pipeline.
+- `kaggle/` — ready-to-run research notebook plus `kaggle/cloud/` candidate
+  training/publishing notebook (no broker access and no automatic promotion).
+- `requirements-runtime.txt` — PC-only websocket + Windows MT5 dependencies;
+  training/Actions dependencies are separate files.
+- `.github/workflows/cloud-jobs.yml` — scheduled tests/data collection and an
+  optional Kaggle trigger; `cloudflare/` and `dashboard/` have their own CI gates.
 
 ## 9. Testing
 
-48 test modules, **533 tests** at this run's baseline: unit tests for every
-backend module, property/edge tests for math, fake-tk smoke builds of the
-whole UI, CLI integration tests against a stub fetch, MT5 safety tests, and
-platform tests pinning config invariants. Suite runs fully offline in ~44 s.
+The offline unittest suite covers backend modules, property/edge cases for math,
+fake-tk smoke builds of the whole UI, CLI integration against stub fetches, MT5
+safety, executor risk/model-update behavior, and platform config invariants.
+Node tests cover the Worker; CI also builds the production dashboard.
 
 ## 10. Key invariants (do not break)
 
@@ -168,4 +207,11 @@ platform tests pinning config invariants. Suite runs fully offline in ~44 s.
 4. All local file access from tools goes through the sandbox path jail.
 5. Settings are validated on construction (`AppSettings.__post_init__`).
 6. UI thread rule: workers → `App.after` → widgets.
-7. Offline testability: the entire suite passes without network.
+7. Offline testability: the entire Python suite passes without network.
+8. Unattended execution is observer-first and demo-only; a config flag cannot
+   enable it on real, contest, disconnected, or simulated accounts. Exact-candidate
+   paper mode requires execution off and has no broker order path.
+9. Cloud candidates activate only after exact-hash schema, held-out metric,
+   trade-backtest, and paper-evidence checks; activation is atomic.
+10. Remote monitoring is read-only and Access-protected; broker credentials and
+    Cloudflare/HF/dashboard secrets never enter browser code or Git.

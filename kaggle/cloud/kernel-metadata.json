@@ -1,0 +1,14 @@
+{
+  "id": "YOUR_USERNAME/neezy-cloud-training",
+  "title": "NEEZY Cloud Training",
+  "code_file": "NEEZY_cloud_training.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_internet": true,
+  "dataset_sources": [],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": []
+}

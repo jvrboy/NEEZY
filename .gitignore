@@ -2,6 +2,7 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
+.venv-executor/
 venv/
 build/
 dist/
@@ -11,3 +12,13 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 .env
+.env.*
+!.env.example
+node_modules/
+.next/
+.vercel/
+cloud-artifacts/
+data-artifacts/
+promoted-latest.json
+executor.json
+*.local

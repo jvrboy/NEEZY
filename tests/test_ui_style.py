@@ -4,7 +4,7 @@ import io
 import unittest
 from unittest import mock
 
-from neezy_backend.menu import MENU, filter_menu, run_menu
+from neezy_backend.menu import MENU, filter_menu, run_menu, runtime_label
 from neezy_backend.ui_style import (
     Style,
     color_enabled,
@@ -42,6 +42,18 @@ class ColorDecisionTests(unittest.TestCase):
     def test_dumb_terminal_is_plain(self):
         self.assertFalse(color_enabled(_Tty(), env={"TERM": "dumb"}))
 
+    def test_windows_vt_failure_automatically_disables_tty_colour(self):
+        with mock.patch("neezy_backend.ui_style.enable_windows_vt", return_value=False):
+            self.assertFalse(color_enabled(_Tty(), env={}))
+
+    def test_windows_vt_success_enables_tty_colour(self):
+        with mock.patch("neezy_backend.ui_style.enable_windows_vt", return_value=True):
+            self.assertTrue(color_enabled(_Tty(), env={}))
+
+    def test_force_colour_still_allows_redirected_ansi(self):
+        with mock.patch("neezy_backend.ui_style.enable_windows_vt", return_value=False):
+            self.assertTrue(color_enabled(io.StringIO(), env={"FORCE_COLOR": "1"}))
+
 
 class StyleTests(unittest.TestCase):
     def test_disabled_style_returns_text_unchanged(self):
@@ -65,7 +77,7 @@ class StyleTests(unittest.TestCase):
 
 
 class MenuRenderTests(unittest.TestCase):
-    def _run(self, answers, *, color=False):
+    def _run(self, answers, *, color=False, echo_prompts=False):
         feed = iter(answers)
         out = io.StringIO()
         calls: list[list[str]] = []
@@ -74,9 +86,14 @@ class MenuRenderTests(unittest.TestCase):
             calls.append(argv)
             return 0
 
+        def ask(prompt):
+            if echo_prompts:
+                out.write(prompt)
+            return next(feed)
+
         code = run_menu(
             out,
-            input_fn=lambda _prompt: next(feed),
+            input_fn=ask,
             run=fake_run,
             color=color,
         )
@@ -115,10 +132,166 @@ class MenuRenderTests(unittest.TestCase):
         self.assertEqual(calls, [])
         self.assertIn("No matches", out)
 
-    def test_unknown_choice_is_reported_not_run(self):
+    def test_plain_text_is_routed_to_ai_chat(self):
         _, calls, out = self._run(["x", "0"])
+        self.assertEqual(calls, [["ai", "chat", "x"]])
+        self.assertIn("AI assistant", out)
+
+    def test_default_workspace_hides_command_palette(self):
+        _, calls, out = self._run(["0"])
         self.assertEqual(calls, [])
-        self.assertIn("unknown choice", out)
+        self.assertIn("NEEZY", out)
+        self.assertIn("CHAT", out)
+        self.assertNotIn("COMMAND PALETTE", out)
+        self.assertNotIn("Market data connectivity check", out)
+
+    def test_slash_opens_and_close_hides_palette(self):
+        _, calls, out = self._run(["/", "/close", "0"])
+        self.assertEqual(calls, [])
+        self.assertEqual(out.count("COMMAND PALETTE"), 1)
+        self.assertIn("DRY RUN", out)
+        self.assertEqual(out.count("| CHAT"), 2)
+
+    def test_palette_shows_real_commands_only_when_requested(self):
+        _, _, default = self._run(["0"])
+        self.assertNotIn("doctor", default.lower())
+        self.assertNotIn("analyze", default.lower())
+        _, calls, palette = self._run(["/", "0"])
+        self.assertEqual(calls, [])
+        self.assertIn("[1] doctor", palette)
+        self.assertIn("[a] analyze", palette)
+        self.assertIn("MT5 ORDERS / 2", palette)
+
+    def test_wide_header_places_status_beside_banner(self):
+        with mock.patch("neezy_backend.menu.terminal_width", return_value=76):
+            _, _, out = self._run(["0"])
+        self.assertTrue(
+            any(
+                "#   #" in line and "INTELLIGENT MARKET WORKSPACE" in line
+                for line in out.splitlines()
+            )
+        )
+        self.assertIn("LIVE needs SEND", out)
+
+    def test_natural_market_request_uses_existing_cli(self):
+        _, calls, out = self._run(["analyse EURUSD on 15m", "0"])
+        self.assertEqual(calls, [["analyze", "frxEURUSD", "-t", "15m"]])
+        self.assertIn("Market analysis", out)
+
+    def test_natural_trade_intent_never_dispatches_order(self):
+        _, calls, out = self._run(["buy EURUSD now", "0"])
+        self.assertEqual(calls, [])
+        self.assertIn("not available through natural language", out)
+        self.assertIn("SEND", out)
+
+    def test_narrow_terminal_wraps_palette(self):
+        with mock.patch("neezy_backend.menu.terminal_width", return_value=44):
+            _, _, out = self._run(["/very-long-" + "x" * 70, "/", "0"])
+        for line in out.splitlines():
+            self.assertLessEqual(visible_width(line), 44, repr(line))
+
+    def test_tiny_terminal_wraps_header_palette_and_messages(self):
+        with mock.patch("neezy_backend.menu.terminal_width", return_value=28):
+            _, _, out = self._run(["/", "?", "buy EURUSD now", "0"])
+        for line in out.splitlines():
+            self.assertLessEqual(visible_width(line), 28, repr(line))
+        self.assertIn("NEEZY", out)
+        self.assertIn("COMMAND PALETTE", out)
+
+    def test_piped_prompts_never_join_panels_or_overflow(self):
+        with mock.patch("neezy_backend.menu.terminal_width", return_value=28):
+            _, _, out = self._run(
+                [
+                    ":symbols",
+                    "GBPUSD",
+                    ":chart",
+                    ":refresh",
+                    "/",
+                    ":does-not-exist",
+                    "0",
+                ],
+                echo_prompts=True,
+            )
+        for line in out.splitlines():
+            self.assertLessEqual(visible_width(line), 28, repr(line))
+
+    def test_runtime_labels_cover_supported_terminal_families(self):
+        self.assertEqual(runtime_label({}, "win32"), "Windows")
+        self.assertEqual(runtime_label({}, "linux"), "Linux")
+        self.assertEqual(
+            runtime_label({"TERMUX_VERSION": "1"}, "linux"), "Termux / Android"
+        )
+        self.assertEqual(
+            runtime_label({"CODESPACES": "true"}, "linux"), "GitHub Codespaces"
+        )
+
+    def test_tab_navigation_and_chart_refresh_use_shared_context(self):
+        with mock.patch("neezy_backend.menu.terminal_width", return_value=44):
+            _, calls, out = self._run(
+                [
+                    ":symbols",
+                    "GBPUSD",
+                    ":timeframe 15m",
+                    ":chart",
+                    ":refresh",
+                    "0",
+                ]
+            )
+        self.assertEqual(
+            calls,
+            [
+                [
+                    "chart",
+                    "frxGBPUSD",
+                    "-t",
+                    "15m",
+                    "-n",
+                    "120",
+                    "--width",
+                    "44",
+                    "--height",
+                    "14",
+                ]
+            ],
+        )
+        self.assertIn("[CHART]", out)
+        self.assertIn("Closed-candle chart", out)
+
+    def test_signal_history_and_bot_tabs_refresh_read_only_commands(self):
+        _, calls, _ = self._run(
+            [":signals", ":refresh", ":history", ":refresh", ":bot", ":refresh", "0"]
+        )
+        self.assertEqual(
+            calls,
+            [
+                ["scan", "frxEURUSD", "-t", "5m"],
+                ["history", "--limit", "12"],
+                ["bot", "status"],
+            ],
+        )
+
+    def test_tab_switching_and_settings_do_not_run_commands(self):
+        _, calls, out = self._run(
+            [":next", ":prev", ":settings", ":color off", "0"], color=True
+        )
+        self.assertEqual(calls, [])
+        plain = strip_ansi(out)
+        for tab in (
+            "CHAT",
+            "SYMBOLS",
+            "CHART",
+            "SIGNALS",
+            "HISTORY",
+            "BOT",
+            "SETTINGS",
+        ):
+            self.assertIn(tab, plain)
+        self.assertIn("colour | plain", plain)
+
+    def test_unknown_tab_command_is_reported_without_running(self):
+        _, calls, out = self._run([":does-not-exist", "0"])
+        self.assertEqual(calls, [])
+        self.assertIn("unknown tab command", out)
 
     def test_eof_exits_cleanly(self):
         def eof(_prompt):

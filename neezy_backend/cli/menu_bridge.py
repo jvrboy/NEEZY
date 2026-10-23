@@ -4,7 +4,7 @@ from __future__ import annotations
 
 
 def cmd_menu(args, fetch, out) -> int:
-    """Interactive text menu that works in cmd.exe and PowerShell."""
+    """Portable chat workspace with a hidden, slash-opened command palette."""
     del fetch
     from ..menu import run_menu
     from ..ui_style import color_enabled

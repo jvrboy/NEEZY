@@ -11,19 +11,13 @@ from collections.abc import Sequence
 from itertools import pairwise
 from typing import Any
 
+from .microkernels import atr_kernel, ema_kernel, macd_histogram_kernel
+
 Candle = Sequence[float]
 
 
 def ema(values: Sequence[float], period: int) -> list[float]:
-    if period < 1:
-        raise ValueError("period must be positive")
-    if not values:
-        return []
-    alpha = 2.0 / (period + 1.0)
-    result = [float(values[0])]
-    for value in values[1:]:
-        result.append(float(value) * alpha + result[-1] * (1.0 - alpha))
-    return result
+    return ema_kernel(values, period)
 
 
 def _rsi_value(average_gain: float, average_loss: float) -> float:
@@ -71,16 +65,7 @@ def macd_histogram_series(
     signal: int = 9,
 ) -> list[float]:
     """MACD histogram aligned with ``closes`` (line minus signal line)."""
-    if fast < 1 or slow < 1 or signal < 1:
-        raise ValueError("MACD periods must be positive")
-    if fast >= slow:
-        raise ValueError("fast period must be shorter than slow period")
-    if not closes:
-        return []
-    fast_ema, slow_ema = ema(closes, fast), ema(closes, slow)
-    line = [a - b for a, b in zip(fast_ema, slow_ema, strict=True)]
-    signal_line = ema(line, signal)
-    return [a - b for a, b in zip(line, signal_line, strict=True)]
+    return macd_histogram_kernel(closes, fast, slow, signal)
 
 
 def atr(
@@ -89,24 +74,7 @@ def atr(
     closes: Sequence[float],
     period: int = 14,
 ) -> float | None:
-    if period < 1:
-        raise ValueError("period must be positive")
-    if not closes or len(highs) != len(lows) or len(lows) != len(closes):
-        return None
-    ranges = [highs[0] - lows[0]]
-    ranges.extend(
-        max(
-            highs[i] - lows[i],
-            abs(highs[i] - closes[i - 1]),
-            abs(lows[i] - closes[i - 1]),
-        )
-        for i in range(1, len(closes))
-    )
-    initial = ranges[:period]
-    average = sum(initial) / len(initial)
-    for current in ranges[period:]:
-        average = (average * (period - 1) + current) / period
-    return average
+    return atr_kernel(highs, lows, closes, period)
 
 
 def sma(values: Sequence[float], period: int) -> list[float | None]:
@@ -260,10 +228,7 @@ def analyze(candles: Sequence[Candle]) -> dict[str, Any] | None:
     lows = [row[3] for row in closed]
     closes = [row[4] for row in closed]
     ema9, ema21, ema50 = ema(closes, 9), ema(closes, 21), ema(closes, 50)
-    macd_line = [a - b for a, b in zip(ema(closes, 12), ema(closes, 26), strict=True)]
-    macd_hist = [
-        line - signal for line, signal in zip(macd_line, ema(macd_line, 9), strict=True)
-    ]
+    macd_hist = macd_histogram_series(closes)
     current_rsi = rsi(closes)
     current_atr = atr(highs, lows, closes)
     bands = bollinger(closes)

@@ -16,7 +16,14 @@ from pathlib import Path
 ROOT = Path(__file__).parent.resolve()
 
 # Exactly what the GitHub "Python CI" workflow lints.
-CI_LINT_TARGETS = ["neezy_app", "neezy_backend", "tests", "forex_signals.py"]
+CI_LINT_TARGETS = [
+    "neezy_app",
+    "neezy_backend",
+    "tests",
+    "forex_signals.py",
+    "main.py",
+    "scripts",
+]
 # The whole-tree check used by the release gate of this script.
 FULL_LINT_TARGETS = ["."]
 

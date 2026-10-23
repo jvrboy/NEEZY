@@ -9,6 +9,9 @@ The CLI is a package: one module per command family.
 - ``parser``      argparse construction (``build_parser``)
 - ``analysis``    markets, doctor, scan, analyze, regime, read, supertrend,
                   divergence, corrdiv, strategies, correlation, decision-metrics
+- ``chart``       closed-candle ASCII OHLC charts
+- ``bot``         read-only loopback executor status
+- ``kernels``     fused numerical-kernel status and local benchmarks
 - ``backtest``    backtest, risk
 - ``research``    research, datasets, study, knowledge, brain
 - ``db``          db (SQLite), history (signal-transition log)
@@ -51,6 +54,8 @@ from .analysis import (
     cmd_supertrend,
 )
 from .backtest import cmd_backtest, cmd_risk
+from .bot import cmd_bot
+from .chart import cmd_chart
 from .common import (
     _closed,
     _emit,
@@ -63,6 +68,7 @@ from .common import (
 )
 from .db import cmd_db, cmd_history
 from .dm import cmd_dm
+from .kernels import cmd_kernels
 from .mcp import cmd_mcp
 from .menu_bridge import cmd_menu
 from .mt5 import _mt5_require_live, cmd_mt5
@@ -103,7 +109,9 @@ __all__ = [
     "cmd_alerts",
     "cmd_analyze",
     "cmd_backtest",
+    "cmd_bot",
     "cmd_brain",
+    "cmd_chart",
     "cmd_config",
     "cmd_corrdiv",
     "cmd_correlation",
@@ -114,6 +122,7 @@ __all__ = [
     "cmd_dm",
     "cmd_doctor",
     "cmd_history",
+    "cmd_kernels",
     "cmd_knowledge",
     "cmd_local_model",
     "cmd_markets",

@@ -1,5 +1,7 @@
 # NEEZY on Kaggle
 
+> For the cloud-trained/light-PC deployment, use [`cloud/NEEZY_cloud_training.ipynb`](cloud/NEEZY_cloud_training.ipynb) and the [cloud operations guide](../docs/CLOUD_OPERATIONS.md). That notebook trains/backtests and uploads HF candidates/datasets without broker access or automatic promotion. The original research notebook below is unchanged.
+
 `NEEZY_on_Kaggle.ipynb` installs and runs NEEZY inside a Kaggle notebook: the headless
 engine and `neezy-cli`, live confluence cards, the local SQLite store, backtests, and an
 optional screenshot of the Tk desktop workspace.

@@ -1,5 +1,82 @@
 # CHANGELOG
 
+## [Unreleased] — Chat-first portable CLI workspace (2026-10-23)
+
+### Added
+- `neezy-cli menu` now opens a responsive ASCII NEEZY masthead and chat box with
+  no visible command list. `/` opens the grouped palette, `/text` filters it,
+  and `/close` hides it again. Existing numeric/letter shortcuts still work.
+- `terminal_workspace.py` adds CHAT, SYMBOLS, CHART, SIGNALS, HISTORY, BOT, and
+  SETTINGS tabs with direct/cycling navigation, real catalog search, shared
+  symbol/timeframe context, explicit read-only refreshes, and session settings.
+- `terminal_chart.py` and `neezy-cli chart` add bounded ASCII OHLC charts with
+  price axes, OHLC/change summaries, JSON output, and closed-candle validation.
+- `neezy-cli bot status` adds bounded, short-timeout, loopback-only executor
+  status for the BOT tab, with clean offline behavior and no mutation controls.
+- `cli_chat.py` routes natural market, MT5-read, local-data, and research requests
+  to existing CLI argv, recognizes catalog symbols/common aliases and spoken
+  timeframes, and sends general questions to the existing AI chat command.
+- Additional palette shortcuts for market scans/analysis/backtests/strategies,
+  position sizing, local data, and AI provider status. The compact dropdown
+  shows real command names, descriptions, and group counts, with aligned wide
+  columns and two-line narrow rows. The masthead gains a wide status layout,
+  and rendering regressions cover widths down to 28 columns.
+
+### Safety and compatibility
+- Natural-language trade intent never dispatches an order; it directs the user
+  to the explicit dry-run/live palette. Live orders still require typed `SEND`,
+  and Agent/MCP paths remain unable to place live orders.
+- Tab switches do not fetch data. Chart/signal/history/BOT refreshes are read-only;
+  BOT has no remote URL or executor mutation route. Natural-language and palette
+  live-order gates are unchanged.
+- The UI remains stdlib-only, ASCII-safe, and line-based, with colour fallbacks
+  for Windows, Linux, Termux/Android, Codespaces, pipes, and `--plain`. Legacy
+  Windows consoles now fall back automatically when VT setup fails.
+
+## [Unreleased] — Cloud training and lightweight PC executor (2026-10-23)
+
+### Added
+- NSSM-friendly `main.py` and `neezy_backend/executor_service.py`: always-on MT5
+  monitoring, one compact inference per closed candle, optional demo execution,
+  rotating local logs, and a loopback read-only status API. Runtime dependencies
+  are isolated in `requirements-runtime.txt`; training/Actions deps are separate.
+- `model_hub.py`: bounded Hugging Face JSON downloads, safe repository paths,
+  SHA-256 and schema checks, exact-hash held-out-backtest/paper evidence, and
+  atomic active-model swaps that preserve the prior model on every failure.
+- `model_validation.py`: model-specific chronological held-out trade simulation
+  with next-open entries, cost assumptions, and stop-first ambiguous candles.
+- `paper_validation.py`: explicit no-order demo-candidate mode with mandatory spread,
+  exact-hash reports, persistent virtual positions/outcomes, candle-gap detection,
+  and full-day/trade/expectancy gates consumable by the existing promotion command.
+- Atomic `executor-status.json` persistence restores the bounded recent-equity chart
+  after PC service restarts; the read-only dashboard also shows paper progress.
+- `execution_guard.py`: persistent UTC daily loss/trade/candle state, position and
+  volume caps, mandatory broker-side SL/TP, unprotected-position blocks, and a
+  hard demo-only unattended-account gate. Observer mode remains the default.
+- `kaggle/cloud/` plus `scripts/cloud_train.py`: cloud training/backtesting and
+  HF candidate/dataset upload without automatic `latest/` promotion.
+  `scripts/promote_model.py` performs deliberate post-paper promotion.
+- `scripts/cloud_data_pull.py` and `.github/workflows/cloud-jobs.yml`: daily
+  tests/public-data pulls, optional HF/R2 publishing, and weekly/manual Kaggle
+  triggers. Existing CI now also tests the Worker and builds the dashboard.
+- `cloudflare/`: five-minute cron-only Worker health checks, Access service-token
+  support, KV incident dedupe/recovery with delivery retry, Telegram/email-webhook
+  alerts, and R2 snapshots.
+- `dashboard/`: authenticated, server-rendered Next.js 16/Vercel read-only equity,
+  open-trade, model, heartbeat, and risk monitoring. Access secrets stay server-only.
+- `scripts/install_executor.ps1`, secret-free `deploy/` examples, and the complete
+  `docs/CLOUD_OPERATIONS.md` setup/promotion/recovery guide.
+
+### Safety and compatibility
+- Unattended execution is **off by default and demo-only**. Existing manual MT5
+  order confirmation flows and Agent/MCP no-send rules are unchanged. Paper mode
+  requires execution to remain off and skips the production model-activation path.
+- Candidates never auto-promote; the default minimum is 20 backtest trades,
+  positive held-out expectancy, 20 paper trades, and 14 paper days in addition to
+  model quality gates. Power/network warnings and broker-side stops are explicit.
+- The desktop/local-first workspace remains available. Cloud integrations are
+  optional deployment components, not a hosted account or primary database.
+
 ## [Unreleased] — MT5 over RPyC for non-Windows devices (not a roadmap batch)
 
 ### Added

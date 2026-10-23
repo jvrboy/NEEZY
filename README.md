@@ -2,6 +2,23 @@
 
 NEEZY is a native Python/Tkinter market-monitoring workspace. It reads public market candles from Deriv's WebSocket API and computes educational technical-analysis summaries. Its analysis never places trades. The optional MetaTrader 5 bridge can send orders to a MetaTrader 5 terminal you run on your own PC, from the CLI with `--confirm`, the menu's typed `SEND`, or the desktop ORDERS page after a confirmation dialog. Agent and MCP tools can preview orders and never send them. NEEZY does not provide financial advice. See [MetaTrader 5 bridge](#metatrader-5-bridge-live-orders-gated).
 
+## Optional cloud training + lightweight PC executor
+
+A new deployment path keeps the Windows 10 PC as the always-on **light executor only**: MT5 connectivity, compact JSON inference, validated Hugging Face model downloads, persistent risk checks, and a loopback status API. Training and held-out trade backtests run in Kaggle/Colab; HF Hub stores candidates and datasets; GitHub Actions runs scheduled tests/data pulls and optional retrain triggers; Cloudflare provides Tunnel + Access, a five-minute Worker watchdog, Telegram/email-webhook alerts, and R2 archives; an authenticated Next.js dashboard deploys to Vercel.
+
+The service starts in **observe-only mode** and unattended execution is restricted to a verified **MT5 demo account**. Candidates never auto-promote: the exact model hash needs a passing held-out trade backtest and separate paper-trading evidence (defaults: at least 20 trades over 14 days). An explicit no-order `paper_candidate` mode now generates that exact-hash evidence from demo candles with persistent virtual positions and mandatory spread assumptions. Every real order is capped by persistent daily-loss/trade/position limits and requires broker-side SL/TP. Recent equity history also survives PC service restarts. Free notebook/serverless tiers are not treated as 24/7 process hosts.
+
+Start with the [complete cloud operations guide](docs/CLOUD_OPERATIONS.md). Key files:
+
+- `main.py`, `requirements-runtime.txt`, `neezy_backend/executor_service.py` — NSSM-friendly PC runtime;
+- `neezy_backend/model_hub.py` — bounded HF downloads, SHA-256/schema/backtest/paper gates, atomic activation with rollback-safe failure behavior;
+- `neezy_backend/paper_validation.py` — restart-persistent, exact-candidate virtual trades on demo candles, with no broker order methods;
+- `kaggle/cloud/NEEZY_cloud_training.ipynb` and `scripts/cloud_train.py` — cloud candidates/datasets, never automatic `latest/` promotion;
+- `scripts/promote_model.py` — deliberate exact-hash paper-evidence promotion;
+- `cloudflare/` — cron watchdog, incident dedupe/recovery, R2 status logs;
+- `dashboard/` — read-only Vercel equity/open-trade/bot-status UI;
+- `deploy/executor.example.json` and `scripts/install_executor.ps1` — validated, secret-free Windows setup.
+
 ## Confluence engine, data providers and card workspace (v1.6.0)
 
 **Confluence.** `neezy_backend/confluence.py` combines every backend tool into one weighted vote per market: the EMA stack, MACD, RSI, ADX/DI, Bollinger extremes, all named strategies (including Divergence and the shipped learned edge weights). The weighted net becomes one card: **INSTRUMENT, BUY/SELL, ENTRY, SL, TP, WIN RATE**. The stop is the ATR multiple set in SETTINGS > DATA PROVIDERS and the target is its larger ATR multiple.
@@ -96,21 +113,26 @@ Decisions use closed candles only and fill at the *next* candle's open. When the
 
 ## Install and run
 
-Python 3.10 or newer is required. The existing CI matrix covers Python 3.10–3.12; other versions are not claimed until tested. Tkinter must be installed separately by the operating system (on Debian/Ubuntu, the `python3-tk` package may be needed). Install the desktop app and its WebSocket dependency from the repository root:
+Python 3.10 or newer is required. The existing CI matrix covers Python 3.10–3.12; other versions are not claimed until tested. Install NEEZY and its WebSocket dependency from the repository root:
 
 ```bash
 python -m pip install .
-neezy
+neezy                 # portable terminal workspace (default)
+neezy --plain         # same workspace with colour disabled
+neezy --desktop       # explicit Tk desktop app
 ```
+
+Tkinter is needed only for `neezy --desktop` and must be installed separately by the operating system (on Debian/Ubuntu, the `python3-tk` package may be needed). It is imported lazily, so the default terminal route also works on headless installations.
 
 Alternatively, run from a checkout without installing:
 
 ```bash
 python -m pip install -r requirements.txt
-python -m neezy_app
+python -m neezy_app              # terminal workspace
+python -m neezy_app --desktop    # Tk desktop app
 ```
 
-The original `python forex_signals.py` entry point remains available. The GUI requires a desktop session.
+The original `python forex_signals.py` desktop entry point remains available. The GUI requires a desktop session.
 
 **Kaggle notebooks.** `kaggle/NEEZY_on_Kaggle.ipynb` installs the headless engine and CLI
 in a Kaggle session, points `NEEZY_HOME` at `/kaggle/working/neezy-home` so candles,
@@ -148,7 +170,13 @@ Without `--confirm` an order is refused. With `--confirm` but no connected termi
 
 **Agent and MCP tools.** `mt5_status`, `mt5_account`, `mt5_quote`, `mt5_positions`, `mt5_candles`, and `mt5_order_preview` are read-only or preview-only. No agent tool sends an order. Tools marked write or destructive require `confirm=True` in code.
 
-**Windows terminal menu.** `neezy-cli menu` is a plain-text menu for cmd.exe and PowerShell. Option 7 places a live order only after you type `SEND`. Option `p` runs the preflight. This was tested on Linux with scripted input; it has not been run on Windows in this update.
+**Portable terminal workspace.** Installed `neezy` with no arguments and `neezy-cli menu` open the same NEEZY-branded, seven-tab workspace: **CHAT, SYMBOLS, CHART, SIGNALS, HISTORY, BOT, SETTINGS**. Use `neezy --desktop` for the separate Tk application. Switch terminal tabs with `:next`/`:prev` or direct commands such as `:symbols` and `:chart`. The tool list stays hidden until `/`; `/text` filters the dropdown and `/close` hides it. CHART renders real closed-candle ASCII OHLC data, SIGNALS reuses the analysis scanner, HISTORY reads local transitions, and BOT reads loopback-only executor status without start/stop/order controls. Session symbol/timeframe settings are shared by chart and signal refreshes. The same tools are available as `neezy-cli chart EURUSD -t 15m` and `neezy-cli bot status`.
+
+Terminal **SETTINGS** has six sub-tabs: **GENERAL, APPEARANCE, DATA, AI, PERFORMANCE, SAFETY**. Navigate them with `:settings next`, `:settings prev`, or `:settings data`. Functional session controls include width caps, optional hints, chart candle count/height, scan/history limits, AI provider/temperature/token overrides, and the read-only BOT status timeout. For example, `:set width 44`, `:set chart-count 240`, `:set provider gemini`, and `:set history-limit 20`; `:set width auto` and `:reset` restore defaults. Explicit provider options in a chat request take precedence over session defaults. SAFETY is informational and cannot enable orders or relax confirmations.
+
+**Numerical microkernels.** EMA, MACD-histogram, and ATR indicator hot paths use deterministic, dependency-free fused/preallocated Python kernels. Reusable implementations live in `neezy_backend/microkernels.py`; catalog search also uses a bounded cache. `neezy-cli kernels status` reports the active backend. `neezy-cli kernels benchmark --iterations 250 --candles 512` checks exact outputs against the original algorithms before reporting local optimized/reference timings. Benchmark ratios are measurements for the current machine, not guaranteed speedups elsewhere, and the command performs no network or broker actions.
+
+Plain language such as `analyse EURUSD on 15m`, `chart EURUSD on 15m`, `show MT5 account`, or `check numerical kernel status` is routed to existing CLI argv; other questions use your configured AI provider. Direct buy/sell/order requests are not routed to the broker: choose the explicit dry-run or live palette action instead. Option 7 still places a live order only after typed `SEND`, and option `p` runs read-only preflight. The line-based ASCII UI has no curses dependency, supports `--plain`/`NO_COLOR`, automatically disables colour if Windows VT setup fails, and reflows tabs, panels, prompts, and palette rows down to 28 columns. It is designed for cmd.exe, PowerShell, Linux, Termux/Android, and Codespaces. Scripted tests cover rendering and safety gates, but not every physical terminal or device.
 
 **Third-party MCP servers.** `neezy-cli mcp list`, `mcp show <id>`, and `mcp config <id>` describe six community MCP servers for MetaTrader 5 and Windows desktop control. NEEZY does not install, run, or connect to them. `mcp config` prints a client config with the read-only profile where the server offers one; `--unsafe` prints the full-access config. Two handle your broker password badly: Qoyyuum's server takes it through a login tool call, so the AI client sees it, and ariadng's config puts it on the command line. Review both before use.
 

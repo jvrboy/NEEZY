@@ -5,6 +5,8 @@ NEEZY keeps its configuration and primary database on the user's computer. It ha
 ## Network and data flow
 
 - The market feed uses Deriv's public WebSocket API.
+- The optional lightweight executor downloads bounded JSON manifests/models from the configured Hugging Face repository. It does not download pickle or custom model code. An optional HF token comes from the service environment and is never included in status output.
+- When explicitly deployed, the executor status API is loopback-only and read-only. Cloudflare Tunnel + Access exposes sanitized status to the Cloudflare Worker and Vercel server route; the Worker can archive those status/equity snapshots in R2. Browser code never receives Access service-token secrets, and none of these paths can place or close trades. See `CLOUD_OPERATIONS.md`.
 - AI requests go to the provider selected in **SETTINGS → AI PROVIDERS** when AI answers are enabled. The database file is not uploaded. Market context is sent with an AI request, and relevant stored notes are added only when **Include relevant local memory in provider prompts** is explicitly enabled.
 - When enabled, the Telegram integration polls and sends messages through Telegram's Bot API. Authorized-chat commands and alert notifications are therefore processed by Telegram as messages. The bot token is stored separately from normal settings.
 - The default MCP server is authenticated and bound only to `127.0.0.1`; it is intended for an MCP client on the same computer.
@@ -12,6 +14,10 @@ NEEZY keeps its configuration and primary database on the user's computer. It ha
 - Optional generative model inference is local-only. Model files are registered by path, not copied/downloaded. Transformers uses `local_files_only=True` and `trust_remote_code=False`; PyTorch `.bin` loading requests `weights_only=True`.
 
 The optional integrations are not required for the core market feed or deterministic signal engine. Disable them in Settings to stop their network activity. Exporting a database or copying credential files is a user action.
+
+## Unattended executor safety
+
+The NSSM executor starts with `execution_enabled=false` and accepts orders only on a real connected MT5 **demo** account. It persists daily risk state and last evaluated candle so restarts cannot reset limits or duplicate a signal. Candidate activation requires SHA-256 integrity plus exact-hash held-out backtest and paper evidence; rejected downloads preserve the active model. The optional paper-candidate mode forbids execution, skips production activation, and records only virtual demo outcomes with no broker order methods. Bounded recent equity is restored from an atomic local status file. The status service has no mutation routes. Cloud training candidates never update `latest/` automatically, and HF/Kaggle/GitHub/Cloudflare/Vercel credentials are held only in their respective secret stores. The complete threat and operations boundary is in `CLOUD_OPERATIONS.md`.
 
 ## MCP server
 

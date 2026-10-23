@@ -410,6 +410,7 @@ class MT5Bridge:
                     "profit": 12.50,
                     "commission": -0.70,
                     "swap": 0.0,
+                    "fee": 0.0,
                     "comment": "NEEZY mock deal",
                     "mock": True,
                 }
@@ -435,6 +436,7 @@ class MT5Bridge:
                     "profit": d.get("profit"),
                     "commission": d.get("commission"),
                     "swap": d.get("swap"),
+                    "fee": d.get("fee"),
                     "comment": d.get("comment"),
                     "mock": False,
                 }
