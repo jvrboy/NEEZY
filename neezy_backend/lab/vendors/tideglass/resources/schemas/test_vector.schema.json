@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tideglass.dev/schemas/test_vector.schema.json",
+  "title": "Tideglass golden test vector",
+  "type": "object",
+  "required": [
+    "format",
+    "format_version",
+    "name",
+    "indicator",
+    "params",
+    "tolerance",
+    "candles",
+    "expected"
+  ],
+  "properties": {
+    "format": {
+      "const": "tideglass.test_vector"
+    },
+    "format_version": {
+      "const": 1
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "generated_by": {
+      "type": "string"
+    },
+    "suite_version": {
+      "type": "string"
+    },
+    "indicator": {
+      "enum": [
+        "EDI",
+        "VBO",
+        "FSCR",
+        "TDGZ",
+        "TIS",
+        "MDR",
+        "SRP",
+        "CC",
+        "ALL"
+      ]
+    },
+    "params": {
+      "type": "object"
+    },
+    "tolerance": {
+      "type": "object",
+      "required": [
+        "abs",
+        "rel"
+      ],
+      "properties": {
+        "abs": {
+          "type": "number"
+        },
+        "rel": {
+          "type": "number"
+        }
+      }
+    },
+    "candles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "epoch",
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "properties": {
+          "epoch": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "open": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "high": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "low": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "close": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "ticks": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "weights": {
+      "type": "object"
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

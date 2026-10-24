@@ -14,6 +14,7 @@ dependencies = ["websocket-client>=1.8,<2"]
 
 [project.optional-dependencies]
 dev = ["ruff>=0.11"]
+research-lab = ["numpy>=1.24,<3"]
 local-gguf = ["llama-cpp-python>=0.3.8"]
 local-transformers = [
   "torch>=2.2",
@@ -33,7 +34,7 @@ neezy-cli = "neezy_backend.cli:main"
 include = ["neezy_app*", "neezy_backend*"]
 
 [tool.setuptools.package-data]
-neezy_backend = ["data/*.json", "data/research_candles/*.json"]
+neezy_backend = ["data/*.json", "data/research_candles/*.json", "lab/sources.json", "lab/vendors/tideforge/LICENSE", "lab/vendors/tideglass/resources/VERSION", "lab/vendors/tideglass/resources/config/*.json", "lab/vendors/tideglass/resources/schemas/*.json"]
 
 [tool.ruff]
 target-version = "py310"
@@ -42,6 +43,10 @@ line-length = 88
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "BLE", "RUF"]
 ignore = ["UP017"]
+
+# Preserve upstream numerical implementations while checking NEEZY adapters strictly.
+[tool.ruff.lint.per-file-ignores]
+"neezy_backend/lab/vendors/**/*.py" = ["E", "F", "I", "UP", "B", "BLE", "RUF"]
 
 [tool.ruff.format]
 quote-style = "double"

@@ -44,6 +44,7 @@ from .db import cmd_db, cmd_history
 from .dm import cmd_dm
 from .indicators_cmd import cmd_indicators
 from .kernels import cmd_kernels
+from .lab import cmd_lab
 from .market_clock import cmd_sessions
 from .mcp import cmd_mcp
 from .menu_bridge import cmd_menu
@@ -90,6 +91,25 @@ def build_parser() -> argparse.ArgumentParser:
                 "-n", "--count", type=int, default=count, help="candles to fetch"
             )
         return p
+
+    lab = sub.add_parser("lab", help="offline archive research (no trading)")
+    lab_sub = lab.add_subparsers(dest="action", required=True)
+    p = lab_sub.add_parser("catalog", help="list imported research engines")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(handler=cmd_lab)
+    p = lab_sub.add_parser("analyze", help="analyze a local closed-candle JSON file")
+    p.add_argument("--input", required=True)
+    p.add_argument(
+        "--engine", choices=("fras", "fxlab", "tideforge", "tideglass"), default="fras"
+    )
+    p.add_argument("--indicator")
+    p.add_argument("--symbol", default="UNKNOWN")
+    p.add_argument("--granularity", type=int, default=300)
+    p.add_argument("--params", default="{}", help="JSON parameter overrides")
+    p.add_argument(
+        "--series", action="store_true", help="include causal per-bar output"
+    )
+    p.set_defaults(handler=cmd_lab)
 
     p = common(
         sub.add_parser("markets", help="list supported markets"), timeframe=False

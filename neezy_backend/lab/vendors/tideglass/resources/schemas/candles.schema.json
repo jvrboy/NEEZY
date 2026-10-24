@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tideglass.dev/schemas/candles.schema.json",
+  "title": "Tideglass candle input",
+  "type": "object",
+  "required": [
+    "symbol",
+    "granularity",
+    "candles"
+  ],
+  "properties": {
+    "format": {
+      "const": "tideglass.candles"
+    },
+    "symbol": {
+      "type": "string"
+    },
+    "granularity": {
+      "enum": [
+        60,
+        300,
+        900,
+        1800,
+        3600,
+        14400,
+        86400
+      ]
+    },
+    "synthetic": {
+      "type": "boolean"
+    },
+    "source": {
+      "type": "string"
+    },
+    "candles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "epoch",
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "properties": {
+          "epoch": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "open": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "high": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "low": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "close": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "ticks": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "candle": {
+      "type": "object",
+      "required": [
+        "epoch",
+        "open",
+        "high",
+        "low",
+        "close"
+      ],
+      "properties": {
+        "epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "open": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "high": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "low": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "close": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "ticks": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

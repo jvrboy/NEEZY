@@ -1,0 +1,64 @@
+{
+  "$schema": "../schemas/confluence_weights.schema.json",
+  "format": "tideglass.confluence_weights",
+  "format_version": 1,
+  "description": "Regime-aware weights for the Confluence Compass. Weights within a regime need not sum to 1; CC normalises by the sum of weights of available signals. vbo_boost scales the VBO expansion-probability adjustment of confidence.",
+  "signal_order": [
+    "EDI",
+    "FSCR",
+    "TDGZ",
+    "TIS",
+    "MDR",
+    "SRP"
+  ],
+  "regimes": {
+    "trend": {
+      "description": "TIS says clean or dirty trend: trust slope consensus and trend quality.",
+      "weights": {
+        "EDI": 0.05,
+        "FSCR": 0.32,
+        "TDGZ": 0.08,
+        "TIS": 0.3,
+        "MDR": 0.15,
+        "SRP": 0.1
+      },
+      "vbo_boost": 0.2
+    },
+    "breakout": {
+      "description": "No trend yet but volatility is exhaling: early trend tools and magnets.",
+      "weights": {
+        "EDI": 0.05,
+        "FSCR": 0.3,
+        "TDGZ": 0.2,
+        "TIS": 0.15,
+        "MDR": 0.1,
+        "SRP": 0.2
+      },
+      "vbo_boost": 0.4
+    },
+    "range": {
+      "description": "Orderly sideways market: mean reversion and gravity levels lead.",
+      "weights": {
+        "EDI": 0.32,
+        "FSCR": 0.05,
+        "TDGZ": 0.3,
+        "TIS": 0.03,
+        "MDR": 0.15,
+        "SRP": 0.15
+      },
+      "vbo_boost": 0.1
+    },
+    "chop": {
+      "description": "Noisy, directionless: low weights everywhere, magnets and rhythm only.",
+      "weights": {
+        "EDI": 0.2,
+        "FSCR": 0.1,
+        "TDGZ": 0.25,
+        "TIS": 0.05,
+        "MDR": 0.15,
+        "SRP": 0.25
+      },
+      "vbo_boost": 0.0
+    }
+  }
+}

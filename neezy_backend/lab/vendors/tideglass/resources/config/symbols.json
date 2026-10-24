@@ -1,0 +1,107 @@
+{
+  "$schema": "../schemas/symbols.schema.json",
+  "format": "tideglass.symbols",
+  "format_version": 1,
+  "notes": "Pip size is the conventional quote increment used for spread costs. spread_pips are conservative assumptions for backtests, not Deriv quotes; adjust them to your broker. frxXAUUSD availability on Deriv varies by account region; the fetcher skips symbols the API reports as unavailable.",
+  "symbols": [
+    {
+      "symbol": "frxEURUSD",
+      "display_name": "EUR/USD",
+      "pip_size": 0.0001,
+      "price_decimals": 5,
+      "spread_pips": 1.2,
+      "enabled": true,
+      "availability": "standard"
+    },
+    {
+      "symbol": "frxGBPUSD",
+      "display_name": "GBP/USD",
+      "pip_size": 0.0001,
+      "price_decimals": 5,
+      "spread_pips": 1.6,
+      "enabled": true,
+      "availability": "standard"
+    },
+    {
+      "symbol": "frxUSDJPY",
+      "display_name": "USD/JPY",
+      "pip_size": 0.01,
+      "price_decimals": 3,
+      "spread_pips": 1.4,
+      "enabled": true,
+      "availability": "standard"
+    },
+    {
+      "symbol": "frxAUDUSD",
+      "display_name": "AUD/USD",
+      "pip_size": 0.0001,
+      "price_decimals": 5,
+      "spread_pips": 1.5,
+      "enabled": true,
+      "availability": "standard"
+    },
+    {
+      "symbol": "frxUSDCAD",
+      "display_name": "USD/CAD",
+      "pip_size": 0.0001,
+      "price_decimals": 5,
+      "spread_pips": 1.8,
+      "enabled": true,
+      "availability": "standard"
+    },
+    {
+      "symbol": "frxUSDCHF",
+      "display_name": "USD/CHF",
+      "pip_size": 0.0001,
+      "price_decimals": 5,
+      "spread_pips": 1.8,
+      "enabled": true,
+      "availability": "standard"
+    },
+    {
+      "symbol": "frxNZDUSD",
+      "display_name": "NZD/USD",
+      "pip_size": 0.0001,
+      "price_decimals": 5,
+      "spread_pips": 2.0,
+      "enabled": true,
+      "availability": "standard"
+    },
+    {
+      "symbol": "frxEURJPY",
+      "display_name": "EUR/JPY",
+      "pip_size": 0.01,
+      "price_decimals": 3,
+      "spread_pips": 2.0,
+      "enabled": true,
+      "availability": "standard"
+    },
+    {
+      "symbol": "frxGBPJPY",
+      "display_name": "GBP/JPY",
+      "pip_size": 0.01,
+      "price_decimals": 3,
+      "spread_pips": 2.8,
+      "enabled": true,
+      "availability": "standard"
+    },
+    {
+      "symbol": "frxXAUUSD",
+      "display_name": "Gold/USD",
+      "pip_size": 0.01,
+      "price_decimals": 2,
+      "spread_pips": 30.0,
+      "enabled": true,
+      "availability": "conditional"
+    }
+  ],
+  "default_granularities": [
+    60,
+    300,
+    900,
+    1800,
+    3600,
+    14400,
+    86400
+  ]
+}

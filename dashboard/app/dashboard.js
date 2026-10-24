@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import ResearchLibrary from "./components/research-library";
+import WorkspaceSettings from "./components/workspace-settings";
+import { DEFAULT_PREFERENCES, STORAGE_KEY, sanitizePreferences } from "../lib/preferences.mjs";
 
 function number(value, digits = 2) {
   if (value === null || value === undefined || value === "") return "—";
@@ -91,11 +94,29 @@ function Metric({ label, value, detail, tone = "" }) {
 }
 
 export default function Dashboard({ initialStatus = null, initialError = "" }) {
+  const [tab, setTab] = useState("overview");
+  const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
+  const [preferencesReady, setPreferencesReady] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  useEffect(() => {
+    try { setPreferences(sanitizePreferences(JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"))); } catch (_) { /* restricted or corrupt browser storage */ }
+    setPreferencesReady(true);
+  }, []);
+  useEffect(() => {
+    document.documentElement.dataset.theme = preferences.theme;
+    document.documentElement.dataset.density = preferences.density;
+    document.documentElement.dataset.reducedMotion = String(preferences.reducedMotion);
+    if (preferencesReady) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences)); } catch (_) { /* private browsing */ }
+    }
+  }, [preferences, preferencesReady]);
   const [status, setStatus] = useState(initialStatus);
   const [error, setError] = useState(initialError);
   const [updated, setUpdated] = useState(null);
 
   useEffect(() => {
+    if (!preferencesReady || paused) return;
     let active = true;
     let controller;
     async function refresh() {
@@ -120,13 +141,13 @@ export default function Dashboard({ initialStatus = null, initialError = "" }) {
       }
     }
     refresh();
-    const interval = setInterval(refresh, 30_000);
+    const interval = setInterval(() => { if (!document.hidden) refresh(); }, preferences.refreshSeconds * 1000);
     return () => {
       active = false;
       controller?.abort();
       clearInterval(interval);
     };
-  }, []);
+  }, [preferencesReady, paused, preferences.refreshSeconds, refreshKey]);
 
   const account = status?.account || {};
   const risk = status?.risk || {};
@@ -164,7 +185,16 @@ export default function Dashboard({ initialStatus = null, initialError = "" }) {
         </div>
       </header>
 
-      {error && <div className="error-banner">{error}</div>}
+      <nav className="workspace-nav" aria-label="Workspace">
+        <div className="nav-tabs">{[["overview", "Overview"], ["library", "Research library"], ["settings", "Settings"]].map(([id, label]) => <button key={id} type="button" aria-pressed={tab === id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>{label}</button>)}</div>
+        <div className="nav-actions"><button type="button" onClick={() => setPaused(!paused)}>{paused ? "Resume updates" : "Pause updates"}</button><button type="button" disabled={paused} onClick={() => setRefreshKey((value) => value + 1)}>Refresh now</button></div>
+      </nav>
+      {Number.isFinite(heartbeat) && heartbeat > preferences.staleSeconds && <div className="error-banner" role="status">Stale executor heartbeat. Treat displayed data as historical; do not rely on it for execution decisions.</div>}
+      {paused && <p className="warning" role="status">Updates paused. The current snapshot is not live.</p>}
+      {error && <div className="error-banner" role="status">{error}</div>}
+      {tab === "library" && <ResearchLibrary />}
+      {tab === "settings" && <WorkspaceSettings preferences={preferences} onChange={(value) => setPreferences(sanitizePreferences(value))} />}
+      {tab === "overview" && <>
       {!status && !error && <div className="loading">Connecting to the executor…</div>}
 
       <section className="metrics-grid">
@@ -345,6 +375,7 @@ export default function Dashboard({ initialStatus = null, initialError = "" }) {
         </section>
       )}
 
+      </>}
       <footer>
         <span>NEEZY read-only monitoring</span>
         <span>Training: Colab / Kaggle · Registry: Hugging Face · Watchdog: Cloudflare</span>

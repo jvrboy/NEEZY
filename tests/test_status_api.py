@@ -42,6 +42,18 @@ class StatusApiTests(unittest.TestCase):
             )
         self.assertEqual(caught.exception.code, 405)
 
+    def test_research_catalog_is_read_only_and_advisory(self):
+        status, document = self.read("/api/capabilities")
+        self.assertEqual(status, 200)
+        self.assertTrue(document["advisory_only"])
+        self.assertEqual(len(document["engines"]), 4)
+        with self.assertRaises(urllib.error.HTTPError) as caught:
+            urllib.request.urlopen(
+                urllib.request.Request(self.base + "/api/capabilities", method="POST"),
+                timeout=3,
+            )
+        self.assertEqual(caught.exception.code, 405)
+
     def test_health_computes_heartbeat_age(self):
         self.state.heartbeat("ok", [])
         self.now += timedelta(seconds=12)

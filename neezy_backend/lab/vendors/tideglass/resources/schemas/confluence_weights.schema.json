@@ -1,0 +1,190 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tideglass.dev/schemas/confluence_weights.schema.json",
+  "title": "Confluence Compass regime weights",
+  "type": "object",
+  "required": [
+    "format",
+    "format_version",
+    "signal_order",
+    "regimes"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "format": {
+      "const": "tideglass.confluence_weights"
+    },
+    "format_version": {
+      "const": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "signal_order": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "EDI",
+          "FSCR",
+          "TDGZ",
+          "TIS",
+          "MDR",
+          "SRP"
+        ]
+      },
+      "minItems": 6,
+      "maxItems": 6
+    },
+    "regimes": {
+      "type": "object",
+      "required": [
+        "trend",
+        "breakout",
+        "range",
+        "chop"
+      ],
+      "properties": {
+        "trend": {
+          "type": "object",
+          "required": [
+            "weights",
+            "vbo_boost"
+          ],
+          "properties": {
+            "description": {
+              "type": "string"
+            },
+            "weights": {
+              "type": "object",
+              "required": [
+                "EDI",
+                "FSCR",
+                "TDGZ",
+                "TIS",
+                "MDR",
+                "SRP"
+              ],
+              "additionalProperties": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 10
+              }
+            },
+            "vbo_boost": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2
+            }
+          },
+          "additionalProperties": false
+        },
+        "breakout": {
+          "type": "object",
+          "required": [
+            "weights",
+            "vbo_boost"
+          ],
+          "properties": {
+            "description": {
+              "type": "string"
+            },
+            "weights": {
+              "type": "object",
+              "required": [
+                "EDI",
+                "FSCR",
+                "TDGZ",
+                "TIS",
+                "MDR",
+                "SRP"
+              ],
+              "additionalProperties": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 10
+              }
+            },
+            "vbo_boost": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2
+            }
+          },
+          "additionalProperties": false
+        },
+        "range": {
+          "type": "object",
+          "required": [
+            "weights",
+            "vbo_boost"
+          ],
+          "properties": {
+            "description": {
+              "type": "string"
+            },
+            "weights": {
+              "type": "object",
+              "required": [
+                "EDI",
+                "FSCR",
+                "TDGZ",
+                "TIS",
+                "MDR",
+                "SRP"
+              ],
+              "additionalProperties": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 10
+              }
+            },
+            "vbo_boost": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2
+            }
+          },
+          "additionalProperties": false
+        },
+        "chop": {
+          "type": "object",
+          "required": [
+            "weights",
+            "vbo_boost"
+          ],
+          "properties": {
+            "description": {
+              "type": "string"
+            },
+            "weights": {
+              "type": "object",
+              "required": [
+                "EDI",
+                "FSCR",
+                "TDGZ",
+                "TIS",
+                "MDR",
+                "SRP"
+              ],
+              "additionalProperties": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 10
+              }
+            },
+            "vbo_boost": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

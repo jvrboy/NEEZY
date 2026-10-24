@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tideglass.dev/schemas/indicator_output.schema.json",
+  "title": "Tideglass standard indicator output",
+  "type": "object",
+  "required": [
+    "format",
+    "format_version",
+    "suite_version",
+    "indicator",
+    "params",
+    "warmup",
+    "length",
+    "outputs"
+  ],
+  "properties": {
+    "format": {
+      "const": "tideglass.indicator_output"
+    },
+    "format_version": {
+      "const": 1
+    },
+    "suite_version": {
+      "type": "string"
+    },
+    "indicator": {
+      "enum": [
+        "EDI",
+        "VBO",
+        "FSCR",
+        "TDGZ",
+        "TIS",
+        "MDR",
+        "SRP",
+        "CC"
+      ]
+    },
+    "backend": {
+      "type": "string"
+    },
+    "params": {
+      "type": "object"
+    },
+    "warmup": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "length": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "outputs": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "labels": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        }
+      }
+    },
+    "text": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "symbol": {
+      "type": "string"
+    },
+    "granularity": {
+      "type": "integer"
+    },
+    "synthetic": {
+      "type": "boolean"
+    },
+    "epoch": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      }
+    }
+  },
+  "additionalProperties": false
+}

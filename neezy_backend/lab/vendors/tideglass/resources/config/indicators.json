@@ -1,0 +1,360 @@
+{
+  "$schema": "../schemas/indicators_config.schema.json",
+  "format": "tideglass.indicators",
+  "format_version": 1,
+  "suite_version": "1.0.0",
+  "indicators": {
+    "EDI": {
+      "name": "Elastic Displacement Index",
+      "version": "1.0.0",
+      "directional_output": "snap_back",
+      "params": {
+        "eq_len": {
+          "type": "integer",
+          "default": 34,
+          "min": 5,
+          "max": 200,
+          "description": "Bars used for the volatility-weighted centre and the efficiency ratio."
+        },
+        "fast_len": {
+          "type": "integer",
+          "default": 3,
+          "min": 2,
+          "max": 20,
+          "description": "Fastest equivalent smoothing length when efficiency is 1."
+        },
+        "ru_len": {
+          "type": "integer",
+          "default": 20,
+          "min": 5,
+          "max": 200,
+          "description": "Range-unit (mean true range) length used to normalise displacement."
+        },
+        "z_len": {
+          "type": "integer",
+          "default": 100,
+          "min": 20,
+          "max": 1000,
+          "description": "Bars in the RMS window that normalises displacement into stretch."
+        },
+        "exhaust": {
+          "type": "number",
+          "default": 2.5,
+          "min": 0.5,
+          "max": 6.0,
+          "description": "Absolute stretch at which a fading stretch is flagged as exhaustion."
+        }
+      }
+    },
+    "VBO": {
+      "name": "Volatility Breath Oscillator",
+      "version": "1.0.0",
+      "directional_output": null,
+      "params": {
+        "short": {
+          "type": "integer",
+          "default": 10,
+          "min": 3,
+          "max": 50,
+          "description": "Short realized-volatility window (bars)."
+        },
+        "mid": {
+          "type": "integer",
+          "default": 30,
+          "min": 10,
+          "max": 150,
+          "description": "Middle realized-volatility window (bars)."
+        },
+        "long": {
+          "type": "integer",
+          "default": 90,
+          "min": 30,
+          "max": 500,
+          "description": "Long realized-volatility window (bars)."
+        },
+        "w_short": {
+          "type": "number",
+          "default": 0.6,
+          "min": 0.0,
+          "max": 1.0,
+          "description": "Weight of the short/mid ratio in the breath value."
+        },
+        "band": {
+          "type": "number",
+          "default": 0.15,
+          "min": 0.01,
+          "max": 1.0,
+          "description": "Breath threshold separating inhale/hold/exhale."
+        },
+        "horizon": {
+          "type": "integer",
+          "default": 10,
+          "min": 1,
+          "max": 100,
+          "description": "Bars ahead that define 'expansion imminent'."
+        },
+        "hist": {
+          "type": "integer",
+          "default": 250,
+          "min": 50,
+          "max": 2000,
+          "description": "History searched for similar breath states."
+        },
+        "sim_tol": {
+          "type": "number",
+          "default": 0.2,
+          "min": 0.01,
+          "max": 2.0,
+          "description": "Max breath difference for a past bar to count as similar."
+        }
+      }
+    },
+    "FSCR": {
+      "name": "Fractal Slope Consensus Ribbon",
+      "version": "1.0.0",
+      "directional_output": "consensus",
+      "params": {
+        "scales": {
+          "type": "integer_array",
+          "default": [
+            5,
+            8,
+            13,
+            21,
+            34,
+            55
+          ],
+          "min": 3,
+          "max": 500,
+          "min_items": 2,
+          "max_items": 12,
+          "description": "Ascending slope scales in bars (geometric/Fibonacci spacing recommended)."
+        },
+        "ru_len": {
+          "type": "integer",
+          "default": 20,
+          "min": 5,
+          "max": 200,
+          "description": "Range-unit length used to normalise slopes."
+        },
+        "gain": {
+          "type": "number",
+          "default": 1.0,
+          "min": 0.1,
+          "max": 10.0,
+          "description": "Divisor applied before tanh; larger = votes saturate later."
+        },
+        "persist_thr": {
+          "type": "number",
+          "default": 0.3,
+          "min": 0.0,
+          "max": 1.0,
+          "description": "Consensus magnitude counted as an active trend for maturity."
+        },
+        "maturity_len": {
+          "type": "integer",
+          "default": 50,
+          "min": 5,
+          "max": 500,
+          "description": "Bars of persistent consensus that count as fully mature."
+        }
+      }
+    },
+    "TDGZ": {
+      "name": "Tick-Density Gravity Zones",
+      "version": "1.0.0",
+      "directional_output": "net_pull",
+      "params": {
+        "lookback": {
+          "type": "integer",
+          "default": 200,
+          "min": 30,
+          "max": 2000,
+          "description": "Bars used to build the density map."
+        },
+        "bins": {
+          "type": "integer",
+          "default": 48,
+          "min": 10,
+          "max": 400,
+          "description": "Number of price bins in the density map."
+        },
+        "half_life": {
+          "type": "number",
+          "default": 100.0,
+          "min": 5.0,
+          "max": 5000.0,
+          "description": "Age (bars) at which a bar's weight halves."
+        },
+        "ru_len": {
+          "type": "integer",
+          "default": 20,
+          "min": 5,
+          "max": 200,
+          "description": "Range-unit length used for distances."
+        },
+        "peak_min": {
+          "type": "number",
+          "default": 1.0,
+          "min": 0.0,
+          "max": 5.0,
+          "description": "Minimum peak density as a multiple of the mean density."
+        },
+        "min_bars": {
+          "type": "integer",
+          "default": 20,
+          "min": 5,
+          "max": 2000,
+          "description": "Minimum valid bars before a map is built."
+        }
+      }
+    },
+    "TIS": {
+      "name": "Trend Integrity Score",
+      "version": "1.0.0",
+      "directional_output": "direction*score/100",
+      "params": {
+        "length": {
+          "type": "integer",
+          "default": 40,
+          "min": 10,
+          "max": 500,
+          "description": "Bars evaluated."
+        },
+        "ru_len": {
+          "type": "integer",
+          "default": 20,
+          "min": 5,
+          "max": 200,
+          "description": "Range-unit length used to measure pullback depth."
+        },
+        "clean": {
+          "type": "number",
+          "default": 62.0,
+          "min": 0.0,
+          "max": 100.0,
+          "description": "Score at or above which the regime is a clean trend."
+        },
+        "dirty": {
+          "type": "number",
+          "default": 48.0,
+          "min": 0.0,
+          "max": 100.0,
+          "description": "Score at or above which the regime is a dirty trend."
+        },
+        "range_noise": {
+          "type": "number",
+          "default": 0.6,
+          "min": 0.0,
+          "max": 1.0,
+          "description": "Noise ratio below which a non-trend is a range rather than chop."
+        }
+      }
+    },
+    "MDR": {
+      "name": "Momentum Decay Radar",
+      "version": "1.0.0",
+      "directional_output": "signal",
+      "params": {
+        "roc_len": {
+          "type": "integer",
+          "default": 10,
+          "min": 2,
+          "max": 100,
+          "description": "Momentum look-back (bars) and the lag of its rate of change."
+        },
+        "smooth": {
+          "type": "integer",
+          "default": 5,
+          "min": 1,
+          "max": 50,
+          "description": "EMA length smoothing momentum and acceleration."
+        },
+        "hl_len": {
+          "type": "integer",
+          "default": 20,
+          "min": 5,
+          "max": 200,
+          "description": "Bars used for the momentum half-life fit."
+        },
+        "swing_mult": {
+          "type": "number",
+          "default": 2.0,
+          "min": 0.5,
+          "max": 10.0,
+          "description": "Zig-zag reversal threshold in range units."
+        },
+        "div_ratio": {
+          "type": "number",
+          "default": 0.8,
+          "min": 0.1,
+          "max": 1.0,
+          "description": "Energy ratio below which a new extreme is a divergence warning."
+        },
+        "ru_len": {
+          "type": "integer",
+          "default": 20,
+          "min": 5,
+          "max": 200,
+          "description": "Range-unit length."
+        }
+      }
+    },
+    "SRP": {
+      "name": "Session Rhythm Profile",
+      "version": "1.0.0",
+      "directional_output": "hour_bias",
+      "params": {
+        "learn_len": {
+          "type": "integer",
+          "default": 20,
+          "min": 5,
+          "max": 500,
+          "description": "Effective memory (observations per bucket) of the EW learner."
+        },
+        "min_obs": {
+          "type": "integer",
+          "default": 5,
+          "min": 1,
+          "max": 200,
+          "description": "Observations required in a bucket before it reports."
+        },
+        "anomaly_z": {
+          "type": "number",
+          "default": 2.0,
+          "min": 0.5,
+          "max": 6.0,
+          "description": "|z| at which the bar is flagged as a rhythm anomaly."
+        }
+      }
+    },
+    "CC": {
+      "name": "Confluence Compass",
+      "version": "1.0.0",
+      "directional_output": "score",
+      "params": {
+        "strength_ref": {
+          "type": "number",
+          "default": 0.5,
+          "min": 0.05,
+          "max": 1.0,
+          "description": "|score| treated as full strength in the confidence formula."
+        },
+        "srp_penalty": {
+          "type": "number",
+          "default": 0.15,
+          "min": 0.0,
+          "max": 1.0,
+          "description": "Confidence reduction when SRP flags a rhythm anomaly."
+        },
+        "min_contrib": {
+          "type": "number",
+          "default": 0.005,
+          "min": 0.0,
+          "max": 0.5,
+          "description": "Contributions below this are omitted from the reason string."
+        }
+      }
+    }
+  }
+}

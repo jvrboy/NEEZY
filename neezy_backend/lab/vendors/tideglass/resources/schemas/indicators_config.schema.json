@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tideglass.dev/schemas/indicators_config.schema.json",
+  "title": "Tideglass indicator configuration",
+  "type": "object",
+  "required": [
+    "format",
+    "format_version",
+    "suite_version",
+    "indicators"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "format": {
+      "const": "tideglass.indicators"
+    },
+    "format_version": {
+      "const": 1
+    },
+    "suite_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "indicators": {
+      "type": "object",
+      "required": [
+        "EDI",
+        "VBO",
+        "FSCR",
+        "TDGZ",
+        "TIS",
+        "MDR",
+        "SRP",
+        "CC"
+      ],
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "name",
+          "version",
+          "params"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+          },
+          "directional_output": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "required": [
+                "type",
+                "default",
+                "min",
+                "max",
+                "description"
+              ],
+              "properties": {
+                "type": {
+                  "enum": [
+                    "integer",
+                    "number",
+                    "integer_array"
+                  ]
+                },
+                "default": {},
+                "min": {
+                  "type": "number"
+                },
+                "max": {
+                  "type": "number"
+                },
+                "min_items": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "max_items": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

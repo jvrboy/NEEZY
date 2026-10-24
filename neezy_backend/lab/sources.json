@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "archives": [
+    {
+      "file": "FRAS-forex-indicator.zip",
+      "sha256": "f88411c45a36a5cc3143ad36d433154fd09cbae114610743567ca98a6ee6568d",
+      "bytes": 26473
+    },
+    {
+      "file": "TideForge-v1.1.0.zip",
+      "sha256": "780460d104f600224c9dfdcc1750271d9f0e9a26698a6bc02072f04b4c4579f9",
+      "bytes": 5986082
+    },
+    {
+      "file": "Tideglass-v1.0.0.zip",
+      "sha256": "faeb36976d3e4a6bcba3fc1edd39576859c6675ae72c1d797316e1e81cc356b5",
+      "bytes": 979548
+    },
+    {
+      "file": "forex-indicator-lab.zip",
+      "sha256": "61fbd200a9d7712547bcb01e405acdbfad2f87cc53867a930f616597a188a270",
+      "bytes": 26673
+    },
+    {
+      "file": "fxlab.zip",
+      "sha256": "687dffa94e8e05a1c234ee5c5148620d6bc65f04524067c03ba801f98968c65c",
+      "bytes": 154837
+    },
+    {
+      "file": "neezy_anim.py",
+      "sha256": "6752bf157bb2e61462b6646ae50da23a8e62eba51daee2a77f90e8bf59df8d01",
+      "bytes": 23721
+    },
+    {
+      "file": "neezy_animations.py",
+      "sha256": "151c7888814bbf0de90b24d935034acb8d11499a5171ae2e40f7dbaf3c5b3d8d",
+      "bytes": 16423
+    }
+  ],
+  "notes": {
+    "duplicates": "FRAS-forex-indicator and forex-indicator-lab have identical indicator source; imported once.",
+    "fxlab": "Portable Python translation of C++ EWPO, RCBI and VRB, without loading archive binaries.",
+    "tideforge": "MIT notice retained; core and indicators only.",
+    "tideglass": "User-supplied reference source and configuration; archive contains no standalone license.",
+    "safety": "Research-only; imports do not enable broker orders or network downloads."
+  }
+}

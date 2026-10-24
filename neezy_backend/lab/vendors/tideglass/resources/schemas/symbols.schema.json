@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tideglass.dev/schemas/symbols.schema.json",
+  "title": "Deriv symbols under test",
+  "type": "object",
+  "required": [
+    "format",
+    "format_version",
+    "symbols"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "format": {
+      "const": "tideglass.symbols"
+    },
+    "format_version": {
+      "const": 1
+    },
+    "notes": {
+      "type": "string"
+    },
+    "default_granularities": {
+      "type": "array",
+      "items": {
+        "enum": [
+          60,
+          300,
+          900,
+          1800,
+          3600,
+          14400,
+          86400
+        ]
+      }
+    },
+    "symbols": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "symbol",
+          "pip_size",
+          "spread_pips"
+        ],
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "pattern": "^frx[A-Z]{6}$"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "pip_size": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "price_decimals": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8
+          },
+          "spread_pips": {
+            "type": "number",
+            "minimum": 0
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "availability": {
+            "enum": [
+              "standard",
+              "conditional"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

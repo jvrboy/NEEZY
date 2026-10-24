@@ -152,6 +152,11 @@ class _StatusHandler(BaseHTTPRequestHandler):
         state: StatusState = self.server.state  # type: ignore[attr-defined]
         path = urlsplit(self.path).path
         snapshot = state.snapshot()
+        if path == "/api/capabilities":
+            from .lab.service import catalog
+
+            self._send(200, catalog())
+            return
         if path == "/api/status":
             self._send(200, snapshot)
             return
