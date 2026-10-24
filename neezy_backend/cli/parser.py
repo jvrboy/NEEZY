@@ -38,6 +38,7 @@ from .automation import cmd_agents, cmd_bots
 from .backtest import cmd_backtest, cmd_risk
 from .bot import cmd_bot
 from .btoken_cmd import cmd_btoken
+from .capabilities_cmd import cmd_capabilities
 from .chart import cmd_chart
 from .common import _symbol
 from .db import cmd_db, cmd_history
@@ -52,6 +53,7 @@ from .mt5 import cmd_mt5
 from .research import cmd_brain, cmd_datasets, cmd_knowledge, cmd_research, cmd_study
 from .settings_cmd import cmd_config
 from .ui_cmd import cmd_ui
+from .watchlist_cmd import cmd_watchlist
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -678,6 +680,26 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--json", action="store_true")
     a = cfg_actions.add_parser("import", help="import settings JSON from path")
     a.add_argument("path", help="input JSON path")
+    a.add_argument("--json", action="store_true")
+
+    # Capabilities snapshot (roadmap #32)
+    p = common(
+        sub.add_parser("capabilities", help="backend capability & version report"),
+        timeframe=False,
+    )
+    p.set_defaults(handler=cmd_capabilities)
+
+    # Watchlist import/export (roadmap #94)
+    p = sub.add_parser("watchlist", help="watchlist import/export")
+    p.set_defaults(handler=cmd_watchlist)
+    wl_actions = p.add_subparsers(dest="action", required=True)
+    a = wl_actions.add_parser("export", help="export watchlist to JSON file")
+    a.add_argument("--file", required=True, help="destination JSON path")
+    a.add_argument("--json", action="store_true")
+    a = wl_actions.add_parser("import", help="import watchlist from JSON file")
+    a.add_argument("--file", required=True, help="source JSON path")
+    a.add_argument("--json", action="store_true")
+    a = wl_actions.add_parser("show", help="show current watchlist")
     a.add_argument("--json", action="store_true")
 
     return parser

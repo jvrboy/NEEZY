@@ -216,3 +216,5 @@
 | `confluence_min_analogs` | `4` | Minimum analog matches for win rate | SETTINGS > Data Providers |
 | `active_settings_profile` | `'Default'` | Active workspace settings preset profile | SETTINGS > Profiles & Diagnostics |
 | `log_level` | `'INFO'` | Application diagnostic log verbosity (WARNING, INFO, DEBUG) | SETTINGS > Profiles & Diagnostics |
+| `config_version` | `1` | Internal config schema version (do not edit) | SETTINGS > Profiles & Diagnostics |
+| `dry_run` | `False` | Global dry-run lock: when on, no live order is ever sent | SETTINGS > Risk & Safety |

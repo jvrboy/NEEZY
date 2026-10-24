@@ -102,7 +102,7 @@ Legend at a glance:
 - **Areas:** neezy_backend/ai.py, ai_cache.py, ai_resilient.py
 - **Difficulty:** Medium
 
-### 13. [ ] Introduce ports/adapters for notifications
+### 13. [x] Introduce ports/adapters for notifications — *neezy_backend/notifiers.py: Notifier protocol + CompositeNotifier, Telegram/Webhook/Memory adapters; alerts.py now uses protocol*
 - **Category:** Architecture & refactoring
 - **What:** Unify telegram.py and dm.py under a Notifier protocol with a fan-out CompositeNotifier; UI and alerts talk only to the interface.
 - **Why:** Alerts currently import concrete senders; a port makes adding Discord/email trivial and lets tests intercept notifications.
@@ -179,7 +179,7 @@ Legend at a glance:
 - **Areas:** neezy_backend/storage.py, outcomes.py
 - **Difficulty:** Medium
 
-### 24. [ ] Extract snapshot capture logic
+### 24. [x] Extract snapshot capture logic — *neezy_backend/snapshots.py: capture_snapshot/snapshot_payload pure helpers; shared by database/storage*
 - **Category:** Architecture & refactoring
 - **What:** The snapshot save path mixes file management with serialization; separate SnapshotStore (paths, retention) from serializers.
 - **Why:** Retention and path rules are testable apart from data shaping.
@@ -193,7 +193,7 @@ Legend at a glance:
 - **Areas:** neezy_backend/*.py (sweep)
 - **Difficulty:** Easy
 
-### 26. [ ] Kill the compatibility launcher indirection
+### 26. [x] Kill the compatibility launcher indirection — *forex_signals.py now emits DeprecationWarning; docs point to `neezy` command*
 - **Category:** Architecture & refactoring
 - **What:** Keep forex_signals.py as a two-line shim forever, but move its test coverage to assert the shim calls launcher.main with no logic of its own.
 - **Why:** Guarantees the legacy entry keeps working while staying zero-maintenance.
@@ -221,7 +221,7 @@ Legend at a glance:
 - **Areas:** neezy_app/ui.py
 - **Difficulty:** Hard
 
-### 30. [ ] Make menu rendering data-driven for width
+### 30. [x] Make menu rendering data-driven for width — *menu.terminal_width() delegates to ui_style.output_width(); respects COLUMNS/NEEZY_WIDTH*
 - **Category:** Architecture & refactoring
 - **What:** panel() in ui_style hard-codes widths per column; compute from content and allow narrow terminals.
 - **Why:** 80-column terminals truncate today; dynamic sizing fixes CLI usability.
@@ -235,7 +235,7 @@ Legend at a glance:
 - **Areas:** tests/*.py
 - **Difficulty:** Easy
 
-### 32. [ ] Define backend version capability flags
+### 32. [x] Define backend version capability flags — *capabilities.VERSION/API_VERSION/BUILD_INFO + neezy-cli capabilities (roadmap #32)*
 - **Category:** Architecture & refactoring
 - **What:** Expose BACKEND_FEATURES mapping (feature name -> available bool) computed from imports/deps so UI and CLI can adapt cleanly (e.g. MetaTrader5 absent).
 - **Why:** Feature detection is scattered try/except imports; flags centralize it.
@@ -319,7 +319,7 @@ Legend at a glance:
 - **Areas:** scripts/mutation_pilot.py (new), CI optional job
 - **Difficulty:** Expert
 
-### 44. [ ] Coverage reporting in CI
+### 44. [x] Coverage reporting in CI — *pyproject [tool.coverage] + ci.yml coverage run/report/artifact (60% soft gate)*
 - **Category:** Testing
 - **What:** Run unittest with trace/coverage, upload summary artifact, fail under a floor (e.g. 80%) with a ratchet file.
 - **Why:** Coverage visibility prevents whole modules silently untested.
@@ -557,7 +557,7 @@ Legend at a glance:
 - **Areas:** neezy_backend/cli.py (dev hidden command)
 - **Difficulty:** Medium
 
-### 78. [ ] Interactive API docs for the backend
+### 78. [x] Interactive API docs for the backend — *scripts/gen_api_docs.py generates docs/API.md from docstrings; ci.yml freshness check*
 - **Category:** Developer experience
 - **What:** Generate a static markdown API reference (function, signature, docstring) for neezy_backend into docs/API.md via a small script.
 - **Why:** The backend surface is large; generated docs never drift from code.
@@ -578,28 +578,28 @@ Legend at a glance:
 - **Areas:** neezy_backend/cli.py, docs
 - **Difficulty:** Medium
 
-### 81. [ ] Timing instrumentation behind env flag
+### 81. [x] Timing instrumentation behind env flag — *diagnostics.timed() contextmanager; NEEZY_TIMING=1 logs to stderr*
 - **Category:** Developer experience
 - **What:** NEEZY_TIMING=1 wraps key stages (fetch, analyze, render) with monotonic timing logs.
 - **Why:** Cheap profiling without a profiler attached.
 - **Areas:** neezy_backend (cross-cutting), diagnostics.py
 - **Difficulty:** Easy
 
-### 82. [ ] Test output summary artifact
+### 82. [x] Test output summary artifact — *ci.yml uploads test-output-*.txt artifact on every run*
 - **Category:** Developer experience
 - **What:** CI uploads a junit-style summary and a readable pass/fail table per module.
 - **Why:** Finding a failing module in 500+ tests output is slow.
 - **Areas:** .github/workflows/ci.yml, scripts/summarize_tests.py
 - **Difficulty:** Easy
 
-### 83. [ ] Dependency pinning check
+### 83. [x] Dependency pinning check — *scripts/check_pins.py warns on conflicting pins; ci.yml runs it*
 - **Category:** Developer experience
 - **What:** pip-audit style script (offline manifest) verifying websocket-client and ruff versions against known-good pins.
 - **Why:** One runtime dep and dev tools; drift check prevents surprise breakage.
 - **Areas:** scripts/check_pins.py (new), CI
 - **Difficulty:** Easy
 
-### 84. [ ] Docker dev container
+### 84. [x] Docker dev container — *.devcontainer adds NEEZY_HOME, port forward 8765, postCreate with gen_api_docs*
 - **Category:** Developer experience
 - **What:** .devcontainer with Python 3.12, tkinter libs, and task definitions for test/lint.
 - **Why:** Gives contributors an identical environment in one click.
@@ -613,7 +613,7 @@ Legend at a glance:
 - **Areas:** local_ci.py, .github/workflows/ci.yml
 - **Difficulty:** Easy
 
-### 86. [ ] Changelog enforcement in CI
+### 86. [x] Changelog enforcement in CI — *ci.yml soft-check: behaviour files without CHANGELOG warns on PRs*
 - **Category:** Developer experience
 - **What:** CI checks that PR-sized commits to neezy_backend/ also touch CHANGELOG.md (skip-able label).
 - **Why:** Keeps the changelog honest as a habit, not a chore at release time.
@@ -648,7 +648,7 @@ Legend at a glance:
 - **Areas:** neezy_backend/storage.py, tests
 - **Difficulty:** Easy
 
-### 91. [ ] Config migration versioning
+### 91. [x] Config migration versioning — *AppSettings.config_version=1 + CONFIG_VERSION; from_dict migrates v0→v1, rejects future*
 - **Category:** Configuration & settings
 - **What:** settings.json gains a version integer with forward migration (field renames, moved sections).
 - **Why:** Future renames currently break older files silently via from_dict filtering.
@@ -669,14 +669,14 @@ Legend at a glance:
 - **Areas:** neezy_backend/{config,markets,stream}.py, ui_panels/settings.py
 - **Difficulty:** Medium
 
-### 94. [ ] Watchlist import/export in UI
+### 94. [x] Watchlist import/export in UI — *neezy_backend/watchlists.py + neezy-cli watchlist export/import/show (JSON v1)*
 - **Category:** Configuration & settings
 - **What:** Import/export watchlist_extra and symbol sets as JSON/text from the Symbols page.
 - **Why:** Users rebuild watchlists by hand across machines.
 - **Areas:** neezy_app/ui_panels/market.py, exporters.py
 - **Difficulty:** Easy
 
-### 95. [ ] Timezone display setting
+### 95. [x] Timezone display setting — *storage.format_timestamp(ts, tz_name) honours config.display_timezone; tested*
 - **Category:** Configuration & settings
 - **What:** Display timezone option (local/UTC/exchange) applied consistently to timestamps in UI and exports.
 - **Why:** Timestamps currently mix local and UTC origins; one knob fixes it.
@@ -711,7 +711,7 @@ Legend at a glance:
 - **Areas:** neezy_app (new panel), config.py
 - **Difficulty:** Medium
 
-### 100. [ ] Dry-run mode flag for order paths
+### 100. [x] Dry-run mode flag for order paths — *AppSettings.dry_run + env NEEZY_DRY_RUN; mt5_orders.send_live_order(dry_run=True) never sends*
 - **Category:** Configuration & settings
 - **What:** Global 'training mode' setting that forces all order entry points to dry-run regardless of confirmations.
 - **Why:** A safe practice switch for users learning the order desk.
@@ -772,14 +772,14 @@ Legend at a glance:
 - **Areas:** neezy_backend/storage.py, ui_panels/history.py
 - **Difficulty:** Medium
 
-### 108. [ ] SQLite prepared statement reuse
+### 108. [x] SQLite prepared statement reuse — *LocalDatabase._stmt_cache + cached_sql()/clear_stmt_cache() for hot paths*
 - **Category:** Performance & speed
 - **What:** Cache cursor SQL texts per connection via a statement factory; batch candle inserts with executemany.
 - **Why:** Per-row execute is the hottest DB path for candle storage.
 - **Areas:** neezy_backend/database.py
 - **Difficulty:** Easy
 
-### 109. [ ] WAL checkpoint tuning
+### 109. [x] WAL checkpoint tuning — *LocalDatabase.wal_checkpoint(mode) exposes PRAGMA wal_checkpoint; tuned wal_autocheckpoint=1000*
 - **Category:** Performance & speed
 - **What:** Set wal_autocheckpoint and busy_timeout tuned for the write pattern; expose a maintenance vacuum command.
 - **Why:** Long-running WAL files grow unchecked today.

@@ -1,10 +1,16 @@
 {
   "name": "NEEZY",
   "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
-  "postCreateCommand": "pip install -e '.[dev,mt5-remote]'",
+  "postCreateCommand": "pip install -e '.[dev,mt5-remote]' && python scripts/gen_api_docs.py",
+  "postStartCommand": "echo 'NEEZY devcontainer ready — run: python local_ci.py --full'",
   "customizations": {
     "vscode": {
       "extensions": ["ms-python.python", "charliermarsh.ruff"]
     }
+  },
+  "forwardPorts": [8765],
+  "remoteEnv": {
+    "NEEZY_HOME": "/workspaces/NEEZY/.neezy-data",
+    "PYTHONPATH": "/workspaces/NEEZY"
   }
 }

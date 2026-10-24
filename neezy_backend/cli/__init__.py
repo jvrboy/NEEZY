@@ -59,6 +59,7 @@ from .automation import cmd_agents, cmd_bots
 from .backtest import cmd_backtest, cmd_risk
 from .bot import cmd_bot
 from .btoken_cmd import cmd_btoken
+from .capabilities_cmd import cmd_capabilities
 from .chart import cmd_chart
 from .common import (
     _closed,
@@ -90,6 +91,7 @@ from .research import (
 )
 from .settings_cmd import cmd_config
 from .ui_cmd import cmd_ui
+from .watchlist_cmd import cmd_watchlist
 
 Fetcher = Callable[[str, int, int], list[tuple[int, float, float, float, float]]]
 
@@ -121,6 +123,7 @@ __all__ = [
     "cmd_bots",
     "cmd_brain",
     "cmd_btoken",
+    "cmd_capabilities",
     "cmd_chart",
     "cmd_config",
     "cmd_corrdiv",
@@ -150,6 +153,7 @@ __all__ = [
     "cmd_study",
     "cmd_supertrend",
     "cmd_ui",
+    "cmd_watchlist",
     "fetch_candles",
     "fetch_history",
     "main",

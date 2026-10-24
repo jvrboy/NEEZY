@@ -654,6 +654,14 @@ DESCRIPTIONS: dict[str, tuple[str, str]] = {
         "Application diagnostic log verbosity (WARNING, INFO, DEBUG)",
         "SETTINGS > Profiles & Diagnostics",
     ),
+    "config_version": (
+        "Internal config schema version (do not edit)",
+        "SETTINGS > Profiles & Diagnostics",
+    ),
+    "dry_run": (
+        "Global dry-run lock: when on, no live order is ever sent",
+        "SETTINGS > Risk & Safety",
+    ),
 }
 
 HEADER = """# Settings reference

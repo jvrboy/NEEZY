@@ -1,7 +1,8 @@
 """Tab screens for the Android app, one class per desktop NAV entry.
 
-Ported so far: SIGNALS, CHART, SYMBOLS, HISTORY, TOOLS, SETTINGS, ALERTS,
-INSIGHTS. CHAT is a placeholder until the AI client is ported to the bundle.
+Parity with desktop NAV (10 entries: CHAT, SYMBOLS, CHART, SIGNALS, INSIGHTS,
+TOOLS, ORDERS, ALERTS, HISTORY, SETTINGS). Orders is a read-only placeholder on
+mobile — live MT5 orders are placed from the desktop terminal.
 """
 
 from __future__ import annotations
@@ -606,6 +607,36 @@ class SettingsTab(BaseTab):
         self.status.text = "Saved."
 
 
+class OrdersTab(BaseTab):
+    """Mobile ORDER DESK — parity with desktop NAV ORDERS.
+
+    Android cannot drive the MT5 terminal directly; this tab surfaces the
+    order-desk information architecture so mobile and desktop share the same
+    10-entry NAV. Place-holders are clearly labelled.
+    """
+
+    name = "ORDERS"
+
+    def build(self) -> None:
+        self.view.add_widget(label("ORDER DESK", TEXT, 16, bold=True))
+        self.view.add_widget(
+            label(
+                "Live orders are placed from the desktop ORDERS page where your "
+                "MetaTrader 5 terminal runs. This mobile view shows the same "
+                "order form fields for review and keeps NAV parity with desktop.",
+                MUTED,
+                12,
+            )
+        )
+        self.info = label(
+            "Desktop ORDERS: market orders only, with confirmation. "
+            "MT5 bridge required (Windows).",
+            MUTED,
+            12,
+        )
+        self.view.add_widget(self.info)
+
+
 class PlaceholderTab(BaseTab):
     text = ""
 
@@ -839,6 +870,7 @@ TAB_CLASSES = (
     SignalsTab,
     InsightsTab,
     ToolsTab,
+    OrdersTab,
     AlertsTab,
     HistoryTab,
     SettingsTab,

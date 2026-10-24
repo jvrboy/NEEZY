@@ -56,6 +56,8 @@ CSV_DELIMITERS = frozenset({"comma", "semicolon", "tab"})
 MT5_FILLING_MODES = frozenset({"Auto", "IOC", "FOK", "RETURN"})
 DM_WEBHOOK_FORMATS = frozenset({"auto", "discord", "slack", "generic"})
 LOG_LEVELS = frozenset({"WARNING", "INFO", "DEBUG"})
+CONFIG_VERSION = 1
+
 SETTINGS_PROFILE_NAMES = (
     "Default",
     "Conservative Prop",
@@ -363,6 +365,12 @@ class AppSettings:
     active_settings_profile: str = "Default"
     log_level: str = "INFO"
 
+    # Config migration version (roadmap #91)
+    config_version: int = CONFIG_VERSION
+
+    # Global dry-run: when true, no live order is ever sent (roadmap #100)
+    dry_run: bool = False
+
     def __post_init__(self) -> None:
         for field_name, low, high in (
             ("ui_scale_percent", 75, 200),
@@ -540,6 +548,7 @@ class AppSettings:
             "dm_notify_signals",
             "dm_notify_alerts",
             "order_dry_run_mode",
+            "dry_run",
             "require_stop_loss_on_live_orders",
             "pre_trade_checklist_enabled",
             "provider_cache_enabled",
@@ -547,6 +556,7 @@ class AppSettings:
             "confluence_mtf_confirmation",
         ):
             _require_bool(field_name, getattr(self, field_name))
+        _require_int("config_version", self.config_version, 1, 1)
 
         for field_name, allowed in (
             ("theme", THEMES),
@@ -677,9 +687,25 @@ class AppSettings:
 
     @classmethod
     def from_dict(cls, values: dict[str, Any]) -> AppSettings:
-        """Load known fields only, making older config files forward compatible."""
-        allowed = cls.__dataclass_fields__.keys()
-        return cls(**{key: value for key, value in values.items() if key in allowed})
+        """Load known fields only, making older config files forward compatible.
+
+        Handles config_version migrations: unknown future versions raise
+        ``ValueError`` so operators know to upgrade code first.
+        """
+        allowed = set(cls.__dataclass_fields__.keys())
+        # v0 configs (pre-1.8.0) had no config_version; stamp v1 silently
+        if "config_version" not in values:
+            values = dict(values)
+            values["config_version"] = CONFIG_VERSION
+        else:
+            cv = values.get("config_version")
+            if isinstance(cv, int) and cv > CONFIG_VERSION:
+                raise ValueError(
+                    f"Config version {cv} newer than code supports "
+                    f"({CONFIG_VERSION}); update NEEZY to open this config"
+                )
+        filtered = {k: v for k, v in values.items() if k in allowed}
+        return cls(**filtered)
 
     def apply_profile(self, profile_name: str) -> AppSettings:
         return apply_profile(self, profile_name)

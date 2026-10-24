@@ -127,6 +127,9 @@ class LocalDatabase:
             self.path, check_same_thread=False, timeout=10.0
         )
         self._connection.row_factory = sqlite3.Row
+        # Roadmap #108: light SQL-string cache so hot candle queries reuse
+        # the same string object instead of rebuilding it per call.
+        self._stmt_cache: dict[str, str] = {}
         with self._lock:
             self._connection.execute("PRAGMA journal_mode=WAL")
             self._connection.execute("PRAGMA synchronous=NORMAL")
@@ -423,6 +426,30 @@ class LocalDatabase:
             "store_candles": self.store_candles,
             "journal_mode": self._journal_mode(),
         }
+
+    def cached_sql(self, sql: str) -> str:
+        """Return a cached SQL string (roadmap #108): same object on repeat."""
+        cached = self._stmt_cache.get(sql)
+        if cached is None:
+            self._stmt_cache[sql] = sql
+            return sql
+        return cached
+
+    def clear_stmt_cache(self) -> None:
+        self._stmt_cache.clear()
+
+    def wal_checkpoint(self, mode: str = "TRUNCATE") -> int:
+        """Run a WAL checkpoint (roadmap #109)."""
+        allowed = {"PASSIVE", "FULL", "RESTART", "TRUNCATE"}
+        if mode.upper() not in allowed:
+            raise ValueError(
+                f"Unknown checkpoint mode {mode!r}; choose from {', '.join(sorted(allowed))}"  # noqa: E501
+            )
+        with self._lock:
+            row = self._connection.execute(
+                f"PRAGMA wal_checkpoint({mode.upper()})"
+            ).fetchone()
+        return int(row[0]) if row else 0
 
     def _journal_mode(self) -> str:
         with self._lock:
