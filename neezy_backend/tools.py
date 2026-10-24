@@ -723,5 +723,99 @@ def register_default_tools(registry: ToolRegistry = DEFAULT_REGISTRY) -> None:
         permission=ToolPermission.READ_ONLY,
     )
 
+    # ----- Batch 8: reasoning, neural v2, orchestrator, fusion, metrics -----
+
+    def tool_reasoning(query: str, strategy: str = "cot") -> str:
+        from neezy_backend.config import AppSettings as Cfg
+        from neezy_backend.reasoning import ReasoningEngine
+
+        cfg = (
+            Cfg(reasoning_strategy=strategy)
+            if strategy in ("cot", "tot", "react", "reflection", "debate", "ensemble")
+            else Cfg()
+        )
+        trace = ReasoningEngine(cfg).think(query)
+        return trace.summary() + "\n" + trace.final_answer
+
+    def tool_neural_v2_list() -> str:
+        from neezy_backend.neural_v2 import ARCH_V2, V2_INFO
+
+        return "\n".join(f"{k}: {V2_INFO[k]['note']}" for k in ARCH_V2)
+
+    def tool_neuro_search(trials: int = 5) -> str:
+        from neezy_backend.neuro_search import neuro_evolution_search
+
+        res = neuro_evolution_search([], trials=_bounded(trials, 1, 20))
+        return f"best {res.best_arch} score={res.best_score} params={res.best_params}"
+
+    def tool_fusion_demo() -> str:
+        from neezy_backend.signal_fusion import (
+            detect_anomalies,
+            explain_score,
+            fuse_signals,
+        )
+
+        demo = [
+            {"source": "trend", "score": 1.2, "confidence": 0.7},
+            {"source": "momentum", "score": -0.4, "confidence": 0.6},
+        ]
+        fused = fuse_signals(demo)
+        expl = explain_score({s["source"]: s["score"] for s in demo})
+        anoms = detect_anomalies([1, 1.1, 0.9, 10.0])
+        return f"fused={fused} top={expl['top_driver']} anomalies={anoms}"
+
+    def tool_orchestrator_demo() -> str:
+        from neezy_backend.orchestrator import Orchestrator, Task
+
+        orch = Orchestrator()
+        orch.add_task(Task(id="a", name="fetch"))
+        orch.add_task(Task(id="b", name="analyse", depends_on=["a"]))
+        res = orch.run({})
+        return f"orchestrator: {orch.summary(res)}"
+
+    def tool_metrics_demo() -> str:
+        from neezy_backend.metrics_tracing import MetricsStore
+
+        m = MetricsStore()
+        m.record("latency", 42.0)
+        return f"metrics: {m.summary()} health={m.health()['status']}"
+
+    registry.register(
+        "reasoning",
+        "Run reasoning engine (CoT/ToT/ReAct) on a query.",
+        tool_reasoning,
+        permission=ToolPermission.READ_ONLY,
+    )
+    registry.register(
+        "neural_v2_list",
+        "List neural v2 architectures.",
+        tool_neural_v2_list,
+        permission=ToolPermission.READ_ONLY,
+    )
+    registry.register(
+        "neuro_search",
+        "Run neuro-evolution search demo.",
+        tool_neuro_search,
+        permission=ToolPermission.READ_ONLY,
+    )
+    registry.register(
+        "fusion_demo",
+        "Demo signal fusion & anomaly detection.",
+        tool_fusion_demo,
+        permission=ToolPermission.READ_ONLY,
+    )
+    registry.register(
+        "orchestrator_demo",
+        "Run a demo orchestrator DAG.",
+        tool_orchestrator_demo,
+        permission=ToolPermission.READ_ONLY,
+    )
+    registry.register(
+        "metrics_demo",
+        "Demo metrics & tracing store.",
+        tool_metrics_demo,
+        permission=ToolPermission.READ_ONLY,
+    )
+
 
 register_default_tools()

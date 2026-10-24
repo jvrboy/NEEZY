@@ -729,6 +729,95 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("-t", "--timeframe", choices=TIMEFRAMES, default="5m")
     a.add_argument("--json", action="store_true")
 
+    # Batch 8: reasoning & thinking
+    from .neuro_v2_cli import cmd_neuro_v2
+    from .orchestrator_cli import cmd_fusion, cmd_metrics, cmd_orchestrator
+    from .reasoning_cli import cmd_reasoning
+    from .scheduler_cli import cmd_queue, cmd_scheduler
+
+    p = sub.add_parser("reasoning", help="chain-of-thought, ToT, ReAct, debate")
+    p.set_defaults(handler=cmd_reasoning)
+    r_actions = p.add_subparsers(dest="action", required=True)
+    for act in ("think", "cot", "tot", "react", "reflect", "debate"):
+        a = r_actions.add_parser(act, help=f"{act} reasoning")
+        a.add_argument("query", help="question to reason about")
+        a.add_argument("--context", default="")
+        a.add_argument("--depth", type=int, default=3)
+        a.add_argument("--strategy-opt")
+        a.add_argument(
+            "--mode", choices=["fast", "deep", "reflective", "adversarial", "debate"]
+        )
+        a.add_argument("--json", action="store_true")
+
+    p = sub.add_parser("neuro-v2", help="TCN/diffusion/meta/hyper-search/evolution")
+    p.set_defaults(handler=cmd_neuro_v2)
+    nv = p.add_subparsers(dest="action", required=True)
+    a = nv.add_parser("list", help="list v2 architectures")
+    a.add_argument("--json", action="store_true")
+    a = nv.add_parser("search", help="evolution search demo")
+    a.add_argument("--trials", type=int, default=8)
+    a.add_argument("--json", action="store_true")
+    a = nv.add_parser("train", help="train a v2 arch on synthetic candles")
+    a.add_argument(
+        "--arch",
+        default="neezy_tcn_v2",
+        choices=[
+            "neezy_tcn_v2",
+            "neezy_diffusion_lite_v1",
+            "neezy_meta_learner_v1",
+            "neezy_hyper_search_v1",
+            "neezy_transformer_v2",
+        ],
+    )
+    a.add_argument("--json", action="store_true")
+
+    p = sub.add_parser("scheduler", help="advanced job scheduler")
+    p.set_defaults(handler=cmd_scheduler)
+    sc = p.add_subparsers(dest="action", required=True)
+    a = sc.add_parser("list", help="list jobs")
+    a.add_argument("--json", action="store_true")
+    a = sc.add_parser("add", help="add a demo job")
+    a.add_argument("name")
+    a.add_argument("--interval", type=int, default=60)
+    a.add_argument("--json", action="store_true")
+    a = sc.add_parser("tick", help="tick due jobs")
+    a.add_argument("--json", action="store_true")
+
+    p = sub.add_parser("queue", help="priority job queue")
+    p.set_defaults(handler=cmd_queue)
+    qc = p.add_subparsers(dest="action", required=True)
+    a = qc.add_parser("stats", help="queue stats")
+    a.add_argument("--json", action="store_true")
+    a = qc.add_parser("enqueue", help="enqueue a job")
+    a.add_argument("name")
+    a.add_argument("--priority", type=int, default=5)
+    a.add_argument("--json", action="store_true")
+    a = qc.add_parser("drain", help="drain pending")
+    a.add_argument("--limit", type=int, default=5)
+    a.add_argument("--json", action="store_true")
+
+    p = sub.add_parser("orchestrator", help="DAG orchestrator for pipelines")
+    p.set_defaults(handler=cmd_orchestrator)
+    oc = p.add_subparsers(dest="action", required=True)
+    a = oc.add_parser("demo", help="run a demo DAG")
+    a.add_argument("--json", action="store_true")
+
+    p = sub.add_parser("fusion", help="signal fusion & anomaly detection")
+    p.set_defaults(handler=cmd_fusion)
+    p.add_argument("--json", action="store_true")
+
+    p = sub.add_parser("metrics", help="metrics & tracing store")
+    p.set_defaults(handler=cmd_metrics)
+    p.add_argument("--json", action="store_true")
+
+    p = sub.add_parser("dashboard", help="backend dashboard overview")
+    from .dashboard import cmd_dashboard
+
+    p.set_defaults(handler=cmd_dashboard)
+    d_actions = p.add_subparsers(dest="action", required=True)
+    a = d_actions.add_parser("show", help="show dashboard")
+    a.add_argument("--json", action="store_true")
+
     # Watchlist import/export (roadmap #94)
     p = sub.add_parser("watchlist", help="watchlist import/export")
     p.set_defaults(handler=cmd_watchlist)

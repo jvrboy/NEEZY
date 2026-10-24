@@ -750,6 +750,85 @@ DESCRIPTIONS: dict[str, tuple[str, str]] = {
         "Early-stopping patience in epochs 1-100",
         "SETTINGS > Neural > Advanced",
     ),
+    # Batch 8: extended neural v2 + neuro-search + reasoning + orchestrator + metrics
+    "neuro_evolution_enabled": (
+        "Enable neuro-evolution architecture search",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "neuro_search_trials": (
+        "Trials for neuro-evolution search (1-200)",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "neuro_search_timeout_seconds": (
+        "Timeout for neuro search in seconds (10-3600)",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "temporal_conv_enabled": (
+        "Enable temporal-conv neural model",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "diffusion_lite_enabled": (
+        "Enable diffusion-lite generative model",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "meta_learner_enabled": (
+        "Enable meta-learner stacking",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "reasoning_enabled": (
+        "Enable reasoning engine (CoT/ToT/ReAct)",
+        "SETTINGS > Reasoning",
+    ),
+    "reasoning_strategy": (
+        "Reasoning strategy: cot, tot, react, reflection, ensemble, debate",
+        "SETTINGS > Reasoning",
+    ),
+    "thinking_mode": (
+        "Thinking mode: fast, deep, reflective, adversarial, debate",
+        "SETTINGS > Reasoning",
+    ),
+    "reasoning_depth": ("Reasoning depth steps (1-10)", "SETTINGS > Reasoning"),
+    "chain_of_thought_enabled": (
+        "Enable chain-of-thought traces",
+        "SETTINGS > Reasoning",
+    ),
+    "tree_search_branch_factor": (
+        "Branch factor for tree-of-thought (1-10)",
+        "SETTINGS > Reasoning",
+    ),
+    "reflection_enabled": (
+        "Enable reflective self-critique step",
+        "SETTINGS > Reasoning",
+    ),
+    "autonomous_mode_enabled": ("Enable autonomous agent mode", "SETTINGS > Reasoning"),
+    "debate_rounds": ("Rounds for debate reasoning (1-10)", "SETTINGS > Reasoning"),
+    "scheduler_enabled": ("Enable background job scheduler", "SETTINGS > Scheduler"),
+    "scheduler_tick_seconds": (
+        "Scheduler tick interval seconds (5-86400)",
+        "SETTINGS > Scheduler",
+    ),
+    "scheduler_policy": (
+        "Scheduler policy: fixed, cron, exponential_backoff",
+        "SETTINGS > Scheduler",
+    ),
+    "queue_max_size": ("Max queued jobs (10-100000)", "SETTINGS > Scheduler"),
+    "queue_retry_limit": ("Queue retry limit (0-10)", "SETTINGS > Scheduler"),
+    "queue_backoff_base_seconds": (
+        "Queue backoff base seconds (1.0-60.0)",
+        "SETTINGS > Scheduler",
+    ),
+    "orchestrator_enabled": ("Enable DAG orchestrator", "SETTINGS > Scheduler"),
+    "orchestrator_max_parallel": (
+        "Max parallel orchestrator tasks (1-32)",
+        "SETTINGS > Scheduler",
+    ),
+    "metrics_retention_days": ("Metrics retention days (1-365)", "SETTINGS > Metrics"),
+    "tracing_enabled": ("Enable distributed tracing", "SETTINGS > Metrics"),
+    "tracing_sample_rate": ("Tracing sample rate 0.0-1.0", "SETTINGS > Metrics"),
+    "health_check_interval_seconds": (
+        "Health check interval seconds (5-3600)",
+        "SETTINGS > Metrics",
+    ),
 }
 
 HEADER = """# Settings reference

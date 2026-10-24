@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## [Unreleased] — 2026-10-24 Batch 8: Reasoning, Neural v2, Scheduler, Orchestrator, Fusion
+
+### Added
+- `neezy_backend/config.py` (Batch 8): 26 new fields — `neuro_evolution_enabled`, `neuro_search_trials/timeout`, `temporal_conv/diffusion_lite/meta_learner_enabled`, `reasoning_enabled/strategy/mode/depth`, `chain_of_thought/tree_search_branch_factor/reflection/autonomous/debate_rounds`, `scheduler_enabled/tick_seconds/policy`, `queue_max_size/retry_limit/backoff`, `orchestrator_enabled/max_parallel`, `metrics_retention/tracing_enabled/sample_rate/health_check_interval`; validation for all enums/ints/floats.
+- `neezy_backend/reasoning.py` (advanced reasoning): `ReasoningTrace`, `ThoughtStep`, `ReasoningEngine` with CoT, ToT (branch factor), ReAct, reflective, debate, ensemble; deterministic scoring, trace_id, confidence aggregation.
+- `neezy_backend/neural_v2.py` (neural v2): `ARCH_V2` 5 architectures — `neezy_tcn_v2`, `neezy_diffusion_lite_v1`, `neezy_meta_learner_v1` (stacked), `neezy_hyper_search_v1` (random search), `neezy_transformer_v2`; `hyper_search()`/`train_v2()` dispatch.
+- `neezy_backend/neuro_search.py` (neuro evolution): deterministic evolution-lite search over all neural ids with trial history `SearchResult`.
+- `neezy_backend/scheduler.py` + `neezy_backend/job_queue.py` (advanced backend): `Scheduler` (fixed/cron/backoff, next_run_at, tick), `JobQueue` (priority heap, retry, dead-letter, stats).
+- `neezy_backend/metrics_tracing.py` (advanced capabilities): `MetricsStore` with retention, `Span` tracing, health checks; sample-rate aware.
+- `neezy_backend/orchestrator.py` (advanced backend): DAG executor `Orchestrator` with `Task` dependencies, topological ordering, cycle detection, parallel groups, `RunResult`/`summary`.
+- `neezy_backend/signal_fusion.py` (tools & features): `fuse_signals()` weighted fusion, `detect_anomalies()` z-score, `explain_score()` ranked contributors, `isolation_score()`.
+- `neezy_backend/cli/` (advanced commands + UI): `reasoning` (think/cot/tot/react/reflect/debate + --json), `neuro-v2` (list/search/train), `scheduler` (list/add/tick), `queue` (stats/enqueue/drain), `orchestrator` (demo), `fusion`, `metrics`, `dashboard` (show --json) — 7 new CLI groups, 18 backend features now advertised in `capabilities`.
+- `neezy_backend/tools.py` (tools registry): 6 Batch-8 tools — `reasoning`, `neural_v2_list`, `neuro_search`, `fusion_demo`, `orchestrator_demo`, `metrics_demo`.
+- `docs/SETTINGS.md` regenerated: 266 fields; `docs/API.md` 149 modules; `capabilities` extended with 8 new flags.
+
+### Changed
+- `neezy_backend/config.py` `REASONING_STRATEGIES` now includes `debate`; `NEURAL_ARCHITECTURES` adds `temporal_conv_v2`, `diffusion_lite_v1`, `meta_learner_v1`, `hyper_search_v1`.
+
 ## [Unreleased] — 2026-10-24 Batch 7: Appearance & Advanced Backend & Neural
 
 ### Added

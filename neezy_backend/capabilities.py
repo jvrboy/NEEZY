@@ -77,6 +77,15 @@ BACKEND_FEATURES: dict[str, bool] = {
     "notifiers": True,
     "watchlist_io": True,
     "snapshots": True,
+    "reasoning_engine": True,
+    "neural_v2": True,
+    "neuro_search": True,
+    "scheduler": True,
+    "job_queue": True,
+    "metrics_tracing": True,
+    "orchestrator": True,
+    "signal_fusion": True,
+    "dashboard": True,
 }
 
 CAPABILITY_FLAGS: dict[str, bool] = dict(BACKEND_FEATURES)

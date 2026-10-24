@@ -27,8 +27,17 @@ NEURAL_ARCHITECTURES = frozenset(
         "ensemble_v1",
         "sequence_v1",
         "transformer_lite",
+        "temporal_conv_v2",
+        "diffusion_lite_v1",
+        "meta_learner_v1",
+        "hyper_search_v1",
     }
 )
+THINKING_MODES = frozenset({"fast", "deep", "reflective", "adversarial", "debate"})
+REASONING_STRATEGIES = frozenset(
+    {"cot", "tot", "react", "reflection", "ensemble", "debate"}
+)
+SCHEDULER_POLICIES = frozenset({"fixed", "cron", "exponential_backoff"})
 NAV_PAGES = frozenset(
     {
         "CHAT",
@@ -421,6 +430,37 @@ class AppSettings:
     ml_ensemble_stacking: bool = False
     ml_eval_holdout_ratio: float = 0.2
     ml_early_stopping_patience: int = 10
+    # ── Batch 8: Extended neural v2 + neuro-search ──
+    neuro_evolution_enabled: bool = False
+    neuro_search_trials: int = 20
+    neuro_search_timeout_seconds: int = 300
+    temporal_conv_enabled: bool = False
+    diffusion_lite_enabled: bool = False
+    meta_learner_enabled: bool = False
+    # ── Batch 8: Reasoning & thinking ──
+    reasoning_enabled: bool = True
+    reasoning_strategy: str = "cot"
+    thinking_mode: str = "deep"
+    reasoning_depth: int = 3
+    chain_of_thought_enabled: bool = True
+    tree_search_branch_factor: int = 3
+    reflection_enabled: bool = True
+    autonomous_mode_enabled: bool = False
+    debate_rounds: int = 2
+    # ── Batch 8: Scheduler / Queue / Orchestrator ──
+    scheduler_enabled: bool = False
+    scheduler_tick_seconds: int = 60
+    scheduler_policy: str = "fixed"
+    queue_max_size: int = 1000
+    queue_retry_limit: int = 3
+    queue_backoff_base_seconds: float = 2.0
+    orchestrator_enabled: bool = False
+    orchestrator_max_parallel: int = 4
+    # ── Batch 8: Metrics & tracing ──
+    metrics_retention_days: int = 7
+    tracing_enabled: bool = False
+    tracing_sample_rate: float = 0.1
+    health_check_interval_seconds: int = 60
 
     def __post_init__(self) -> None:
         for field_name, low, high in (
@@ -615,6 +655,17 @@ class AppSettings:
             "ml_best_model_auto_select",
             "ml_feature_importance_tracking",
             "ml_ensemble_stacking",
+            "neuro_evolution_enabled",
+            "temporal_conv_enabled",
+            "diffusion_lite_enabled",
+            "meta_learner_enabled",
+            "reasoning_enabled",
+            "chain_of_thought_enabled",
+            "reflection_enabled",
+            "autonomous_mode_enabled",
+            "scheduler_enabled",
+            "orchestrator_enabled",
+            "tracing_enabled",
         ):
             _require_bool(field_name, getattr(self, field_name))
         _require_int("config_version", self.config_version, 1, 1)
@@ -625,6 +676,27 @@ class AppSettings:
         )
         _require_int(
             "ml_early_stopping_patience", self.ml_early_stopping_patience, 1, 100
+        )
+        _require_int("reasoning_depth", self.reasoning_depth, 1, 10)
+        _require_int("tree_search_branch_factor", self.tree_search_branch_factor, 1, 10)
+        _require_int("debate_rounds", self.debate_rounds, 1, 10)
+        _require_int("scheduler_tick_seconds", self.scheduler_tick_seconds, 5, 86400)
+        _require_int("queue_max_size", self.queue_max_size, 10, 100000)
+        _require_int("queue_retry_limit", self.queue_retry_limit, 0, 10)
+        _require_int("orchestrator_max_parallel", self.orchestrator_max_parallel, 1, 32)
+        _require_int("metrics_retention_days", self.metrics_retention_days, 1, 365)
+        _require_int(
+            "health_check_interval_seconds",
+            self.health_check_interval_seconds,
+            5,
+            3600,
+        )
+        _require_int("neuro_search_trials", self.neuro_search_trials, 1, 200)
+        _require_int(
+            "neuro_search_timeout_seconds",
+            self.neuro_search_timeout_seconds,
+            10,
+            3600,
         )
 
         for field_name, allowed in (
@@ -651,6 +723,9 @@ class AppSettings:
             ("chart_candle_wick_style", CANDLE_WICK_STYLES),
             ("font_family", FONT_FAMILIES),
             ("monospace_font_family", FONT_FAMILIES),
+            ("reasoning_strategy", REASONING_STRATEGIES),
+            ("thinking_mode", THINKING_MODES),
+            ("scheduler_policy", SCHEDULER_POLICIES),
             ("confluence_higher_timeframe", set(TIMEFRAMES)),
             ("active_settings_profile", set(SETTINGS_PROFILE_NAMES)),
             ("log_level", LOG_LEVELS),
@@ -767,6 +842,8 @@ class AppSettings:
             ("chart_background_opacity", 0.2, 1.0),
             ("chart_grid_opacity", 0.0, 1.0),
             ("ml_eval_holdout_ratio", 0.05, 0.5),
+            ("queue_backoff_base_seconds", 1.0, 60.0),
+            ("tracing_sample_rate", 0.0, 1.0),
         ):
             _require_float(fname, getattr(self, fname), lo, hi)
 

@@ -245,3 +245,30 @@
 | `ml_ensemble_stacking` | `False` | Enable stacking ensemble meta-learner | SETTINGS > Neural > Advanced |
 | `ml_eval_holdout_ratio` | `0.2` | Holdout ratio for evaluation 0.05-0.5 | SETTINGS > Neural > Advanced |
 | `ml_early_stopping_patience` | `10` | Early-stopping patience in epochs 1-100 | SETTINGS > Neural > Advanced |
+| `neuro_evolution_enabled` | `False` | Enable neuro-evolution architecture search | SETTINGS > Neural > Advanced |
+| `neuro_search_trials` | `20` | Trials for neuro-evolution search (1-200) | SETTINGS > Neural > Advanced |
+| `neuro_search_timeout_seconds` | `300` | Timeout for neuro search in seconds (10-3600) | SETTINGS > Neural > Advanced |
+| `temporal_conv_enabled` | `False` | Enable temporal-conv neural model | SETTINGS > Neural > Advanced |
+| `diffusion_lite_enabled` | `False` | Enable diffusion-lite generative model | SETTINGS > Neural > Advanced |
+| `meta_learner_enabled` | `False` | Enable meta-learner stacking | SETTINGS > Neural > Advanced |
+| `reasoning_enabled` | `True` | Enable reasoning engine (CoT/ToT/ReAct) | SETTINGS > Reasoning |
+| `reasoning_strategy` | `'cot'` | Reasoning strategy: cot, tot, react, reflection, ensemble, debate | SETTINGS > Reasoning |
+| `thinking_mode` | `'deep'` | Thinking mode: fast, deep, reflective, adversarial, debate | SETTINGS > Reasoning |
+| `reasoning_depth` | `3` | Reasoning depth steps (1-10) | SETTINGS > Reasoning |
+| `chain_of_thought_enabled` | `True` | Enable chain-of-thought traces | SETTINGS > Reasoning |
+| `tree_search_branch_factor` | `3` | Branch factor for tree-of-thought (1-10) | SETTINGS > Reasoning |
+| `reflection_enabled` | `True` | Enable reflective self-critique step | SETTINGS > Reasoning |
+| `autonomous_mode_enabled` | `False` | Enable autonomous agent mode | SETTINGS > Reasoning |
+| `debate_rounds` | `2` | Rounds for debate reasoning (1-10) | SETTINGS > Reasoning |
+| `scheduler_enabled` | `False` | Enable background job scheduler | SETTINGS > Scheduler |
+| `scheduler_tick_seconds` | `60` | Scheduler tick interval seconds (5-86400) | SETTINGS > Scheduler |
+| `scheduler_policy` | `'fixed'` | Scheduler policy: fixed, cron, exponential_backoff | SETTINGS > Scheduler |
+| `queue_max_size` | `1000` | Max queued jobs (10-100000) | SETTINGS > Scheduler |
+| `queue_retry_limit` | `3` | Queue retry limit (0-10) | SETTINGS > Scheduler |
+| `queue_backoff_base_seconds` | `2.0` | Queue backoff base seconds (1.0-60.0) | SETTINGS > Scheduler |
+| `orchestrator_enabled` | `False` | Enable DAG orchestrator | SETTINGS > Scheduler |
+| `orchestrator_max_parallel` | `4` | Max parallel orchestrator tasks (1-32) | SETTINGS > Scheduler |
+| `metrics_retention_days` | `7` | Metrics retention days (1-365) | SETTINGS > Metrics |
+| `tracing_enabled` | `False` | Enable distributed tracing | SETTINGS > Metrics |
+| `tracing_sample_rate` | `0.1` | Tracing sample rate 0.0-1.0 | SETTINGS > Metrics |
+| `health_check_interval_seconds` | `60` | Health check interval seconds (5-3600) | SETTINGS > Metrics |
