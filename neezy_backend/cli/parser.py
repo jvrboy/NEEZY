@@ -689,6 +689,46 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.set_defaults(handler=cmd_capabilities)
 
+    from .appearance import cmd_appearance
+    from .neural import cmd_neural
+
+    # Appearance customisation (roadmap #97 + density/opacity)
+    p = sub.add_parser("appearance", help="theme, density, and palette tools")
+    p.set_defaults(handler=cmd_appearance)
+    ap_actions = p.add_subparsers(dest="action")
+    a = ap_actions.add_parser("show", help="show palette, densities, and wick styles")
+    a.add_argument("--theme-name", help="theme name e.g. 'Liquid dark'")
+    a.add_argument("--json", action="store_true")
+    a = ap_actions.add_parser("palette", help="print a theme palette")
+    a.add_argument("--theme-name", help="theme name")
+    a.add_argument("--json", action="store_true")
+    a = ap_actions.add_parser("density", help="list or show density scale")
+    a.add_argument("name", nargs="?", help="density name")
+    a.add_argument("--json", action="store_true")
+    a = ap_actions.add_parser("wick-styles", help="list wick styles")
+    a.add_argument("--json", action="store_true")
+
+    # Advanced neural (roadmap #advanced)
+    p = sub.add_parser(
+        "neural", help="advanced neural architectures, prompts, training"
+    )
+    p.set_defaults(handler=cmd_neural)
+    n_actions = p.add_subparsers(dest="action", required=True)
+    a = n_actions.add_parser("architectures", help="list all neural architectures")
+    a.add_argument("--json", action="store_true")
+    a = n_actions.add_parser("prompts", help="list or show prompt registry entries")
+    a.add_argument("--prompt-id", help="specific prompt id e.g. analysis_v1")
+    a.add_argument("--json", action="store_true")
+    a = n_actions.add_parser(
+        "train-advanced", help="demo advanced training run on synthetic candles"
+    )
+    a.add_argument(
+        "--architecture", default="neezy_mlp_deep_v2", help="architecture id"
+    )
+    a.add_argument("--symbol", default="R_100")
+    a.add_argument("-t", "--timeframe", choices=TIMEFRAMES, default="5m")
+    a.add_argument("--json", action="store_true")
+
     # Watchlist import/export (roadmap #94)
     p = sub.add_parser("watchlist", help="watchlist import/export")
     p.set_defaults(handler=cmd_watchlist)

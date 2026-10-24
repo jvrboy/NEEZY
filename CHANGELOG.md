@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## [Unreleased] — 2026-10-24 Batch 7: Appearance & Advanced Backend & Neural
+
+### Added
+- `neezy_backend/config.py` (advanced settings): 25 new `AppSettings` fields — `appearance_density`, `font_family`, `monospace_font_family`, `window_opacity`, `chart_background_opacity`, `enable_animations`, `enable_shadows`, `theme_custom_tokens` (JSON object), `chart_candle_wick_style`, `chart_grid_opacity`, `status_bar_visible`, `sidebar_collapsed`, `keyboard_shortcuts` (JSON), `high_contrast_text_boost`, `first_run_completed`, `onboarding_step`, `onboarding_dismissed`, `risk_per_symbol` (JSON per-symbol %), `deriv_endpoints` (JSON array), `ml_advanced_architectures`, `ml_auto_train_enabled`, `ml_retrain_interval_hours`, `ml_best_model_auto_select`, `ml_feature_importance_tracking`, `ml_ensemble_stacking`, `ml_eval_holdout_ratio`, `ml_early_stopping_patience`; helpers `custom_theme_tokens()`, `keyboard_shortcut_map()`, `risk_per_symbol_map()`, `deriv_endpoint_list()`, `ml_advanced_list()`, `risk_percent_for_symbol()` per-symbol override.
+- `neezy_app/theme.py` (appearance): `DENSITY_SCALE`, `WICK_STYLES`, `merged_palette()` (custom tokens override), `density_scale()`, `validate_wick_style()`; chart wick style enum synced with config.
+- `neezy_backend/brain_advanced.py` (neural advanced): `ADVANCED_ARCHITECTURES` (6 ids: `neezy_mlp_deep_v2`, `neezy_seq_mlp_deep_v2`, `neezy_lstm_lite_v1`, `neezy_transformer_lite_v1`, `neezy_ensemble_stack_v1`, `neezy_tabular_gb_v1`), `ALL_ARCHITECTURES`, `ARCHITECTURE_INFO`, `TrainingRun` dataclass with early-stopping proxy, `train_advanced()`, `training_manifest()`, `auto_select_best()`, feature-importance tracking.
+- `neezy_backend/model_router.py` (model routing): `route_best()`, `save_registry()`/`load_registry()`/`entry_for()` for `symbol:timeframe` model registry.
+- `neezy_backend/prompts/__init__.py` (prompts registry): `PROMPT_REGISTRY` v1 (analysis/research/risk), `Prompt` dataclass, `get_prompt()`/`list_prompts()`/`render()`/`registry_snapshot()`.
+- `evals/harness.py` (evals harness): `eval_holdout()` + `eval_backtest_summary()` deterministic holdout evaluation.
+- `neezy_backend/cli/appearance.py` + `neezy_backend/cli/neural.py` + `neezy_backend/cli/parser.py`: `neezy-cli appearance {show,palette,density,wick-styles}` and `neezy-cli neural {architectures,prompts,train-advanced}`.
+- `docs/SETTINGS.md` regenerated: 239 fields; `docs/API.md` 104 modules.
+
+### Fixed
+- `neezy_backend/config.py` `risk_percent_for_symbol` per-symbol override priority; wick style enum alignment.
+- `tests/test_lab_evaluation.py` import path fallback for `test_archive_lab`.
+
 ## [Unreleased] — 2026-10-24 Batch 6: Foundations & DevEx sweep (18 items)
 
 ### Added

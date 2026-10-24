@@ -57,6 +57,49 @@ THEME_CANVAS_BG = {
 
 DEFAULT_THEME = "Liquid dark"
 
+# Appearance density multipliers for spacing/typography
+DENSITY_SCALE: dict[str, float] = {
+    "comfortable": 1.2,
+    "compact": 0.85,
+    "spacious": 1.45,
+}
+
+# Supported wick styles for chart renderer
+WICK_STYLES = frozenset({"thin", "bold", "dotted"})
+
+
+def merged_palette(
+    theme_name: str | None,
+    *,
+    custom_tokens: dict[str, str] | None = None,
+    colorblind: bool = False,
+) -> dict[str, str]:
+    """Palette merged with user custom tokens (custom keys override)."""
+    base = palette_for(theme_name, colorblind=colorblind)
+    if not custom_tokens:
+        return base
+    merged = dict(base)
+    for k, v in custom_tokens.items():
+        if (
+            isinstance(k, str)
+            and isinstance(v, str)
+            and v.startswith("#")
+            and len(v) == 7
+        ):
+            merged[k] = v
+    return merged
+
+
+def density_scale(density: str) -> float:
+    """Numeric scale factor for ``appearance_density``."""
+    return DENSITY_SCALE.get(density, 1.0)
+
+
+def validate_wick_style(style: str) -> list[str]:
+    if style in WICK_STYLES:
+        return []
+    return [f"wick style {style!r} not in {sorted(WICK_STYLES)}"]
+
 
 def palette_for(theme_name: str | None, *, colorblind: bool = False) -> dict[str, str]:
     """Return the palette for ``theme_name``, or the default theme's."""

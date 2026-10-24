@@ -218,3 +218,30 @@
 | `log_level` | `'INFO'` | Application diagnostic log verbosity (WARNING, INFO, DEBUG) | SETTINGS > Profiles & Diagnostics |
 | `config_version` | `1` | Internal config schema version (do not edit) | SETTINGS > Profiles & Diagnostics |
 | `dry_run` | `False` | Global dry-run lock: when on, no live order is ever sent | SETTINGS > Risk & Safety |
+| `appearance_density` | `'comfortable'` | UI density: compact, comfortable, or spacious | SETTINGS > Appearance |
+| `font_family` | *(empty)* | UI font family (empty = system default) | SETTINGS > Appearance |
+| `monospace_font_family` | *(empty)* | Monospace font for charts/code (empty = system default) | SETTINGS > Appearance |
+| `window_opacity` | `1.0` | Main window opacity 0.5-1.0 | SETTINGS > Appearance |
+| `chart_background_opacity` | `1.0` | Chart canvas opacity 0.2-1.0 | SETTINGS > Appearance |
+| `enable_animations` | `True` | Enable UI animations and transitions | SETTINGS > Appearance |
+| `enable_shadows` | `True` | Enable drop shadows on panels | SETTINGS > Appearance |
+| `theme_custom_tokens` | *(empty)* | JSON object of custom theme colour tokens | SETTINGS > Appearance |
+| `chart_candle_wick_style` | `'thin'` | Candle wick style: thin, bold, or dotted | SETTINGS > Appearance |
+| `chart_grid_opacity` | `0.3` | Grid line opacity 0.0-1.0 | SETTINGS > Appearance |
+| `status_bar_visible` | `True` | Show the status bar | SETTINGS > Appearance |
+| `sidebar_collapsed` | `False` | Collapse the sidebar by default | SETTINGS > Appearance |
+| `keyboard_shortcuts` | *(empty)* | JSON object mapping actions to key combos | SETTINGS > Accessibility |
+| `high_contrast_text_boost` | `0` | High-contrast text weight boost 0-2 | SETTINGS > Accessibility |
+| `first_run_completed` | `False` | Whether the first-run wizard has been completed | SETTINGS > Onboarding |
+| `onboarding_step` | `0` | Current onboarding wizard step 0-10 | SETTINGS > Onboarding |
+| `onboarding_dismissed` | `False` | Whether the onboarding prompt was dismissed | SETTINGS > Onboarding |
+| `risk_per_symbol` | *(empty)* | JSON object mapping symbol -> risk % override | SETTINGS > Risk & Safety |
+| `deriv_endpoints` | *(empty)* | JSON array of alternate Deriv websocket endpoints | SETTINGS > Data Providers |
+| `ml_advanced_architectures` | *(empty)* | JSON array of advanced ML architecture ids | SETTINGS > Neural > Advanced |
+| `ml_auto_train_enabled` | `False` | Automatically retrain models on a schedule | SETTINGS > Neural > Advanced |
+| `ml_retrain_interval_hours` | `24` | Hours between automatic retrains (1-720) | SETTINGS > Neural > Advanced |
+| `ml_best_model_auto_select` | `True` | Auto-pick the best model after training runs | SETTINGS > Neural > Advanced |
+| `ml_feature_importance_tracking` | `False` | Track per-feature importance scores | SETTINGS > Neural > Advanced |
+| `ml_ensemble_stacking` | `False` | Enable stacking ensemble meta-learner | SETTINGS > Neural > Advanced |
+| `ml_eval_holdout_ratio` | `0.2` | Holdout ratio for evaluation 0.05-0.5 | SETTINGS > Neural > Advanced |
+| `ml_early_stopping_patience` | `10` | Early-stopping patience in epochs 1-100 | SETTINGS > Neural > Advanced |

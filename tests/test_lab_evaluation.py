@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import unittest
 
-from test_archive_lab import candles
+try:
+    from test_archive_lab import candles
+except ModuleNotFoundError:
+    from tests.test_archive_lab import candles  # type: ignore[no-redef]
 
 from neezy_backend.lab.evaluation import evaluate
 from neezy_backend.observability import equity_summary, snapshot_insights

@@ -662,6 +662,94 @@ DESCRIPTIONS: dict[str, tuple[str, str]] = {
         "Global dry-run lock: when on, no live order is ever sent",
         "SETTINGS > Risk & Safety",
     ),
+    # Batch 7 — appearance, onboarding, per-symbol risk, backend neural
+    "appearance_density": (
+        "UI density: compact, comfortable, or spacious",
+        "SETTINGS > Appearance",
+    ),
+    "font_family": ("UI font family (empty = system default)", "SETTINGS > Appearance"),
+    "monospace_font_family": (
+        "Monospace font for charts/code (empty = system default)",
+        "SETTINGS > Appearance",
+    ),
+    "window_opacity": ("Main window opacity 0.5-1.0", "SETTINGS > Appearance"),
+    "chart_background_opacity": (
+        "Chart canvas opacity 0.2-1.0",
+        "SETTINGS > Appearance",
+    ),
+    "enable_animations": (
+        "Enable UI animations and transitions",
+        "SETTINGS > Appearance",
+    ),
+    "enable_shadows": ("Enable drop shadows on panels", "SETTINGS > Appearance"),
+    "theme_custom_tokens": (
+        "JSON object of custom theme colour tokens",
+        "SETTINGS > Appearance",
+    ),
+    "chart_candle_wick_style": (
+        "Candle wick style: thin, bold, or dotted",
+        "SETTINGS > Appearance",
+    ),
+    "chart_grid_opacity": ("Grid line opacity 0.0-1.0", "SETTINGS > Appearance"),
+    "status_bar_visible": ("Show the status bar", "SETTINGS > Appearance"),
+    "sidebar_collapsed": ("Collapse the sidebar by default", "SETTINGS > Appearance"),
+    "high_contrast_text_boost": (
+        "High-contrast text weight boost 0-2",
+        "SETTINGS > Accessibility",
+    ),
+    "keyboard_shortcuts": (
+        "JSON object mapping actions to key combos",
+        "SETTINGS > Accessibility",
+    ),
+    "first_run_completed": (
+        "Whether the first-run wizard has been completed",
+        "SETTINGS > Onboarding",
+    ),
+    "onboarding_step": ("Current onboarding wizard step 0-10", "SETTINGS > Onboarding"),
+    "onboarding_dismissed": (
+        "Whether the onboarding prompt was dismissed",
+        "SETTINGS > Onboarding",
+    ),
+    "risk_per_symbol": (
+        "JSON object mapping symbol -> risk % override",
+        "SETTINGS > Risk & Safety",
+    ),
+    "deriv_endpoints": (
+        "JSON array of alternate Deriv websocket endpoints",
+        "SETTINGS > Data Providers",
+    ),
+    "ml_advanced_architectures": (
+        "JSON array of advanced ML architecture ids",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "ml_auto_train_enabled": (
+        "Automatically retrain models on a schedule",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "ml_retrain_interval_hours": (
+        "Hours between automatic retrains (1-720)",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "ml_best_model_auto_select": (
+        "Auto-pick the best model after training runs",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "ml_feature_importance_tracking": (
+        "Track per-feature importance scores",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "ml_ensemble_stacking": (
+        "Enable stacking ensemble meta-learner",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "ml_eval_holdout_ratio": (
+        "Holdout ratio for evaluation 0.05-0.5",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "ml_early_stopping_patience": (
+        "Early-stopping patience in epochs 1-100",
+        "SETTINGS > Neural > Advanced",
+    ),
 }
 
 HEADER = """# Settings reference
