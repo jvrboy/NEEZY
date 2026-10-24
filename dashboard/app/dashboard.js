@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import ResearchLibrary from "./components/research-library";
 import WorkspaceSettings from "./components/workspace-settings";
+import Diagnostics from "./components/diagnostics";
+import ResearchReport from "./components/research-report";
+import CommandPalette from "./components/command-palette";
+import PositionsTable from "./components/positions-table";
+import { useExecutorStatus } from "./hooks/use-executor-status";
 import { DEFAULT_PREFERENCES, STORAGE_KEY, sanitizePreferences } from "../lib/preferences.mjs";
 
 function number(value, digits = 2) {
@@ -66,8 +71,8 @@ function EquityChart({ samples }) {
       <svg viewBox="0 0 600 180" role="img" aria-label="Recent account equity">
         <defs>
           <linearGradient id="equity-fill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#49e5ad" stopOpacity="0.24" />
-            <stop offset="100%" stopColor="#49e5ad" stopOpacity="0" />
+            <stop offset="0%" stopColor="var(--green)" stopOpacity="0.24" />
+            <stop offset="100%" stopColor="var(--green)" stopOpacity="0" />
           </linearGradient>
         </defs>
         <line x1="0" y1="158" x2="600" y2="158" className="chart-axis" />
@@ -111,43 +116,10 @@ export default function Dashboard({ initialStatus = null, initialError = "" }) {
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences)); } catch (_) { /* private browsing */ }
     }
   }, [preferences, preferencesReady]);
-  const [status, setStatus] = useState(initialStatus);
-  const [error, setError] = useState(initialError);
-  const [updated, setUpdated] = useState(null);
-
-  useEffect(() => {
-    if (!preferencesReady || paused) return;
-    let active = true;
-    let controller;
-    async function refresh() {
-      controller?.abort();
-      controller = new AbortController();
-      try {
-        const response = await fetch("/api/status", {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-        const document = await response.json();
-        if (!response.ok) throw new Error(document.error || "Status unavailable");
-        if (active) {
-          setStatus(document);
-          setUpdated(new Date());
-          setError("");
-        }
-      } catch (reason) {
-        if (active && reason.name !== "AbortError") {
-          setError("Live status is unavailable. Showing the last successful snapshot.");
-        }
-      }
-    }
-    refresh();
-    const interval = setInterval(() => { if (!document.hidden) refresh(); }, preferences.refreshSeconds * 1000);
-    return () => {
-      active = false;
-      controller?.abort();
-      clearInterval(interval);
-    };
-  }, [preferencesReady, paused, preferences.refreshSeconds, refreshKey]);
+  const { status, error, updated, loading, age: heartbeat } = useExecutorStatus({
+    initialStatus, initialError, preferences, ready: preferencesReady, paused, refreshKey,
+  });
+  function refresh() { setRefreshKey((value) => value + 1); }
 
   const account = status?.account || {};
   const risk = status?.risk || {};
@@ -157,9 +129,9 @@ export default function Dashboard({ initialStatus = null, initialError = "" }) {
   const trades = Array.isArray(status?.open_trades) ? status.open_trades : [];
   const models = Object.entries(status?.models || {});
   const activeModels = models.filter(([, model]) => model.active).length;
-  const state = status?.status || "loading";
+  const state = typeof status?.status === "string" ? status.status : "loading";
   const pnl = Number(risk.daily_pnl);
-  const heartbeat = Number(status?.heartbeat_age_seconds);
+
 
   return (
     <main>
@@ -186,13 +158,14 @@ export default function Dashboard({ initialStatus = null, initialError = "" }) {
       </header>
 
       <nav className="workspace-nav" aria-label="Workspace">
-        <div className="nav-tabs">{[["overview", "Overview"], ["library", "Research library"], ["settings", "Settings"]].map(([id, label]) => <button key={id} type="button" aria-pressed={tab === id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>{label}</button>)}</div>
-        <div className="nav-actions"><button type="button" onClick={() => setPaused(!paused)}>{paused ? "Resume updates" : "Pause updates"}</button><button type="button" disabled={paused} onClick={() => setRefreshKey((value) => value + 1)}>Refresh now</button></div>
+        <div className="nav-tabs">{[["overview", "Overview"], ["library", "Research library"], ["diagnostics", "Diagnostics"], ["settings", "Settings"]].map(([id, label]) => <button key={id} type="button" aria-pressed={tab === id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>{label}</button>)}</div>
+        <div className="nav-actions"><CommandPalette onNavigate={setTab} onRefresh={refresh} paused={paused} onPause={() => setPaused((value) => !value)} /><button type="button" onClick={() => setPaused(!paused)}>{paused ? "Resume updates" : "Pause updates"}</button><button type="button" disabled={paused || loading} onClick={refresh}>{loading ? "Refreshing…" : "Refresh now"}</button></div>
       </nav>
       {Number.isFinite(heartbeat) && heartbeat > preferences.staleSeconds && <div className="error-banner" role="status">Stale executor heartbeat. Treat displayed data as historical; do not rely on it for execution decisions.</div>}
       {paused && <p className="warning" role="status">Updates paused. The current snapshot is not live.</p>}
       {error && <div className="error-banner" role="status">{error}</div>}
-      {tab === "library" && <ResearchLibrary />}
+      {tab === "library" && <><ResearchLibrary /><ResearchReport /></>}
+      {tab === "diagnostics" && <Diagnostics status={status} paused={paused} heartbeat={heartbeat} unavailable={Boolean(error)} />}
       {tab === "settings" && <WorkspaceSettings preferences={preferences} onChange={(value) => setPreferences(sanitizePreferences(value))} />}
       {tab === "overview" && <>
       {!status && !error && <div className="loading">Connecting to the executor…</div>}
@@ -259,39 +232,7 @@ export default function Dashboard({ initialStatus = null, initialError = "" }) {
         </section>
       </div>
 
-      <section className="panel">
-        <div className="panel-heading">
-          <div>
-            <span className="eyebrow">BROKER POSITIONS</span>
-            <h2>Open trades</h2>
-          </div>
-          <span className="subtle">Read-only · broker-side SL/TP</span>
-        </div>
-        <div className="table-scroll">
-          <table>
-            <thead><tr>
-              <th>Ticket</th><th>Market</th><th>Side</th><th>Size</th><th>Entry</th><th>Stop loss</th><th>Take profit</th><th className="align-right">P / L</th>
-            </tr></thead>
-            <tbody>
-              {trades.map((trade) => (
-                <tr key={trade.ticket}>
-                  <td className="muted">#{trade.ticket}</td>
-                  <td><strong>{trade.symbol}</strong></td>
-                  <td><span className={`side ${String(trade.type).toLowerCase()}`}>{trade.type}</span></td>
-                  <td>{number(trade.volume)}</td>
-                  <td>{number(trade.price_open, 5)}</td>
-                  <td>{number(trade.sl, 5)}</td>
-                  <td>{number(trade.tp, 5)}</td>
-                  <td className={`align-right ${Number(trade.profit) >= 0 ? "positive" : "negative"}`}>
-                    {number(trade.profit)}
-                  </td>
-                </tr>
-              ))}
-              {!trades.length && <tr><td colSpan="8" className="empty">No open positions reported.</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <PositionsTable trades={trades} />
 
       {paper && (
         <section className="panel">

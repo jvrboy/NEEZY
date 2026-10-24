@@ -97,19 +97,29 @@ def build_parser() -> argparse.ArgumentParser:
     p = lab_sub.add_parser("catalog", help="list imported research engines")
     p.add_argument("--json", action="store_true")
     p.set_defaults(handler=cmd_lab)
-    p = lab_sub.add_parser("analyze", help="analyze a local closed-candle JSON file")
-    p.add_argument("--input", required=True)
-    p.add_argument(
-        "--engine", choices=("fras", "fxlab", "tideforge", "tideglass"), default="fras"
-    )
-    p.add_argument("--indicator")
-    p.add_argument("--symbol", default="UNKNOWN")
-    p.add_argument("--granularity", type=int, default=300)
-    p.add_argument("--params", default="{}", help="JSON parameter overrides")
-    p.add_argument(
-        "--series", action="store_true", help="include causal per-bar output"
-    )
-    p.set_defaults(handler=cmd_lab)
+    for action in ("analyze", "evaluate"):
+        p = lab_sub.add_parser(action, help="offline closed-candle research " + action)
+        p.add_argument("--input", required=True)
+        p.add_argument(
+            "--engine",
+            choices=("fras", "fxlab", "tideforge", "tideglass"),
+            default="fras",
+        )
+        p.add_argument("--indicator")
+        p.add_argument("--symbol", default="UNKNOWN")
+        p.add_argument("--granularity", type=int, default=300)
+        p.add_argument("--params", default="{}", help="JSON parameter overrides")
+        if action == "evaluate":
+            p.add_argument("--horizon", type=int, default=5)
+            p.add_argument("--holdout", type=float, default=0.3)
+            p.add_argument("--threshold", type=float, default=0.0)
+            p.add_argument("--cost-bps", type=float, default=0.0)
+            p.add_argument("--value-field", help="signed numeric output to evaluate")
+        else:
+            p.add_argument(
+                "--series", action="store_true", help="include causal per-bar output"
+            )
+        p.set_defaults(handler=cmd_lab)
 
     p = common(
         sub.add_parser("markets", help="list supported markets"), timeframe=False

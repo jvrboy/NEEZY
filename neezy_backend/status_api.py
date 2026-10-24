@@ -101,9 +101,6 @@ class StatusState:
         ):
             raise ValueError("equity must be a nonnegative finite number")
         monotonic = time.monotonic()
-        if not force and monotonic - self._last_equity_monotonic < 60:
-            return
-        self._last_equity_monotonic = monotonic
         sample = {
             "time": self._clock()
             .astimezone(timezone.utc)
@@ -111,6 +108,9 @@ class StatusState:
             "equity": round(float(equity), 8),
         }
         with self._lock:
+            if not force and monotonic - self._last_equity_monotonic < 60:
+                return
+            self._last_equity_monotonic = monotonic
             self._equity.append(sample)
             if self._persistence_path is not None:
                 _atomic_json_write(
@@ -121,7 +121,7 @@ class StatusState:
     def snapshot(self) -> dict[str, Any]:
         with self._lock:
             result = copy.deepcopy(self._data)
-            result["equity_history"] = list(self._equity)
+            result["equity_history"] = copy.deepcopy(list(self._equity))
         heartbeat = datetime.fromisoformat(result["heartbeat_utc"])
         result["heartbeat_age_seconds"] = max(
             0.0,
@@ -129,6 +129,9 @@ class StatusState:
                 (self._clock().astimezone(timezone.utc) - heartbeat).total_seconds(), 3
             ),
         )
+        from .observability import snapshot_insights
+
+        result["insights"] = snapshot_insights(result)
         return result
 
 
@@ -152,6 +155,9 @@ class _StatusHandler(BaseHTTPRequestHandler):
         state: StatusState = self.server.state  # type: ignore[attr-defined]
         path = urlsplit(self.path).path
         snapshot = state.snapshot()
+        if path == "/api/insights":
+            self._send(200, snapshot["insights"])
+            return
         if path == "/api/capabilities":
             from .lab.service import catalog
 
@@ -164,7 +170,8 @@ class _StatusHandler(BaseHTTPRequestHandler):
             self._send(
                 200,
                 {
-                    "ok": snapshot.get("status") == "ok",
+                    "ok": snapshot.get("status") == "ok"
+                    and snapshot["insights"]["quality"]["fresh"],
                     "status": snapshot.get("status"),
                     "heartbeat_utc": snapshot.get("heartbeat_utc"),
                     "heartbeat_age_seconds": snapshot.get("heartbeat_age_seconds"),

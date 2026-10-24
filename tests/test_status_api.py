@@ -86,6 +86,21 @@ class StatusApiTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 StatusState(clock=lambda: self.now, persistence_path=path)
 
+    def test_insights_and_stale_health(self):
+        self.state.heartbeat("ok", [])
+        self.now += timedelta(seconds=121)
+        _, health = self.read("/health")
+        self.assertFalse(health["ok"])
+        _, insights = self.read("/api/insights")
+        self.assertTrue(insights["read_only"])
+        self.assertFalse(insights["quality"]["fresh"])
+
+    def test_snapshot_cannot_mutate_equity_state(self):
+        self.state.record_equity(100, force=True)
+        first = self.state.snapshot()
+        first["equity_history"][0]["equity"] = -1
+        self.assertEqual(self.state.snapshot()["equity_history"][0]["equity"], 100)
+
     def test_public_bind_is_refused(self):
         with self.assertRaises(ValueError):
             StatusServer(self.state, "0.0.0.0", 0)

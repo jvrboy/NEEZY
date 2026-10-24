@@ -1,6 +1,25 @@
 "use client";
 
+import { useState } from "react";
+import { DEFAULT_PREFERENCES, preferenceBundle, parsePreferenceBundle } from "../../lib/preferences.mjs";
+
 export default function WorkspaceSettings({ preferences, onChange }) {
+  const [notice, setNotice] = useState("");
+  function exportSettings() {
+    const url = URL.createObjectURL(new Blob([JSON.stringify(preferenceBundle(preferences), null, 2)], { type: "application/json" }));
+    const link = document.createElement("a"); link.href = url; link.download = "neezy-workspace-settings.json";
+    link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setNotice("Exported appearance and monitoring preferences only. No credentials or account data included.");
+  }
+  async function importSettings(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      if (file.size > 10000) throw new Error("Settings file exceeds 10 KB.");
+      onChange(parsePreferenceBundle(await file.text())); setNotice("Workspace preferences imported.");
+    } catch (_) { setNotice("Settings import failed. Use an exported NEEZY preferences file under 10 KB."); }
+    event.target.value = "";
+  }
   function update(key, value) { onChange({ ...preferences, [key]: value }); }
   return <section className="panel" aria-labelledby="settings-heading">
     <div className="panel-heading"><div><span className="eyebrow">YOUR WORKSPACE</span><h2 id="settings-heading">Appearance & monitoring</h2></div><span className="mode-badge">BROWSER LOCAL</span></div>
@@ -12,6 +31,8 @@ export default function WorkspaceSettings({ preferences, onChange }) {
       <label className="field">Heartbeat stale threshold<select value={preferences.staleSeconds} onChange={(event) => update("staleSeconds", Number(event.target.value))}>{[60, 120, 300].map((value) => <option key={value} value={value}>{value} seconds</option>)}</select></label>
       <label className="check-field"><input type="checkbox" checked={preferences.reducedMotion} onChange={(event) => update("reducedMotion", event.target.checked)} />Reduce decorative motion</label>
     </div>
+    <div className="settings-actions"><button type="button" onClick={exportSettings}>Export preferences</button><label className="file-button">Import preferences<input type="file" accept=".json,application/json" onChange={importSettings} /></label><button type="button" onClick={() => { onChange(DEFAULT_PREFERENCES); setNotice("Workspace preferences reset."); }}>Reset preferences</button></div>
+    {notice && <p role="status" className="muted">{notice}</p>}
     <h3>Safety boundaries</h3><p className="muted">The executor API remains loopback-only and read-only. Provider credentials stay on the server. Research engines are separate from order execution.</p>
   </section>;
 }

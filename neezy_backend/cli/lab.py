@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from ..lab.evaluation import evaluate
 from ..lab.service import analyze, catalog
 from .common import _emit, _table
 
@@ -40,14 +41,24 @@ def cmd_lab(args, fetch, out) -> int:
     params = json.loads(args.params)
     if not isinstance(params, dict):
         raise ValueError("--params must be a JSON object")
-    result = analyze(
-        rows,
+    options = dict(
         engine=args.engine,
         indicator=args.indicator,
         symbol=args.symbol,
         granularity=args.granularity,
         params=params,
-        include_series=args.series,
     )
+    if args.action == "evaluate":
+        result = evaluate(
+            rows,
+            horizon=args.horizon,
+            holdout_fraction=args.holdout,
+            threshold=args.threshold,
+            cost_bps=args.cost_bps,
+            value_field=args.value_field,
+            **options,
+        )
+    else:
+        result = analyze(rows, include_series=args.series, **options)
     _emit(out, result)
     return 0
