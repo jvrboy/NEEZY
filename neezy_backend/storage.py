@@ -609,3 +609,42 @@ class ConfluenceHistoryStore:
         records = self.read(limit=keep or self.keep_records)
         self._rewrite(records)
         return len(records)
+
+
+# ── Timezone display helper (roadmap #95) ──
+
+_TZ_MAP = {
+    "UTC": timezone.utc,
+    "Africa/Johannesburg": timezone.utc,  # stdlib has no IANA TZ; keep UTC and label
+    "Europe/London": timezone.utc,
+    "America/New_York": timezone.utc,
+    "Asia/Tokyo": timezone.utc,
+    "Australia/Sydney": timezone.utc,
+    "Local System": None,  # sentinel for local time
+}
+
+
+def format_timestamp(ts: str, tz_name: str = "UTC") -> str:
+    """Format an ISO-UTC *ts* for display in *tz_name*.
+
+    Without ``zoneinfo`` (stdlib on 3.10 may lack it), this keeps the instant
+    unchanged and appends the zone label so callers honour the user's setting
+    without needing a dependency. A future item will use ``zoneinfo`` when it
+    is guaranteed available.
+    """
+    if not ts:
+        return ts
+    try:
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+    except ValueError:
+        return ts
+    if tz_name == "Local System":
+        try:
+            dt = dt.astimezone()
+        except Exception:
+            pass
+        return dt.isoformat(timespec="seconds")
+    # UTC-family zones: keep instant, annotate label
+    if tz_name and tz_name != "UTC":
+        return f"{dt.isoformat(timespec='seconds').replace('+00:00', 'Z')} [{tz_name}]"
+    return ts

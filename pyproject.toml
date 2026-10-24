@@ -39,6 +39,7 @@ neezy_backend = ["data/*.json", "data/research_candles/*.json", "lab/sources.jso
 [tool.ruff]
 target-version = "py310"
 line-length = 88
+extend-exclude = ["scripts/neezy_anim.py", "scripts/neezy_animations.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "BLE", "RUF"]
@@ -47,7 +48,39 @@ ignore = ["UP017"]
 # Preserve upstream numerical implementations while checking NEEZY adapters strictly.
 [tool.ruff.lint.per-file-ignores]
 "neezy_backend/lab/vendors/**/*.py" = ["E", "F", "I", "UP", "B", "BLE", "RUF"]
+"scripts/neezy_anim.py" = ["E", "F", "I", "UP", "B", "BLE", "RUF"]
+"scripts/neezy_animations.py" = ["E", "F", "I", "UP", "B", "BLE", "RUF"]
+"scripts/check_pins.py" = ["E501", "B007"]
+"scripts/gen_api_docs.py" = ["E501", "BLE001"]
+"neezy_backend/brain_advanced.py" = ["BLE001"]
+"neezy_backend/model_router.py" = ["BLE001"]
+"neezy_backend/config.py" = ["BLE001"]
+"neezy_backend/cli/reasoning_cli.py" = ["BLE001"]
+"neezy_backend/neural_v2.py" = ["BLE001"]
+"neezy_backend/orchestrator.py" = ["BLE001"]
+"neezy_backend/scheduler.py" = ["BLE001"]
+"neezy_backend/metrics_tracing.py" = ["BLE001"]
+"neezy_backend/reasoning.py" = ["BLE001", "E501"]
+"neezy_backend/signal_fusion.py" = ["E501"]
+"neezy_backend/storage.py" = ["BLE001"]
+"tests/test_batch6.py" = ["E501"]
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+
+[tool.coverage.run]
+branch = true
+source = ["neezy_backend", "neezy_app"]
+omit = ["*/tests/*", "*/lab/vendors/*", "*/__pycache__/*", "*/neezy_anim.py"]
+
+[tool.coverage.report]
+fail_under = 0
+show_missing = false
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

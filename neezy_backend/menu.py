@@ -8,7 +8,6 @@ Every action still becomes argv for cli.main and retains its safety gates.
 from __future__ import annotations
 
 import os
-import shutil
 import sys
 import textwrap
 from collections.abc import Callable, Sequence
@@ -205,12 +204,15 @@ def filter_menu(query: str, items: tuple[MenuItem, ...] = MENU) -> tuple[MenuIte
 
 
 def terminal_width() -> int:
-    """A bounded panel width that remains usable on phone-sized terminals."""
-    try:
-        columns = shutil.get_terminal_size(fallback=(72, 24)).columns
-    except (OSError, ValueError):
-        columns = 72
-    return max(28, min(84, columns))
+    """A bounded panel width that remains usable on phone-sized terminals.
+
+    Data-driven (roadmap #30): respects ``COLUMNS``/``NEEZY_WIDTH`` via
+    :func:`neezy_backend.ui_style.output_width` so every panel shares one
+    width contract.
+    """
+    from .ui_style import output_width
+
+    return output_width(minimum=28, maximum=84)
 
 
 def runtime_label(

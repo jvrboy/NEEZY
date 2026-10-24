@@ -1,4 +1,8 @@
-# NEEZY Architecture Documentation
+# NEEZY Architecture Documentation — LEGACY SNAPSHOT
+
+> ⚠️ **This file is superseded by root `ARCHITECTURE.md`**, which is the authoritative reference verified for the cloud/light-executor run.
+> This legacy snapshot (pre-split monolith diagram) is kept for history only.
+> For current architecture, read `ARCHITECTURE.md` at the repo root.
 
 ## Overview
 

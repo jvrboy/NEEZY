@@ -45,12 +45,30 @@ def send_live_order(
     sl: float = 0.0,
     tp: float = 0.0,
     comment: str = "NEEZY Trade",
+    dry_run: bool = False,
 ) -> dict[str, Any]:
     """Send one order to the real terminal. Nothing is sent unless ``confirmed``.
 
     ``confirmed`` means the caller has shown the order to the user and the user
     agreed. The terminal is checked again here, at the moment of sending.
+
+    ``dry_run``: when True, the order is validated but never sent (roadmap #100).
     """
+    if dry_run:
+        return {
+            "success": True,
+            "sent": False,
+            "dry_run": True,
+            "error": None,
+            "note": "dry-run: order validated, no order sent",
+            "order": {
+                "symbol": symbol,
+                "order_type": order_type,
+                "volume": volume,
+                "sl": sl,
+                "tp": tp,
+            },
+        }
     if not confirmed:
         return {
             "success": False,

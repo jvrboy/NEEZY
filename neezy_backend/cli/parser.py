@@ -38,6 +38,7 @@ from .automation import cmd_agents, cmd_bots
 from .backtest import cmd_backtest, cmd_risk
 from .bot import cmd_bot
 from .btoken_cmd import cmd_btoken
+from .capabilities_cmd import cmd_capabilities
 from .chart import cmd_chart
 from .common import _symbol
 from .db import cmd_db, cmd_history
@@ -52,6 +53,7 @@ from .mt5 import cmd_mt5
 from .research import cmd_brain, cmd_datasets, cmd_knowledge, cmd_research, cmd_study
 from .settings_cmd import cmd_config
 from .ui_cmd import cmd_ui
+from .watchlist_cmd import cmd_watchlist
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -678,6 +680,155 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--json", action="store_true")
     a = cfg_actions.add_parser("import", help="import settings JSON from path")
     a.add_argument("path", help="input JSON path")
+    a.add_argument("--json", action="store_true")
+
+    # Capabilities snapshot (roadmap #32)
+    p = common(
+        sub.add_parser("capabilities", help="backend capability & version report"),
+        timeframe=False,
+    )
+    p.set_defaults(handler=cmd_capabilities)
+
+    from .appearance import cmd_appearance
+    from .neural import cmd_neural
+
+    # Appearance customisation (roadmap #97 + density/opacity)
+    p = sub.add_parser("appearance", help="theme, density, and palette tools")
+    p.set_defaults(handler=cmd_appearance)
+    ap_actions = p.add_subparsers(dest="action")
+    a = ap_actions.add_parser("show", help="show palette, densities, and wick styles")
+    a.add_argument("--theme-name", help="theme name e.g. 'Liquid dark'")
+    a.add_argument("--json", action="store_true")
+    a = ap_actions.add_parser("palette", help="print a theme palette")
+    a.add_argument("--theme-name", help="theme name")
+    a.add_argument("--json", action="store_true")
+    a = ap_actions.add_parser("density", help="list or show density scale")
+    a.add_argument("name", nargs="?", help="density name")
+    a.add_argument("--json", action="store_true")
+    a = ap_actions.add_parser("wick-styles", help="list wick styles")
+    a.add_argument("--json", action="store_true")
+
+    # Advanced neural (roadmap #advanced)
+    p = sub.add_parser(
+        "neural", help="advanced neural architectures, prompts, training"
+    )
+    p.set_defaults(handler=cmd_neural)
+    n_actions = p.add_subparsers(dest="action", required=True)
+    a = n_actions.add_parser("architectures", help="list all neural architectures")
+    a.add_argument("--json", action="store_true")
+    a = n_actions.add_parser("prompts", help="list or show prompt registry entries")
+    a.add_argument("--prompt-id", help="specific prompt id e.g. analysis_v1")
+    a.add_argument("--json", action="store_true")
+    a = n_actions.add_parser(
+        "train-advanced", help="demo advanced training run on synthetic candles"
+    )
+    a.add_argument(
+        "--architecture", default="neezy_mlp_deep_v2", help="architecture id"
+    )
+    a.add_argument("--symbol", default="R_100")
+    a.add_argument("-t", "--timeframe", choices=TIMEFRAMES, default="5m")
+    a.add_argument("--json", action="store_true")
+
+    # Batch 8: reasoning & thinking
+    from .neuro_v2_cli import cmd_neuro_v2
+    from .orchestrator_cli import cmd_fusion, cmd_metrics, cmd_orchestrator
+    from .reasoning_cli import cmd_reasoning
+    from .scheduler_cli import cmd_queue, cmd_scheduler
+
+    p = sub.add_parser("reasoning", help="chain-of-thought, ToT, ReAct, debate")
+    p.set_defaults(handler=cmd_reasoning)
+    r_actions = p.add_subparsers(dest="action", required=True)
+    for act in ("think", "cot", "tot", "react", "reflect", "debate"):
+        a = r_actions.add_parser(act, help=f"{act} reasoning")
+        a.add_argument("query", help="question to reason about")
+        a.add_argument("--context", default="")
+        a.add_argument("--depth", type=int, default=3)
+        a.add_argument("--strategy-opt")
+        a.add_argument(
+            "--mode", choices=["fast", "deep", "reflective", "adversarial", "debate"]
+        )
+        a.add_argument("--json", action="store_true")
+
+    p = sub.add_parser("neuro-v2", help="TCN/diffusion/meta/hyper-search/evolution")
+    p.set_defaults(handler=cmd_neuro_v2)
+    nv = p.add_subparsers(dest="action", required=True)
+    a = nv.add_parser("list", help="list v2 architectures")
+    a.add_argument("--json", action="store_true")
+    a = nv.add_parser("search", help="evolution search demo")
+    a.add_argument("--trials", type=int, default=8)
+    a.add_argument("--json", action="store_true")
+    a = nv.add_parser("train", help="train a v2 arch on synthetic candles")
+    a.add_argument(
+        "--arch",
+        default="neezy_tcn_v2",
+        choices=[
+            "neezy_tcn_v2",
+            "neezy_diffusion_lite_v1",
+            "neezy_meta_learner_v1",
+            "neezy_hyper_search_v1",
+            "neezy_transformer_v2",
+        ],
+    )
+    a.add_argument("--json", action="store_true")
+
+    p = sub.add_parser("scheduler", help="advanced job scheduler")
+    p.set_defaults(handler=cmd_scheduler)
+    sc = p.add_subparsers(dest="action", required=True)
+    a = sc.add_parser("list", help="list jobs")
+    a.add_argument("--json", action="store_true")
+    a = sc.add_parser("add", help="add a demo job")
+    a.add_argument("name")
+    a.add_argument("--interval", type=int, default=60)
+    a.add_argument("--json", action="store_true")
+    a = sc.add_parser("tick", help="tick due jobs")
+    a.add_argument("--json", action="store_true")
+
+    p = sub.add_parser("queue", help="priority job queue")
+    p.set_defaults(handler=cmd_queue)
+    qc = p.add_subparsers(dest="action", required=True)
+    a = qc.add_parser("stats", help="queue stats")
+    a.add_argument("--json", action="store_true")
+    a = qc.add_parser("enqueue", help="enqueue a job")
+    a.add_argument("name")
+    a.add_argument("--priority", type=int, default=5)
+    a.add_argument("--json", action="store_true")
+    a = qc.add_parser("drain", help="drain pending")
+    a.add_argument("--limit", type=int, default=5)
+    a.add_argument("--json", action="store_true")
+
+    p = sub.add_parser("orchestrator", help="DAG orchestrator for pipelines")
+    p.set_defaults(handler=cmd_orchestrator)
+    oc = p.add_subparsers(dest="action", required=True)
+    a = oc.add_parser("demo", help="run a demo DAG")
+    a.add_argument("--json", action="store_true")
+
+    p = sub.add_parser("fusion", help="signal fusion & anomaly detection")
+    p.set_defaults(handler=cmd_fusion)
+    p.add_argument("--json", action="store_true")
+
+    p = sub.add_parser("metrics", help="metrics & tracing store")
+    p.set_defaults(handler=cmd_metrics)
+    p.add_argument("--json", action="store_true")
+
+    p = sub.add_parser("dashboard", help="backend dashboard overview")
+    from .dashboard import cmd_dashboard
+
+    p.set_defaults(handler=cmd_dashboard)
+    d_actions = p.add_subparsers(dest="action", required=True)
+    a = d_actions.add_parser("show", help="show dashboard")
+    a.add_argument("--json", action="store_true")
+
+    # Watchlist import/export (roadmap #94)
+    p = sub.add_parser("watchlist", help="watchlist import/export")
+    p.set_defaults(handler=cmd_watchlist)
+    wl_actions = p.add_subparsers(dest="action", required=True)
+    a = wl_actions.add_parser("export", help="export watchlist to JSON file")
+    a.add_argument("--file", required=True, help="destination JSON path")
+    a.add_argument("--json", action="store_true")
+    a = wl_actions.add_parser("import", help="import watchlist from JSON file")
+    a.add_argument("--file", required=True, help="source JSON path")
+    a.add_argument("--json", action="store_true")
+    a = wl_actions.add_parser("show", help="show current watchlist")
     a.add_argument("--json", action="store_true")
 
     return parser

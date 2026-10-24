@@ -654,6 +654,181 @@ DESCRIPTIONS: dict[str, tuple[str, str]] = {
         "Application diagnostic log verbosity (WARNING, INFO, DEBUG)",
         "SETTINGS > Profiles & Diagnostics",
     ),
+    "config_version": (
+        "Internal config schema version (do not edit)",
+        "SETTINGS > Profiles & Diagnostics",
+    ),
+    "dry_run": (
+        "Global dry-run lock: when on, no live order is ever sent",
+        "SETTINGS > Risk & Safety",
+    ),
+    # Batch 7 — appearance, onboarding, per-symbol risk, backend neural
+    "appearance_density": (
+        "UI density: compact, comfortable, or spacious",
+        "SETTINGS > Appearance",
+    ),
+    "font_family": ("UI font family (empty = system default)", "SETTINGS > Appearance"),
+    "monospace_font_family": (
+        "Monospace font for charts/code (empty = system default)",
+        "SETTINGS > Appearance",
+    ),
+    "window_opacity": ("Main window opacity 0.5-1.0", "SETTINGS > Appearance"),
+    "chart_background_opacity": (
+        "Chart canvas opacity 0.2-1.0",
+        "SETTINGS > Appearance",
+    ),
+    "enable_animations": (
+        "Enable UI animations and transitions",
+        "SETTINGS > Appearance",
+    ),
+    "enable_shadows": ("Enable drop shadows on panels", "SETTINGS > Appearance"),
+    "theme_custom_tokens": (
+        "JSON object of custom theme colour tokens",
+        "SETTINGS > Appearance",
+    ),
+    "chart_candle_wick_style": (
+        "Candle wick style: thin, bold, or dotted",
+        "SETTINGS > Appearance",
+    ),
+    "chart_grid_opacity": ("Grid line opacity 0.0-1.0", "SETTINGS > Appearance"),
+    "status_bar_visible": ("Show the status bar", "SETTINGS > Appearance"),
+    "sidebar_collapsed": ("Collapse the sidebar by default", "SETTINGS > Appearance"),
+    "high_contrast_text_boost": (
+        "High-contrast text weight boost 0-2",
+        "SETTINGS > Accessibility",
+    ),
+    "keyboard_shortcuts": (
+        "JSON object mapping actions to key combos",
+        "SETTINGS > Accessibility",
+    ),
+    "first_run_completed": (
+        "Whether the first-run wizard has been completed",
+        "SETTINGS > Onboarding",
+    ),
+    "onboarding_step": ("Current onboarding wizard step 0-10", "SETTINGS > Onboarding"),
+    "onboarding_dismissed": (
+        "Whether the onboarding prompt was dismissed",
+        "SETTINGS > Onboarding",
+    ),
+    "risk_per_symbol": (
+        "JSON object mapping symbol -> risk % override",
+        "SETTINGS > Risk & Safety",
+    ),
+    "deriv_endpoints": (
+        "JSON array of alternate Deriv websocket endpoints",
+        "SETTINGS > Data Providers",
+    ),
+    "ml_advanced_architectures": (
+        "JSON array of advanced ML architecture ids",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "ml_auto_train_enabled": (
+        "Automatically retrain models on a schedule",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "ml_retrain_interval_hours": (
+        "Hours between automatic retrains (1-720)",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "ml_best_model_auto_select": (
+        "Auto-pick the best model after training runs",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "ml_feature_importance_tracking": (
+        "Track per-feature importance scores",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "ml_ensemble_stacking": (
+        "Enable stacking ensemble meta-learner",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "ml_eval_holdout_ratio": (
+        "Holdout ratio for evaluation 0.05-0.5",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "ml_early_stopping_patience": (
+        "Early-stopping patience in epochs 1-100",
+        "SETTINGS > Neural > Advanced",
+    ),
+    # Batch 8: extended neural v2 + neuro-search + reasoning + orchestrator + metrics
+    "neuro_evolution_enabled": (
+        "Enable neuro-evolution architecture search",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "neuro_search_trials": (
+        "Trials for neuro-evolution search (1-200)",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "neuro_search_timeout_seconds": (
+        "Timeout for neuro search in seconds (10-3600)",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "temporal_conv_enabled": (
+        "Enable temporal-conv neural model",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "diffusion_lite_enabled": (
+        "Enable diffusion-lite generative model",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "meta_learner_enabled": (
+        "Enable meta-learner stacking",
+        "SETTINGS > Neural > Advanced",
+    ),
+    "reasoning_enabled": (
+        "Enable reasoning engine (CoT/ToT/ReAct)",
+        "SETTINGS > Reasoning",
+    ),
+    "reasoning_strategy": (
+        "Reasoning strategy: cot, tot, react, reflection, ensemble, debate",
+        "SETTINGS > Reasoning",
+    ),
+    "thinking_mode": (
+        "Thinking mode: fast, deep, reflective, adversarial, debate",
+        "SETTINGS > Reasoning",
+    ),
+    "reasoning_depth": ("Reasoning depth steps (1-10)", "SETTINGS > Reasoning"),
+    "chain_of_thought_enabled": (
+        "Enable chain-of-thought traces",
+        "SETTINGS > Reasoning",
+    ),
+    "tree_search_branch_factor": (
+        "Branch factor for tree-of-thought (1-10)",
+        "SETTINGS > Reasoning",
+    ),
+    "reflection_enabled": (
+        "Enable reflective self-critique step",
+        "SETTINGS > Reasoning",
+    ),
+    "autonomous_mode_enabled": ("Enable autonomous agent mode", "SETTINGS > Reasoning"),
+    "debate_rounds": ("Rounds for debate reasoning (1-10)", "SETTINGS > Reasoning"),
+    "scheduler_enabled": ("Enable background job scheduler", "SETTINGS > Scheduler"),
+    "scheduler_tick_seconds": (
+        "Scheduler tick interval seconds (5-86400)",
+        "SETTINGS > Scheduler",
+    ),
+    "scheduler_policy": (
+        "Scheduler policy: fixed, cron, exponential_backoff",
+        "SETTINGS > Scheduler",
+    ),
+    "queue_max_size": ("Max queued jobs (10-100000)", "SETTINGS > Scheduler"),
+    "queue_retry_limit": ("Queue retry limit (0-10)", "SETTINGS > Scheduler"),
+    "queue_backoff_base_seconds": (
+        "Queue backoff base seconds (1.0-60.0)",
+        "SETTINGS > Scheduler",
+    ),
+    "orchestrator_enabled": ("Enable DAG orchestrator", "SETTINGS > Scheduler"),
+    "orchestrator_max_parallel": (
+        "Max parallel orchestrator tasks (1-32)",
+        "SETTINGS > Scheduler",
+    ),
+    "metrics_retention_days": ("Metrics retention days (1-365)", "SETTINGS > Metrics"),
+    "tracing_enabled": ("Enable distributed tracing", "SETTINGS > Metrics"),
+    "tracing_sample_rate": ("Tracing sample rate 0.0-1.0", "SETTINGS > Metrics"),
+    "health_check_interval_seconds": (
+        "Health check interval seconds (5-3600)",
+        "SETTINGS > Metrics",
+    ),
 }
 
 HEADER = """# Settings reference

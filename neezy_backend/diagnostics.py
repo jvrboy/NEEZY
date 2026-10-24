@@ -7,11 +7,15 @@ is uploaded: the zip is only created where the user chooses.
 from __future__ import annotations
 
 import json
+import logging
+import os
 import platform
 import re
 import sys
+import time
 import zipfile
 from collections.abc import Mapping
+from contextlib import contextmanager
 from dataclasses import asdict, is_dataclass
 from datetime import datetime, timezone
 from importlib import metadata
@@ -100,3 +104,37 @@ def build_bundle(
             text = redact_text(tail_text(log, max_log_bytes))
             bundle.writestr(f"logs/{log.name}", text)
     return target
+
+
+# ── Timing instrumentation (roadmap #81) ──
+
+_timing_logger = logging.getLogger("neezy.timing")
+
+
+def _timing_enabled() -> bool:
+    return bool(os.environ.get("NEEZY_TIMING") or os.environ.get("NEEZY_DEBUG"))
+
+
+@contextmanager
+def timed(label: str, *, extra: dict[str, Any] | None = None):
+    """Context manager that logs elapsed ms when NEEZY_TIMING=1 is set.
+
+    Example::
+
+        with timed("scan"):
+            do_work()
+    """
+    if not _timing_enabled():
+        yield
+        return
+    start = time.perf_counter()
+    try:
+        yield
+    finally:
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        payload = {"label": label, "elapsed_ms": round(elapsed_ms, 2)}
+        if extra:
+            payload.update(extra)
+        _timing_logger.info("timed %s %.2fms %s", label, elapsed_ms, extra or "")
+        # Also emit to stderr for CLI visibility when NEEZY_TIMING=1
+        print(f"[timing] {label}: {elapsed_ms:.2f}ms", file=sys.stderr)

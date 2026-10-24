@@ -8,9 +8,22 @@ the local environment and never performs network calls.
 from __future__ import annotations
 
 import os
+from importlib import metadata
 from typing import Any
 
 from .mt5_compat import current_selection
+
+try:
+    VERSION: str = metadata.version("neezy-market-workspace")
+except metadata.PackageNotFoundError:
+    VERSION = "0.0.0-dev"
+
+API_VERSION: int = 1
+
+BUILD_INFO: dict[str, str] = {
+    "version": VERSION,
+    "api_version": str(API_VERSION),
+}
 
 
 def _optional_module(name: str) -> Any | None:
@@ -60,12 +73,37 @@ BACKEND_FEATURES: dict[str, bool] = {
     "numpy_math": NUMPY_AVAILABLE,
     "sqlite_fts5": _fts5_available(),
     "local_llm": _llm_available(),
+    "coverage": _optional_module("coverage") is not None,
+    "notifiers": True,
+    "watchlist_io": True,
+    "snapshots": True,
+    "reasoning_engine": True,
+    "neural_v2": True,
+    "neuro_search": True,
+    "scheduler": True,
+    "job_queue": True,
+    "metrics_tracing": True,
+    "orchestrator": True,
+    "signal_fusion": True,
+    "dashboard": True,
 }
+
+CAPABILITY_FLAGS: dict[str, bool] = dict(BACKEND_FEATURES)
 
 
 def feature_report() -> dict[str, bool]:
     """A copy of the capability snapshot (safe to log or serialize)."""
     return dict(BACKEND_FEATURES)
+
+
+def version_report() -> dict[str, str]:
+    """Version and API compatibility snapshot."""
+    return dict(BUILD_INFO)
+
+
+def build_info() -> dict[str, str]:
+    """Alias for :func:`version_report`."""
+    return version_report()
 
 
 def accessibility_report() -> dict[str, object]:

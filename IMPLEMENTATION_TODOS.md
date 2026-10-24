@@ -1,0 +1,445 @@
+# Implementation TODOs — remaining 425 items
+
+> Single source of truth is ROADMAP.md. This file is a checklist mirror for autonomous runs.
+
+Batch 7 (Testing & reliability): #42, #43, #45, #47, #52, #53, #55, #64, #65, #66, #69, #70, #31
+
+Batch 8 (Architecture & engine): #14, #16, #17, #18, #20, #23, #25, #27, #28, #29, #34, #101-104, #113, #115, #120
+
+Batch 9 (Caching, storage & perf): #101-130 tier
+
+Batch 10 (Config & settings): #88, #89, #90-93, #96-99, #95b etc.
+
+Batch 11 (AI, agents): #201-230
+
+Batch 12 (Security, resilience, observability): #301-360
+
+Batch 13 (Packaging, polish, interop): #401-500
+
+## All pending (425) items
+
+- [ ] #14 [Architecture & refactoring] Partition research pipeline stages — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #16 [Architecture & refactoring] Extract chart rendering from market panel — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #17 [Architecture & refactoring] Create ui_panels base class — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #18 [Architecture & refactoring] Isolate Kivy mobile services behind an interface — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #20 [Architecture & refactoring] Deduplicate OHLC tuple handling — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #23 [Architecture & refactoring] Introduce a unit-of-work for history writes — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #25 [Architecture & refactoring] Standardize module entry points — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #27 [Architecture & refactoring] Move MT5 read tools into one surface — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #28 [Architecture & refactoring] Extract insights aggregation queries — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #29 [Architecture & refactoring] Introduce an app lifecycle object for the desktop — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #31 [Architecture & refactoring] Collapse duplicated test fixtures — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #34 [Architecture & refactoring] Extract correlation window math — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #35 [Architecture & refactoring] Type-check the whole backend with mypy --strict (gradual) — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #42 [Testing] UI thread-affinity assertions — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #43 [Testing] Mutation testing pilot on quant.py — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #45 [Testing] Table-driven strategy tests — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #47 [Testing] Test the test harness: fake-tk self-check — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #52 [Testing] Telegram command parser tests — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #53 [Testing] MT5 bridge mock-socket tests — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #55 [Testing] Database migration tests — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #64 [Testing] Performance regression smoke tests — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #65 [Testing] Kaggle notebook execution smoke test — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #66 [Testing] Mobile services test harness — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #69 [Testing] Chaos test: stream drop mid-analysis — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #70 [Testing] Recorded-fixture corpus replay tests — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #77 [Developer experience] CLI --json consistency audit tool — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #80 [Developer experience] Shell completion for the CLI — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #88 [Configuration & settings] Settings profiles (workspace presets) — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #89 [Configuration & settings] Environment variable overrides for all settings — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #92 [Configuration & settings] Per-feature config sections — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #93 [Configuration & settings] Deriv endpoint candidate editor — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #96 [Configuration & settings] Risk defaults per symbol class — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #97 [Configuration & settings] Theme custom tokens — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #98 [Configuration & settings] Keyboard shortcut map in settings — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #99 [Configuration & settings] First-run onboarding config — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #101 [Performance & speed] Incremental indicator computation — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #102 [Performance & speed] Sliding-window candle buffers — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #103 [Performance & speed] Vectorize confluence analog search — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #104 [Performance & speed] Lazy strategy evaluation — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #106 [Performance & speed] Chart redraw dirty regions — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #107 [Performance & speed] History pagination for UI reads — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #110 [Performance & speed] FTS memory search lazy loading — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #111 [Performance & speed] AI response streaming — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #112 [Performance & speed] Backtest warm cache of OHLC arrays — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #113 [Performance & speed] Pattern scan early exits — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #114 [Performance & speed] CLI startup lazy imports — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #115 [Performance & speed] Reduce per-candle validation overhead — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #116 [Performance & speed] Drawdown and Sharpe single-pass — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #117 [Performance & speed] Event bus zero-copy handoff — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #118 [Performance & speed] Sparkline point decimation — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #119 [Performance & speed] Config asdict caching — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #120 [Performance & speed] Watchlist quote batch request — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #121 [Performance & speed] Research feature caching — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #122 [Performance & speed] Insights SQL indices — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #123 [Performance & speed] Toast animation frame cap — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #124 [Performance & speed] Chart crosshair event coalescing — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #125 [Performance & speed] Memory compaction scheduling — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #126 [Performance & speed] Symbol catalog load-once — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #127 [Performance & speed] Bulk outcome resolution — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #128 [Performance & speed] JSON parse fast path — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #129 [Performance & speed] History table widget virtualization — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #131 [Caching & storage] On-disk candle cache layer — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #132 [Caching & storage] Provider response cache with TTL — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #134 [Caching & storage] Keyed knowledge base caching — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #135 [Caching & storage] Analysis result cache — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #137 [Caching & storage] Backup retention policy — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #138 [Caching & storage] Snapshot rotation in DB — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #139 [Caching & storage] Signal history compaction on startup — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #140 [Caching & storage] Model weights metadata index — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #141 [Caching & storage] AI usage analytics retention — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #142 [Caching & storage] Template string interning — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #146 [Caching & storage] Research artifact manifest — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #147 [Caching & storage] Alert evaluation dedup window — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #148 [Caching & storage] AI key rotation cache — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #149 [Caching & storage] UI icon/glyph cache — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #150 [Caching & storage] Telegram send backoff — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #151 [Caching & storage] Disk space guard for storage writes — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #152 [Caching & storage] Candle dedupe on merge — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #153 [Caching & storage] Settings write coalescing — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #154 [Caching & storage] Export directory structure convention — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #155 [Caching & storage] Cache statistics command — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #156 [Concurrency & async] Central worker thread pool — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #157 [Concurrency & async] Cancelable long operations — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #158 [Concurrency & async] Stream subscription manager — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #159 [Concurrency & async] Shutdown drain protocol — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #160 [Concurrency & async] Provider request queue with rate limiter — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #161 [Concurrency & async] Event bus bounded backlog metrics — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #162 [Concurrency & async] MT5 bridge lock discipline — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #163 [Concurrency & async] Background maintenance scheduler — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #165 [Concurrency & async] Thread-safe settings hot-reload — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #166 [Concurrency & async] MCP server worker isolation — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #167 [Concurrency & async] Agent plan execution concurrency — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #168 [Concurrency & async] Telegram long-poll in dedicated thread — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #169 [Concurrency & async] Watchdog for stream thread — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #170 [Concurrency & async] UI after-callback flood control — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #171 [Concurrency & async] Database single-writer pattern — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #172 [Concurrency & async] Test-only thread leak detector — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #173 [Concurrency & async] Async-friendly provider API — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #174 [Concurrency & async] Atomic app-state snapshot for UI — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #175 [Concurrency & async] Timeouts on every blocking I/O call — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #176 [Data models & validation] Strict candle schema at boundaries — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #177 [Data models & validation] Signal record schema constants — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #178 [Data models & validation] Typed timeframe model — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #179 [Data models & validation] Order result object — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #180 [Data models & validation] Alert rule validation on save — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #181 [Data models & validation] Provider key file schema validation — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #182 [Data models & validation] Backtest report schema — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #183 [Data models & validation] Research config dataclass — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #184 [Data models & validation] Normalize symbol aliasing — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #185 [Data models & validation] Usage record schema — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #186 [Data models & validation] Snapshot payload versioning — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #187 [Data models & validation] Decision metrics schema — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #188 [Data models & validation] Menu item model — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #189 [Data models & validation] Telegram update model — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #190 [Data models & validation] JSON column hygiene — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #191 [Data models & validation] Environment capability snapshot — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #192 [Data models & validation] Knowledge record types — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #193 [Data models & validation] Numeric range types for prices — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #194 [Data models & validation] Watchlist entry model — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #195 [Data models & validation] Error taxonomy codes — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #196 [Scalability] Candle table partitioning strategy — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #197 [Scalability] Streaming CSV export — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #198 [Scalability] Batch history fetch pagination window — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #199 [Scalability] Symbol fan-out load test — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #200 [Scalability] Memory store pagination — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #201 [Advanced features] Multi-timeframe confluence view — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #202 [Advanced features] Strategy parameter optimizer — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #203 [Advanced features] Walk-forward analysis report — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #204 [Advanced features] Position size calculator widget — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #205 [Advanced features] Correlation heat matrix — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #206 [Advanced features] Session clock & volatility profile — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #207 [Advanced features] Economic-event calendar (offline bundle) — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #208 [Advanced features] Drawdown guard alerts — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #209 [Advanced features] Signal confidence history chart — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #210 [Advanced features] Portfolio risk aggregation — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #211 [Advanced features] Custom indicator scripting (sandboxed) — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #212 [Advanced features] Signal notes and journaling — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #213 [Advanced features] Watchlist column sorting — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #214 [Advanced features] Chart measure tool — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #215 [Advanced features] Price level alerts — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #216 [Advanced features] Trailing-stop simulator — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #217 [Advanced features] Multi-account MT5 profiles — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #218 [Advanced features] Order history journal with filters — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #219 [Advanced features] Keyboard-first chart navigation — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #220 [Advanced features] Dark/light auto theme by OS — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #221 [Advanced features] Compact density mode refinement — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #222 [Advanced features] Sound alert hooks — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #223 [Advanced features] Symbol details sheet — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #224 [Advanced features] Strategy disagreement explorer — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #225 [Advanced features] Backtest equity curve chart — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #226 [Advanced features] Risk-per-trade consistency check — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #227 [Advanced features] Data quality indicator — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #228 [Advanced features] Local time-shifted replay — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #229 [Advanced features] Session performance breakdown — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #230 [Advanced features] Clipboard monitor widget — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #231 [Advanced features] Print-friendly report view — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #232 [Advanced features] Alert quiet hours — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #233 [Advanced features] Multi-watchlist support — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #234 [Advanced features] Symbol search palette (Ctrl+P) — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #235 [Advanced features] Trade checklist gate — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #236 [Advanced features] Engine self-calibration report — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #237 [Advanced features] Candle gap visualization — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #238 [Advanced features] Strategy heat on watchlist rows — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #239 [Advanced features] Custom column layout — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #240 [Advanced features] MT5 quote stream into chart — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #241 [Advanced features] News-free sentiment placeholder discipline — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #242 [Advanced features] Historical analog browser — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #243 [Advanced features] Export to TradingView watchlist — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #244 [Advanced features] Random-string safe file names — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #245 [Advanced features] Strategy parameter preset library — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #246 [AI & agentic] Tool call result streaming to UI — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #247 [AI & agentic] Agent plan preview before execution — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #248 [AI & agentic] Memory pinning and importance decay — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #249 [AI & agentic] Per-conversation memory scoping — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #250 [AI & agentic] Structured tool argument validation — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #251 [AI & agentic] Agentic research mode — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #252 [AI & agentic] Model routing policy — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #253 [AI & agentic] Prompt template registry — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #254 [AI & agentic] Local-evals harness (evals/) — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #255 [AI & agentic] Answer citation of context — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #256 [AI & agentic] Streaming tool output into provider messages — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #257 [AI & agentic] Command palette actions from chat — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #258 [AI & agentic] Tool timeout and retry policy — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #259 [AI & agentic] Session transcript export — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #260 [AI & agentic] Multi-key rotation status UI — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #261 [AI & agentic] Context budget meter — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #262 [AI & agentic] Ollama model catalog fetch — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #263 [AI & agentic] Guardrail for order-related chat — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #264 [AI & agentic] Daily digest agent — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #265 [AI & agentic] Knowledge base editing UI — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #266 [AI & agentic] MCP server tool listing page parity — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #267 [AI & agentic] Tool call audit log — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #268 [AI & agentic] Provider cost estimation — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #269 [AI & agentic] Retry-aware streaming UX states — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #270 [AI & agentic] Offline fallback answer style — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #271 [AI & agentic] Webhook-in commands (opt-in) — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #272 [AI & agentic] Agent checkpoint/resume — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #273 [AI & agentic] Prompt variable preview — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #274 [AI & agentic] Model response caching by prompt hash — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #275 [AI & agentic] Safety tier visualization in tools page — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #276 [Plugin systems] Plugin discovery contract — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #277 [Plugin systems] Strategy plugin interface — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #278 [Plugin systems] Provider plugin interface — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #279 [Plugin systems] Notifier plugin interface — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #280 [Plugin systems] UI panel plugin slots — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #281 [Plugin systems] Alert condition plugins — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #282 [Plugin systems] Exporter plugins — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #283 [Plugin systems] Command plugins for the CLI — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #284 [Plugin systems] Plugin sandboxing rules — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #285 [Plugin systems] Plugin manifest and versioning — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #286 [Plugin systems] Plugin settings namespace — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #287 [Plugin systems] Plugin dependency isolation — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #288 [Plugin systems] Plugin lifecycle hooks — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #289 [Plugin systems] Community plugin index doc — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #290 [Plugin systems] Plugin smoke-test harness — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #291 [CLI & automation] Structured logging mode — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #292 [CLI & automation] Watch mode for signals — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #293 [CLI & automation] Exit-code consolidation for automation — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #294 [CLI & automation] Signals filter flags — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #295 [CLI & automation] Cron recipe docs — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #296 [CLI & automation] Config get/set commands — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #297 [CLI & automation] Headless doctor with JSON output — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #298 [CLI & automation] Batch scan with exit threshold — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #299 [CLI & automation] Signal webhook-out command — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #300 [CLI & automation] Command groups in help — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #301 [Security hardening] MT5 password into OS keychain — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #302 [Security hardening] Secret redaction in logs — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #303 [Security hardening] Webhook URL allow-list validation — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #304 [Security hardening] MCP token rotation command — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #305 [Security hardening] Tunnel read-only assertion test — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #306 [Security hardening] File permission sweep on NEEZY_HOME — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #307 [Security hardening] Dependency CVE watch workflow — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #308 [Security hardening] Input length caps on remote commands — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #309 [Security hardening] SSRF-safe provider URL construction — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #310 [Security hardening] Local LLM weight provenance check — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #311 [Security hardening] Sandbox escape regression CI — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #312 [Security hardening] Order-path SQL/argv injection audit — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #313 [Security hardening] Kaggle notebook secret hygiene — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #314 [Security hardening] Token file atomic creation mode — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #315 [Security hardening] Key-logging-resistant prompt previews — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #316 [Security hardening] Bridge path validation — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #317 [Security hardening] Timeout on all outbound HTTP — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #318 [Security hardening] Dangerous-tool double confirmation — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #319 [Security hardening] MCP CORS/origin policy — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #320 [Security hardening] Audit log tamper-evidence — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #321 [Security hardening] Settings file ownership check (multi-user boxes) — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #322 [Security hardening] Optional app-lock passphrase — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #323 [Security hardening] Dependencies pinned to hashes in release workflow — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #324 [Security hardening] Webhook egress logging — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #325 [Security hardening] Security policy and reporting doc — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #326 [Error handling & resilience] Typed exception hierarchy — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #327 [Error handling & resilience] Retry with jitter for provider fetches — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #328 [Error handling & resilience] Circuit breaker per provider — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #329 [Error handling & resilience] Graceful DB degradation mode — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #330 [Error handling & resilience] Settings write failure recovery — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #331 [Error handling & resilience] Stream zombie detection — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #332 [Error handling & resilience] Provider key validation on save — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #333 [Error handling & resilience] Bulk operation partial-failure reporting — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #334 [Error handling & resilience] Disk-full behavior tests — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #335 [Error handling & resilience] Corrupt history file quarantine — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #336 [Error handling & resilience] Backpressure on UI floods — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #337 [Error handling & resilience] AI provider fallback chain — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #338 [Error handling & resilience] Telegram send retry with dead-letter — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #339 [Error handling & resilience] Startup self-check gate — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #340 [Error handling & resilience] Watchdog restart of workers — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #341 [Error handling & resilience] MCP malformed request tolerance — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #342 [Error handling & resilience] OOM guard for research — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #343 [Error handling & resilience] Export path failure handling — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #344 [Error handling & resilience] Consistent Unicode error messages — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #345 [Error handling & resilience] Chaos harness for stream/provider failures — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #346 [Logging & diagnostics] Structured logging foundation — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #347 [Logging & diagnostics] Rotating file logs — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #348 [Logging & diagnostics] Correlation IDs across pipeline — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #349 [Logging & diagnostics] Trace spans for research stages — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #350 [Logging & diagnostics] Doctor command upgrade — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #351 [Logging & diagnostics] Error frequency counters — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #352 [Logging & diagnostics] Safe error reporting bundle — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #353 [Logging & diagnostics] Log level runtime control — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #354 [Logging & diagnostics] Stream event counters — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #355 [Logging & diagnostics] UI freeze detector — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #356 [Logging & diagnostics] SQLite query timing (debug) — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #357 [Logging & diagnostics] MT5 bridge call log — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #358 [Logging & diagnostics] Agent decision trace view — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #359 [Logging & diagnostics] Startup timing breakdown — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #360 [Logging & diagnostics] Notification delivery log — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #361 [Logging & diagnostics] Crash-safe last-state snapshot — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #362 [Logging & diagnostics] Rate metric for provider calls — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #363 [Logging & diagnostics] Log viewer panel — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #364 [Logging & diagnostics] One-line session summary — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #365 [Logging & diagnostics] Export diagnostics as metrics — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #366 [CI/CD & release] CI job for notebook execution — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #367 [CI/CD & release] Matrix add Python 3.13 — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #368 [CI/CD & release] Nightly full chaos run — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #369 [CI/CD & release] Release notes from CHANGELOG automation — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #370 [CI/CD & release] Artifact checksums and signing — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #371 [CI/CD & release] CI runtime budget assertion — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #372 [CI/CD & release] PR-size and test-impact labels — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #373 [CI/CD & release] Tag-then-build release flow — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #374 [CI/CD & release] Wheel size budget check — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #375 [CI/CD & release] Build reproducibility check — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #376 [CI/CD & release] Smoke-test the APK in CI — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #377 [CI/CD & release] EXE launch assertion upgrade — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #378 [CI/CD & release] Dependabot config (pip + actions) — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #379 [CI/CD & release] Release canary script — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #380 [CI/CD & release] GitHub Pages docs site — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #381 [Packaging & installers] Linux AppImage / binary — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #382 [Packaging & installers] macOS app bundle (unsigned, documented) — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #383 [Packaging & installers] pipx install support test — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #384 [Packaging & installers] Dependency groups metadata (PEP 735) — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #385 [Packaging & installers] Uninstaller hygiene — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #386 [CLI & automation] JSONL output streaming for signals — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #387 [CLI & automation] Output template snippets — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #388 [CLI & automation] Interactive symbol picker — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #389 [CLI & automation] Shell history file for menu — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #390 [CLI & automation] Exit-time summary table — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #391 [CLI & automation] Progress bars for long ops — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #392 [CLI & automation] --no-color respected everywhere — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #393 [CLI & automation] Command timing footer — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #394 [CLI & automation] Config diff command — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #395 [CLI & automation] Watchlist add/remove commands — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #396 [CLI & automation] DB inspect subcommands — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #397 [CLI & automation] Alert test command — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #398 [CLI & automation] Startup environment report on first run — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #399 [CLI & automation] Interactive confirmations flag — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #400 [CLI & automation] Man-page style docs for core commands — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #401 [Import/export & interoperability] MT5 trade history import — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #402 [Import/export & interoperability] Candles CSV import — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #403 [Import/export & interoperability] Settings import/export file — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #404 [Import/export & interoperability] Signal history to DataFrame-friendly JSON — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #405 [Import/export & interoperability] Backtest report to markdown — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #406 [Enterprise UI/UX] Global command palette (Ctrl+K) — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #407 [Enterprise UI/UX] Toast notification system v2 — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #408 [Enterprise UI/UX] Consistent loading states — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #409 [Enterprise UI/UX] Empty states with guidance — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #410 [Enterprise UI/UX] Error states with retry — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #411 [Enterprise UI/UX] High-contrast theme polish — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #412 [Enterprise UI/UX] Dyslexia-friendly font option — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #413 [Enterprise UI/UX] Keyboard navigation matrix — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #414 [Enterprise UI/UX] Shortcut cheat-sheet overlay — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #415 [Enterprise UI/UX] Window geometry persistence — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #416 [Enterprise UI/UX] Panel layout resize polish — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #417 [Enterprise UI/UX] Status bar — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #418 [Enterprise UI/UX] Symbol tab pinning — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #419 [Enterprise UI/UX] Drag-to-reorder watchlist — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #420 [Enterprise UI/UX] Signals card grouping — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #421 [Enterprise UI/UX] History date-range filter UI — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #422 [Enterprise UI/UX] Chart legend and axis options — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #423 [Enterprise UI/UX] Theme live preview — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #424 [Enterprise UI/UX] Scaling for HiDPI displays — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #425 [Enterprise UI/UX] Reduced-motion mode — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #426 [Enterprise UI/UX] Onboarding tour overlay — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #427 [Enterprise UI/UX] Contextual help widgets — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #428 [Enterprise UI/UX] Notification center panel — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #429 [Enterprise UI/UX] Batch export dialog — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #430 [Enterprise UI/UX] Compact/comfortable table modes — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #431 [Enterprise UI/UX] Monospace numeric alignment — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #432 [Enterprise UI/UX] Color-blind safe palette option — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #433 [Enterprise UI/UX] Dialog consistency pass — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #434 [Enterprise UI/UX] Window title context — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #435 [Enterprise UI/UX] Copy actions on data surfaces — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #436 [Enterprise UI/UX] Sparkline tooltips — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #437 [Enterprise UI/UX] Multi-select filters on insights — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #438 [Enterprise UI/UX] Order desk form validation UX — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #439 [Enterprise UI/UX] Settings search — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #440 [Enterprise UI/UX] Restart-required settings marker — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #441 [Enterprise UI/UX] Idle-state dimming — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #442 [Monitoring & analytics] Personal analytics dashboard page — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #443 [Monitoring & analytics] Outcome win-rate tiles — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #444 [Monitoring & analytics] Engine calibration chart — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #445 [Monitoring & analytics] Data freshness monitor — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #446 [Monitoring & analytics] Alert effectiveness stats — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #447 [Monitoring & analytics] Usage dashboards for AI — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #448 [Monitoring & analytics] MT5 bridge health card — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #449 [Monitoring & analytics] Storage growth charts — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #450 [Monitoring & analytics] Stream quality metrics — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #451 [Monitoring & analytics] Session activity log page — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #452 [Monitoring & analytics] KPI export — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #453 [Monitoring & analytics] Performance panel (debug) — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #454 [Monitoring & analytics] Rule-based health score — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #455 [Monitoring & analytics] Threshold breach badges — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #456 [Monitoring & analytics] Local metrics API (read-only) — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #457 [Documentation & onboarding] README quickstart rewrite — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #458 [Documentation & onboarding] User guide (docs/guide) — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #459 [Documentation & onboarding] Glossary of trading terms — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #460 [Documentation & onboarding] In-app help menu with links — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #461 [Documentation & onboarding] Sample data pack (optional) — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #462 [Documentation & onboarding] VIDEO-free walkthrough docs — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #463 [Documentation & onboarding] Settings field cross-links — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #464 [Documentation & onboarding] CHANGELOG categories and dates — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #465 [Documentation & onboarding] docs/DECISIONS index update — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #466 [Documentation & onboarding] Old docs/ cleanup — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #467 [Documentation & onboarding] Kaggle notebook narrative pass — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #468 [Documentation & onboarding] Accessibility statement — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #469 [Documentation & onboarding] Troubleshooting decision tree — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #470 [Documentation & onboarding] Version compatibility matrix — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #471 [Documentation & onboarding] Doc build gate — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #472 [Import/export & interoperability] Alert rules import/export — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #473 [Import/export & interoperability] Watchlist/symbol-set exchange format — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #474 [Import/export & interoperability] Telegram bot config export — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #475 [Import/export & interoperability] Round-trip export/import test for all stores — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #476 [Import/export & interoperability] Journal/day-summary to PDF — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #477 [Import/export & interoperability] CSV dialect tolerance on import — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #478 [Import/export & interoperability] Clipboard copy for charts — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #479 [Offline robustness & recovery] Offline mode banner and behavior — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #480 [Offline robustness & recovery] Last-known data badges — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #481 [Offline robustness & recovery] Queue alerts during outages — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #482 [Offline robustness & recovery] Settings backup on every save — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #483 [Offline robustness & recovery] DB integrity check and repair — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #484 [Offline robustness & recovery] Export journal for crash recovery — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #485 [Offline robustness & recovery] Network state detection — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #486 [Offline robustness & recovery] Crash-safe history appends — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #487 [Offline robustness & recovery] App self-update checker (informational) — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #488 [Offline robustness & recovery] Graceful degradation matrix doc — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #489 [Offline robustness & recovery] Offline test mode for CI — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #490 [Offline robustness & recovery] State snapshot on crash for resume — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #491 [Packaging & installers] Windows MSI installer — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #492 [Packaging & installers] Portable zip layout (Windows) — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #493 [Packaging & installers] Android split-ABI builds — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #494 [Packaging & installers] Version-embedded builds — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #495 [Packaging & installers] Startup crash dialog for packaged apps — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #496 [Packaging & installers] Data dir migration on version change — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #497 [Packaging & installers] Install verification smoke script per platform — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #498 [Scalability] Memory search index pagination UI — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #499 [Scalability] Candle store partition docs and defaults — _see IMPLEMENTATION_PLAN.md for batch assignment_
+- [ ] #500 [Scalability] Concurrent user profiles (single machine) — _see IMPLEMENTATION_PLAN.md for batch assignment_

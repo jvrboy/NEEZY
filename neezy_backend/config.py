@@ -13,6 +13,31 @@ from neezy_backend.strategies import (
 )
 
 THEMES = frozenset({"Liquid dark", "Midnight blue", "High contrast"})
+APPEARANCE_DENSITIES = frozenset({"compact", "comfortable", "spacious"})
+CANDLE_WICK_STYLES = frozenset({"thin", "bold", "dotted"})
+FONT_FAMILIES = frozenset(
+    {"", "Inter", "Segoe UI", "Roboto", "JetBrains Mono", "Fira Code", "System"}
+)
+NEURAL_ARCHITECTURES = frozenset(
+    {
+        "mlp_v1",
+        "deep_mlp",
+        "attention",
+        "lstm_proxy",
+        "ensemble_v1",
+        "sequence_v1",
+        "transformer_lite",
+        "temporal_conv_v2",
+        "diffusion_lite_v1",
+        "meta_learner_v1",
+        "hyper_search_v1",
+    }
+)
+THINKING_MODES = frozenset({"fast", "deep", "reflective", "adversarial", "debate"})
+REASONING_STRATEGIES = frozenset(
+    {"cot", "tot", "react", "reflection", "ensemble", "debate"}
+)
+SCHEDULER_POLICIES = frozenset({"fixed", "cron", "exponential_backoff"})
 NAV_PAGES = frozenset(
     {
         "CHAT",
@@ -56,6 +81,8 @@ CSV_DELIMITERS = frozenset({"comma", "semicolon", "tab"})
 MT5_FILLING_MODES = frozenset({"Auto", "IOC", "FOK", "RETURN"})
 DM_WEBHOOK_FORMATS = frozenset({"auto", "discord", "slack", "generic"})
 LOG_LEVELS = frozenset({"WARNING", "INFO", "DEBUG"})
+CONFIG_VERSION = 1
+
 SETTINGS_PROFILE_NAMES = (
     "Default",
     "Conservative Prop",
@@ -363,6 +390,78 @@ class AppSettings:
     active_settings_profile: str = "Default"
     log_level: str = "INFO"
 
+    # Config migration version (roadmap #91)
+    config_version: int = CONFIG_VERSION
+
+    # Global dry-run: when true, no live order is ever sent (roadmap #100)
+    dry_run: bool = False
+
+    # ── Advanced Appearance Customisation (roadmap #97, #98, #412, #415, #423) ──
+    appearance_density: str = "comfortable"
+    font_family: str = ""
+    monospace_font_family: str = ""
+    window_opacity: float = 1.0
+    chart_background_opacity: float = 1.0
+    enable_animations: bool = True
+    enable_shadows: bool = True
+    theme_custom_tokens: str = ""  # JSON {"BG":"#..."} overrides for current theme
+    chart_candle_wick_style: str = "thin"
+    chart_grid_opacity: float = 0.3
+    status_bar_visible: bool = True
+    sidebar_collapsed: bool = False
+    keyboard_shortcuts: str = ""  # JSON {"Ctrl+K":"command_palette", ...}
+    high_contrast_text_boost: int = 0  # 0-2 extra contrast level
+
+    # ── First-run Onboarding (roadmap #99) ──
+    first_run_completed: bool = False
+    onboarding_step: int = 0
+    onboarding_dismissed: bool = False
+
+    # ── Advanced Backend: per-symbol risk & endpoints (roadmap #93, #96) ──
+    risk_per_symbol: str = ""  # JSON {"frxEURUSD":1.5, "R_100":0.3}
+    deriv_endpoints: str = ""  # JSON ["wss://...", ...] candidate failover list
+
+    # ── Backend Neural Networks (advanced training) ──
+    ml_advanced_architectures: str = ""  # JSON list e.g. ["deep_mlp","attention"]
+    ml_auto_train_enabled: bool = False
+    ml_retrain_interval_hours: int = 24
+    ml_best_model_auto_select: bool = True
+    ml_feature_importance_tracking: bool = False
+    ml_ensemble_stacking: bool = False
+    ml_eval_holdout_ratio: float = 0.2
+    ml_early_stopping_patience: int = 10
+    # ── Batch 8: Extended neural v2 + neuro-search ──
+    neuro_evolution_enabled: bool = False
+    neuro_search_trials: int = 20
+    neuro_search_timeout_seconds: int = 300
+    temporal_conv_enabled: bool = False
+    diffusion_lite_enabled: bool = False
+    meta_learner_enabled: bool = False
+    # ── Batch 8: Reasoning & thinking ──
+    reasoning_enabled: bool = True
+    reasoning_strategy: str = "cot"
+    thinking_mode: str = "deep"
+    reasoning_depth: int = 3
+    chain_of_thought_enabled: bool = True
+    tree_search_branch_factor: int = 3
+    reflection_enabled: bool = True
+    autonomous_mode_enabled: bool = False
+    debate_rounds: int = 2
+    # ── Batch 8: Scheduler / Queue / Orchestrator ──
+    scheduler_enabled: bool = False
+    scheduler_tick_seconds: int = 60
+    scheduler_policy: str = "fixed"
+    queue_max_size: int = 1000
+    queue_retry_limit: int = 3
+    queue_backoff_base_seconds: float = 2.0
+    orchestrator_enabled: bool = False
+    orchestrator_max_parallel: int = 4
+    # ── Batch 8: Metrics & tracing ──
+    metrics_retention_days: int = 7
+    tracing_enabled: bool = False
+    tracing_sample_rate: float = 0.1
+    health_check_interval_seconds: int = 60
+
     def __post_init__(self) -> None:
         for field_name, low, high in (
             ("ui_scale_percent", 75, 200),
@@ -540,13 +639,65 @@ class AppSettings:
             "dm_notify_signals",
             "dm_notify_alerts",
             "order_dry_run_mode",
+            "dry_run",
             "require_stop_loss_on_live_orders",
             "pre_trade_checklist_enabled",
             "provider_cache_enabled",
             "confluence_require_strict_only",
             "confluence_mtf_confirmation",
+            "enable_animations",
+            "enable_shadows",
+            "status_bar_visible",
+            "sidebar_collapsed",
+            "first_run_completed",
+            "onboarding_dismissed",
+            "ml_auto_train_enabled",
+            "ml_best_model_auto_select",
+            "ml_feature_importance_tracking",
+            "ml_ensemble_stacking",
+            "neuro_evolution_enabled",
+            "temporal_conv_enabled",
+            "diffusion_lite_enabled",
+            "meta_learner_enabled",
+            "reasoning_enabled",
+            "chain_of_thought_enabled",
+            "reflection_enabled",
+            "autonomous_mode_enabled",
+            "scheduler_enabled",
+            "orchestrator_enabled",
+            "tracing_enabled",
         ):
             _require_bool(field_name, getattr(self, field_name))
+        _require_int("config_version", self.config_version, 1, 1)
+        _require_int("high_contrast_text_boost", self.high_contrast_text_boost, 0, 2)
+        _require_int("onboarding_step", self.onboarding_step, 0, 10)
+        _require_int(
+            "ml_retrain_interval_hours", self.ml_retrain_interval_hours, 1, 720
+        )
+        _require_int(
+            "ml_early_stopping_patience", self.ml_early_stopping_patience, 1, 100
+        )
+        _require_int("reasoning_depth", self.reasoning_depth, 1, 10)
+        _require_int("tree_search_branch_factor", self.tree_search_branch_factor, 1, 10)
+        _require_int("debate_rounds", self.debate_rounds, 1, 10)
+        _require_int("scheduler_tick_seconds", self.scheduler_tick_seconds, 5, 86400)
+        _require_int("queue_max_size", self.queue_max_size, 10, 100000)
+        _require_int("queue_retry_limit", self.queue_retry_limit, 0, 10)
+        _require_int("orchestrator_max_parallel", self.orchestrator_max_parallel, 1, 32)
+        _require_int("metrics_retention_days", self.metrics_retention_days, 1, 365)
+        _require_int(
+            "health_check_interval_seconds",
+            self.health_check_interval_seconds,
+            5,
+            3600,
+        )
+        _require_int("neuro_search_trials", self.neuro_search_trials, 1, 200)
+        _require_int(
+            "neuro_search_timeout_seconds",
+            self.neuro_search_timeout_seconds,
+            10,
+            3600,
+        )
 
         for field_name, allowed in (
             ("theme", THEMES),
@@ -568,6 +719,13 @@ class AppSettings:
             ("account_currency", ACCOUNT_CURRENCIES),
             ("market_data_provider", MARKET_DATA_PROVIDERS),
             ("fallback_data_provider", FALLBACK_DATA_PROVIDERS),
+            ("appearance_density", APPEARANCE_DENSITIES),
+            ("chart_candle_wick_style", CANDLE_WICK_STYLES),
+            ("font_family", FONT_FAMILIES),
+            ("monospace_font_family", FONT_FAMILIES),
+            ("reasoning_strategy", REASONING_STRATEGIES),
+            ("thinking_mode", THINKING_MODES),
+            ("scheduler_policy", SCHEDULER_POLICIES),
             ("confluence_higher_timeframe", set(TIMEFRAMES)),
             ("active_settings_profile", set(SETTINGS_PROFILE_NAMES)),
             ("log_level", LOG_LEVELS),
@@ -640,6 +798,55 @@ class AppSettings:
         if len(self.telegram_chat_ids) > 1000:
             raise ValueError("telegram_chat_ids must be at most 1000 characters")
 
+        # New appearance/backend JSON fields: must be string, valid JSON if non-empty
+        import json as _json
+
+        for fname in (
+            "theme_custom_tokens",
+            "keyboard_shortcuts",
+            "risk_per_symbol",
+            "deriv_endpoints",
+            "ml_advanced_architectures",
+        ):
+            val = getattr(self, fname)
+            if not isinstance(val, str):
+                raise TypeError(f"{fname} must be a string")
+            if val:
+                try:
+                    parsed = _json.loads(val)
+                except _json.JSONDecodeError as e:
+                    raise ValueError(f"{fname} must be valid JSON: {e}") from e
+                if fname in (
+                    "theme_custom_tokens",
+                    "keyboard_shortcuts",
+                    "risk_per_symbol",
+                ) and not isinstance(parsed, dict):
+                    raise ValueError(f"{fname} must be a JSON object")
+                if fname in (
+                    "deriv_endpoints",
+                    "ml_advanced_architectures",
+                ) and not isinstance(parsed, list):
+                    raise ValueError(f"{fname} must be a JSON array")
+
+        for fname in (
+            "font_family",
+            "monospace_font_family",
+            "appearance_density",
+            "chart_candle_wick_style",
+        ):
+            if not isinstance(getattr(self, fname), str):
+                raise TypeError(f"{fname} must be a string")
+
+        for fname, lo, hi in (
+            ("window_opacity", 0.5, 1.0),
+            ("chart_background_opacity", 0.2, 1.0),
+            ("chart_grid_opacity", 0.0, 1.0),
+            ("ml_eval_holdout_ratio", 0.05, 0.5),
+            ("queue_backoff_base_seconds", 1.0, 60.0),
+            ("tracing_sample_rate", 0.0, 1.0),
+        ):
+            _require_float(fname, getattr(self, fname), lo, hi)
+
         for field_name in (
             "ai_model",
             "ai_base_url",
@@ -654,8 +861,76 @@ class AppSettings:
             if not isinstance(getattr(self, field_name), str):
                 raise TypeError(f"{field_name} must be a string")
 
+    def custom_theme_tokens(self) -> dict[str, str]:
+        """Parsed theme_custom_tokens JSON or empty dict."""
+        if not self.theme_custom_tokens.strip():
+            return {}
+        try:
+            data = __import__("json").loads(self.theme_custom_tokens)
+            return (
+                {str(k): str(v) for k, v in data.items()}
+                if isinstance(data, dict)
+                else {}
+            )
+        except Exception:
+            return {}
+
+    def keyboard_shortcut_map(self) -> dict[str, str]:
+        """Parsed keyboard_shortcuts JSON or empty dict."""
+        if not self.keyboard_shortcuts.strip():
+            return {}
+        try:
+            data = __import__("json").loads(self.keyboard_shortcuts)
+            return (
+                {str(k): str(v) for k, v in data.items()}
+                if isinstance(data, dict)
+                else {}
+            )
+        except Exception:
+            return {}
+
+    def risk_per_symbol_map(self) -> dict[str, float]:
+        """Parsed risk_per_symbol JSON or empty dict."""
+        if not self.risk_per_symbol.strip():
+            return {}
+        try:
+            data = __import__("json").loads(self.risk_per_symbol)
+            if isinstance(data, dict):
+                return {str(k): float(v) for k, v in data.items()}
+        except Exception:
+            pass
+        return {}
+
+    def deriv_endpoint_list(self) -> list[str]:
+        """Parsed deriv_endpoints JSON list or empty list."""
+        if not self.deriv_endpoints.strip():
+            return []
+        try:
+            data = __import__("json").loads(self.deriv_endpoints)
+            if isinstance(data, list):
+                return [str(x) for x in data]
+        except Exception:
+            pass
+        return []
+
+    def ml_advanced_list(self) -> list[str]:
+        """Parsed ml_advanced_architectures JSON list."""
+        if not self.ml_advanced_architectures.strip():
+            return []
+        try:
+            data = __import__("json").loads(self.ml_advanced_architectures)
+            if isinstance(data, list):
+                return [str(x) for x in data]
+        except Exception:
+            pass
+        return []
+
     def risk_percent_for_symbol(self, symbol: str) -> float:
-        """Return class-specific risk % when configured, defaulting cleanly."""
+        """Return per-symbol or class-specific risk %."""
+        # Per-symbol explicit override wins
+        per = self.risk_per_symbol_map()
+        if symbol in per:
+            return per[symbol]
         if symbol.startswith("cry"):
             return self.crypto_risk_percent
         if symbol.startswith(("R_", "1HZ", "BOOM", "CRASH", "JD", "STPRNG")):
@@ -677,9 +952,25 @@ class AppSettings:
 
     @classmethod
     def from_dict(cls, values: dict[str, Any]) -> AppSettings:
-        """Load known fields only, making older config files forward compatible."""
-        allowed = cls.__dataclass_fields__.keys()
-        return cls(**{key: value for key, value in values.items() if key in allowed})
+        """Load known fields only, making older config files forward compatible.
+
+        Handles config_version migrations: unknown future versions raise
+        ``ValueError`` so operators know to upgrade code first.
+        """
+        allowed = set(cls.__dataclass_fields__.keys())
+        # v0 configs (pre-1.8.0) had no config_version; stamp v1 silently
+        if "config_version" not in values:
+            values = dict(values)
+            values["config_version"] = CONFIG_VERSION
+        else:
+            cv = values.get("config_version")
+            if isinstance(cv, int) and cv > CONFIG_VERSION:
+                raise ValueError(
+                    f"Config version {cv} newer than code supports "
+                    f"({CONFIG_VERSION}); update NEEZY to open this config"
+                )
+        filtered = {k: v for k, v in values.items() if k in allowed}
+        return cls(**filtered)
 
     def apply_profile(self, profile_name: str) -> AppSettings:
         return apply_profile(self, profile_name)

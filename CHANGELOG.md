@@ -1,5 +1,70 @@
 # CHANGELOG
 
+## [Unreleased] — 2026-10-24 Batch 8: Reasoning, Neural v2, Scheduler, Orchestrator, Fusion
+
+### Added
+- `neezy_backend/config.py` (Batch 8): 26 new fields — `neuro_evolution_enabled`, `neuro_search_trials/timeout`, `temporal_conv/diffusion_lite/meta_learner_enabled`, `reasoning_enabled/strategy/mode/depth`, `chain_of_thought/tree_search_branch_factor/reflection/autonomous/debate_rounds`, `scheduler_enabled/tick_seconds/policy`, `queue_max_size/retry_limit/backoff`, `orchestrator_enabled/max_parallel`, `metrics_retention/tracing_enabled/sample_rate/health_check_interval`; validation for all enums/ints/floats.
+- `neezy_backend/reasoning.py` (advanced reasoning): `ReasoningTrace`, `ThoughtStep`, `ReasoningEngine` with CoT, ToT (branch factor), ReAct, reflective, debate, ensemble; deterministic scoring, trace_id, confidence aggregation.
+- `neezy_backend/neural_v2.py` (neural v2): `ARCH_V2` 5 architectures — `neezy_tcn_v2`, `neezy_diffusion_lite_v1`, `neezy_meta_learner_v1` (stacked), `neezy_hyper_search_v1` (random search), `neezy_transformer_v2`; `hyper_search()`/`train_v2()` dispatch.
+- `neezy_backend/neuro_search.py` (neuro evolution): deterministic evolution-lite search over all neural ids with trial history `SearchResult`.
+- `neezy_backend/scheduler.py` + `neezy_backend/job_queue.py` (advanced backend): `Scheduler` (fixed/cron/backoff, next_run_at, tick), `JobQueue` (priority heap, retry, dead-letter, stats).
+- `neezy_backend/metrics_tracing.py` (advanced capabilities): `MetricsStore` with retention, `Span` tracing, health checks; sample-rate aware.
+- `neezy_backend/orchestrator.py` (advanced backend): DAG executor `Orchestrator` with `Task` dependencies, topological ordering, cycle detection, parallel groups, `RunResult`/`summary`.
+- `neezy_backend/signal_fusion.py` (tools & features): `fuse_signals()` weighted fusion, `detect_anomalies()` z-score, `explain_score()` ranked contributors, `isolation_score()`.
+- `neezy_backend/cli/` (advanced commands + UI): `reasoning` (think/cot/tot/react/reflect/debate + --json), `neuro-v2` (list/search/train), `scheduler` (list/add/tick), `queue` (stats/enqueue/drain), `orchestrator` (demo), `fusion`, `metrics`, `dashboard` (show --json) — 7 new CLI groups, 18 backend features now advertised in `capabilities`.
+- `neezy_backend/tools.py` (tools registry): 6 Batch-8 tools — `reasoning`, `neural_v2_list`, `neuro_search`, `fusion_demo`, `orchestrator_demo`, `metrics_demo`.
+- `docs/SETTINGS.md` regenerated: 266 fields; `docs/API.md` 149 modules; `capabilities` extended with 8 new flags.
+
+### Changed
+- `neezy_backend/config.py` `REASONING_STRATEGIES` now includes `debate`; `NEURAL_ARCHITECTURES` adds `temporal_conv_v2`, `diffusion_lite_v1`, `meta_learner_v1`, `hyper_search_v1`.
+
+## [Unreleased] — 2026-10-24 Batch 7: Appearance & Advanced Backend & Neural
+
+### Added
+- `neezy_backend/config.py` (advanced settings): 25 new `AppSettings` fields — `appearance_density`, `font_family`, `monospace_font_family`, `window_opacity`, `chart_background_opacity`, `enable_animations`, `enable_shadows`, `theme_custom_tokens` (JSON object), `chart_candle_wick_style`, `chart_grid_opacity`, `status_bar_visible`, `sidebar_collapsed`, `keyboard_shortcuts` (JSON), `high_contrast_text_boost`, `first_run_completed`, `onboarding_step`, `onboarding_dismissed`, `risk_per_symbol` (JSON per-symbol %), `deriv_endpoints` (JSON array), `ml_advanced_architectures`, `ml_auto_train_enabled`, `ml_retrain_interval_hours`, `ml_best_model_auto_select`, `ml_feature_importance_tracking`, `ml_ensemble_stacking`, `ml_eval_holdout_ratio`, `ml_early_stopping_patience`; helpers `custom_theme_tokens()`, `keyboard_shortcut_map()`, `risk_per_symbol_map()`, `deriv_endpoint_list()`, `ml_advanced_list()`, `risk_percent_for_symbol()` per-symbol override.
+- `neezy_app/theme.py` (appearance): `DENSITY_SCALE`, `WICK_STYLES`, `merged_palette()` (custom tokens override), `density_scale()`, `validate_wick_style()`; chart wick style enum synced with config.
+- `neezy_backend/brain_advanced.py` (neural advanced): `ADVANCED_ARCHITECTURES` (6 ids: `neezy_mlp_deep_v2`, `neezy_seq_mlp_deep_v2`, `neezy_lstm_lite_v1`, `neezy_transformer_lite_v1`, `neezy_ensemble_stack_v1`, `neezy_tabular_gb_v1`), `ALL_ARCHITECTURES`, `ARCHITECTURE_INFO`, `TrainingRun` dataclass with early-stopping proxy, `train_advanced()`, `training_manifest()`, `auto_select_best()`, feature-importance tracking.
+- `neezy_backend/model_router.py` (model routing): `route_best()`, `save_registry()`/`load_registry()`/`entry_for()` for `symbol:timeframe` model registry.
+- `neezy_backend/prompts/__init__.py` (prompts registry): `PROMPT_REGISTRY` v1 (analysis/research/risk), `Prompt` dataclass, `get_prompt()`/`list_prompts()`/`render()`/`registry_snapshot()`.
+- `evals/harness.py` (evals harness): `eval_holdout()` + `eval_backtest_summary()` deterministic holdout evaluation.
+- `neezy_backend/cli/appearance.py` + `neezy_backend/cli/neural.py` + `neezy_backend/cli/parser.py`: `neezy-cli appearance {show,palette,density,wick-styles}` and `neezy-cli neural {architectures,prompts,train-advanced}`.
+- `docs/SETTINGS.md` regenerated: 239 fields; `docs/API.md` 104 modules.
+
+### Fixed
+- `neezy_backend/config.py` `risk_percent_for_symbol` per-symbol override priority; wick style enum alignment.
+- `tests/test_lab_evaluation.py` import path fallback for `test_archive_lab`.
+
+## [Unreleased] — 2026-10-24 Batch 6: Foundations & DevEx sweep (18 items)
+
+### Added
+- `neezy_backend/notifiers.py` (roadmap #13): `Notifier` Protocol + `CompositeNotifier` fan-out; `TelegramNotifier`/`WebhookNotifier` adapters; `MemoryNotifier` for tests (10 tests).
+- `neezy_backend/snapshots.py` (roadmap #24): `capture_snapshot()` + `snapshot_payload()` pure helpers; centralizes snapshot capture.
+- `neezy_backend/watchlists.py` (roadmap #94): `export_watchlist()`/`import_watchlist()` JSON v1 + `neezy-cli watchlist {export,import,show}` (validated, owner-aware).
+- `neezy_backend/capabilities.py` (roadmap #32): `VERSION`/`API_VERSION`/`BUILD_INFO` + `version_report()`; new `neezy-cli capabilities --json`.
+- `neezy_backend/diagnostics.py` (roadmap #81): `timed(label)` contextmanager; `NEEZY_TIMING=1` emits per-command timing to stderr.
+- `docs/API.md` (roadmap #78): generated by `scripts/gen_api_docs.py` from backend docstrings; `ci.yml` freshness check.
+- `scripts/check_pins.py` (roadmap #83): verifies `requirements-*.txt` pins; run in CI.
+- `scripts/gen_api_docs.py` (roadmap #78): see above.
+- `neezy_app/ui_panels` parity: `neezy_mobile/screens.py::OrdersTab` restores 10-entry NAV parity (was 9 vs desktop 10).
+
+### Changed
+- `forex_signals.py` (roadmap #26): emits `DeprecationWarning` directing to `neezy`/`python -m neezy_app`.
+- `neezy_backend/menu.py` (roadmap #30): `terminal_width()` delegates to `ui_style.output_width()`, respects `COLUMNS`/`NEEZY_WIDTH`.
+- `neezy_backend/config.py` (roadmap #91 + #100): `config_version=1` + `CONFIG_VERSION` with `from_dict` migration (rejects future versions); `dry_run` global flag + `NEEZY_DRY_RUN` env override.
+- `neezy_backend/mt5_orders.py` (roadmap #100): `send_live_order(..., dry_run=True)` validates but never sends.
+- `neezy_backend/database.py` (roadmap #108 + #109): `_stmt_cache`/`cached_sql()` for hot-path SQL reuse; `wal_checkpoint(mode)` (already tuned `wal_autocheckpoint=1000`).
+- `neezy_backend/storage.py` (roadmap #95): `format_timestamp(ts, tz_name)` honours `display_timezone`.
+- `.devcontainer/devcontainer.json` (roadmap #84): adds `NEEZY_HOME`, port 8765, `postCreate` docs generation.
+- `.github/workflows/ci.yml` (roadmap #44 + #82 + #86): coverage run/report, test-output artifact, `gen_api_docs --check`, `check_pins`, soft changelog gate.
+- `pyproject.toml`: `extend-exclude` for animation art, `[tool.coverage]` branch config, per-file-ignores for vendor/anim scripts.
+- `PLAN.md`: truthfully reflects 75/500 (was falsely "Completed" for missing `evals/`); legacy `docs/ARCHITECTURE.md` header marks it superseded.
+- `docs/SETTINGS.md`: regenerated (212 fields); `docs/API.md` fresh (100 modules).
+
+### Fixed
+- Mobile NAV parity (ORDERS missing on Android) — H3 closed.
+- `local_ci.py --full` lint gate — now green after animation excludes (H1 closed).
+- `test_settings_field_count_and_docs_one_to_one_sync` after new fields — docs regenerated.
+
 ## [1.7.0] — Advanced capabilities: BTOKEN accessibility, UI kit, bots, agents
 
 ### Added
